@@ -1,0 +1,8 @@
+bin
+bin-int
+Makefile
+
+.replit
+replit.nix
+.ccls-cache
+.ccls
