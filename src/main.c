@@ -15,6 +15,26 @@ int main(void) {
     };
     mg_arena* perm_arena = mga_create(&desc);
 
+    mgp_init();
+
+    mgp_set_win_size(300, 300);
+    mgp_view v = {
+        .left = 0.0f, .right = 5.0f,
+        .top = 30.0f, .bottom = 0.0f
+    };
+    mgp_set_view(v);
+
+    float xs[16];
+    float ys[16];
+    for (int i = 0; i < 16; i++) {
+        xs[i] = i % 2 == 0 ? 2.718f : 3.14159265358979f;
+        ys[i] = 2.0f * i + 7.0f;
+    }
+
+    mgp_lines(16, xs, ys);
+
+    mgp_plot_show();
+
     mga_destroy(perm_arena);
 
     return 0;
