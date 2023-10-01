@@ -13,6 +13,8 @@
 #define _lnx_error(msg, ...) \
     fprintf(stderr, msg ", Linux Error: %s", __VA_ARGS__, strerror(errno))
 
+void os_time_init(void) { }
+
 os_datetime _tm_to_datetime(struct tm tm) {
     return (os_datetime){
         .sec = tm.tm_sec,
@@ -109,32 +111,6 @@ b32 os_file_write(string8 path, string8_list str_list) {
 
     return out;
 }
-b32 os_file_append(string8 path, string8_list str_list) {
-    int fd = _open_impl(path, O_APPEND | O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
-
-    if (fd == -1) {
-        _lnx_error("Failed to open file \"%.*s\"", (int)path.size, path.str);
-
-        return false;
-    }
-    
-    b32 out = true;
-
-    for (string8_node* node = str_list.first; node != NULL; node = node->next) {
-        ssize_t written = write(fd, node->str.str, node->str.size);
-        
-        if (written == -1) {
-            _lnx_error("Failed to append to file \"%.*s\"", (int)path.size, path.str);
-
-            out = false;
-            break;
-        }
-    }
-
-    close(fd);
-    
-    return out;
-}
 os_file_flags _file_flags(mode_t mode) {
     os_file_flags flags = { 0 };
 
@@ -172,7 +148,5 @@ os_file_stats os_file_get_stats(string8 path) {
 
     return stats;
 }
-
-
 
 #endif
