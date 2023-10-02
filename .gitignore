@@ -3,7 +3,7 @@ bin-int
 Makefile
 compile_commands.json
 **.bat
-
+.cache
 .replit
 replit.nix
 .ccls-cache

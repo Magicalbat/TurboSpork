@@ -51,3 +51,4 @@ static_assert(sizeof(f64) == 8, "f64 size");
     ((f) = (f)->next))                    \
 
 #endif // BASE_DEFS_H
+
