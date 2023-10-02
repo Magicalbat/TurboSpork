@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
+b32 tensor_shape_eq(tensor_shape a, tensor_shape b) {
+    return a.width == b.width && a.height == b.height && a.depth == b.depth;
+}
+
 tensorf* tensorf_create(mg_arena* arena, tensor_shape shape) {
     if (shape.height == 0) { shape.height = 1; }
     if (shape.depth == 0) { shape.depth = 1; }
@@ -90,7 +94,6 @@ tensorf* tensorf_slice(mg_arena* arena, const tensorf* tensor, tensor_index star
 
             memcpy(slice->data, &tensor->data[start_i], sizeof(f32) * slice_size);
         } else {
-
             for (u64 y = start.y; y < end.y; y++) {
                 for (u64 x = start.x; x < end.x; x++) {
                     slice->data[x + y * slice->shape.height] = tensor->data[start_i + x + y * tensor->shape.height];
@@ -134,3 +137,112 @@ void tensorf_2d_view(tensorf* out, const tensorf* tensor, u32 z) {
     out->data = &tensor->data[start_i];
 }
 
+b32 tensorf_add_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+    if (!tensor_shape_eq(a->shape, b->shape)) {
+        fprintf(stderr, "Cannot add tensorf: shapes do not align\n");
+
+        return false;
+    }
+    
+    u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
+    if (out->alloc < data_size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot add tensorf: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    out->shape = a->shape;
+    for (u64 i = 0; i < data_size; i++) {
+        out->data[i] = a->data[i] + b->data[i];
+    }
+    
+    return true;
+}
+b32 tensorf_sub_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+    if (!tensor_shape_eq(a->shape, b->shape)) {
+        fprintf(stderr, "Cannot subtract tensorf: shapes do not align\n");
+
+        return false;
+    }
+    
+    u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
+    if (out->alloc < data_size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot subtract tensorf: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    out->shape = a->shape;
+    for (u64 i = 0; i < data_size; i++) {
+        out->data[i] = a->data[i] - b->data[i];
+    }
+    
+    return true;
+}
+b32 tensorf_component_mul_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+    if (!tensor_shape_eq(a->shape, b->shape)) {
+        fprintf(stderr, "Cannot multiply tensorf: shapes do not align\n");
+
+        return false;
+    }
+    
+    u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
+    if (out->alloc < data_size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot multiply tensorf: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    out->shape = a->shape;
+    for (u64 i = 0; i < data_size; i++) {
+        out->data[i] = a->data[i] * b->data[i];
+    }
+    
+    return true;
+}
+b32 tensorf_component_div_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+    if (!tensor_shape_eq(a->shape, b->shape)) {
+        fprintf(stderr, "Cannot divide tensorf: shapes do not align\n");
+
+        return false;
+    }
+    
+    u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
+    if (out->alloc < data_size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot divide tensorf: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    out->shape = a->shape;
+    for (u64 i = 0; i < data_size; i++) {
+        out->data[i] = a->data[i] / b->data[i];
+    }
+    
+    return true;
+}
+b32 tensorf_scale_ip(tensorf* out, const tensorf* t, f32 s) {
+    u64 data_size = (u64)t->shape.width * t->shape.height * t->shape.depth;
+    if (out->alloc < data_size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot scale tensorf: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    out->shape = t->shape;
+    for (u64 i = 0; i < data_size; i++) {
+        out->data[i] = t->data[i] * s;
+    }
+
+    return true;
+}
