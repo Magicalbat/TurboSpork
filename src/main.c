@@ -20,13 +20,42 @@ int main(void) {
     };
     mg_arena* perm_arena = mga_create(&desc);
 
-    tensorf* t = tensorf_create(perm_arena, (tensor_shape){ .width = 10, .height = 23 });
+    u32 size = 2 * 3 * 4;
+    tensorf* t = tensorf_create_alloc(perm_arena, (tensor_shape){ .width = 2, .height = 3, .depth = 4 }, size * 2);
+    for (u32 i = 0; i < size; i++) {
+        t->data[i] = i;
+    }
 
-    printf("%d %d %d %llu\n", t->shape.width, t->shape.height, t->shape.depth, t->alloc);
+    printf("orig: [\n\t");
+    for (u32 i = 0; i < size; i++) {
+        printf("%f, ", t->data[i]);
+    }
+    printf("\n]\n");
 
-    TENSORF_AT(t, 0, 0, 0) = 12.34f;
+    tensorf* copy = tensorf_copy(perm_arena, t, true);
+    printf("copy alloc: %lu\n", copy->alloc);
+    printf("copy: [\n\t");
+    for (u32 i = 0; i < size; i++) {
+        printf("%f, ", copy->data[i]);
+    }
+    printf("\n]\n");
 
-    printf("%f %f\n", t->data[0], t->data[1]);
+    tensorf view_2d = { 0 };
+    tensorf_2d_view(&view_2d, copy, 3);
+    
+    printf("copy: [\n\t");
+    for (u32 i = 0; i < view_2d.alloc; i++) {
+        printf("%f, ", view_2d.data[i]);
+    }
+    printf("\n]\n");
+
+    tensorf_fill(&view_2d, 2.0f);
+    
+    printf("copy: [\n\t");
+    for (u32 i = 0; i < size; i++) {
+        printf("%f, ", copy->data[i]);
+    }
+    printf("\n]\n");
 
     mga_destroy(perm_arena);
 
