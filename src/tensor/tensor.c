@@ -246,3 +246,69 @@ b32 tensorf_scale_ip(tensorf* out, const tensorf* t, f32 s) {
 
     return true;
 }
+
+tensorf* tensorf_add(mg_arena* arena, const tensorf* a, const tensorf* b) {
+    mga_temp maybe_temp = mga_temp_begin(arena);
+
+    tensorf* out = tensorf_create(arena, a->shape);
+
+    if (!tensorf_add_ip(out, a, b)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
+
+    return out;
+}
+tensorf* tensorf_sub(mg_arena* arena, const tensorf* a, const tensorf* b) {
+    mga_temp maybe_temp = mga_temp_begin(arena);
+
+    tensorf* out = tensorf_create(arena, a->shape);
+
+    if (!tensorf_sub_ip(out, a, b)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
+
+    return out;
+}
+tensorf* tensorf_component_mul(mg_arena* arena, const tensorf* a, const tensorf* b) {
+    mga_temp maybe_temp = mga_temp_begin(arena);
+
+    tensorf* out = tensorf_create(arena, a->shape);
+
+    if (!tensorf_component_mul_ip(out, a, b)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
+
+    return out;
+}
+tensorf* tensorf_component_div(mg_arena* arena, const tensorf* a, const tensorf* b) {
+    mga_temp maybe_temp = mga_temp_begin(arena);
+
+    tensorf* out = tensorf_create(arena, a->shape);
+
+    if (!tensorf_component_div_ip(out, a, b)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
+
+    return out;
+}
+tensorf* tensorf_scale(mg_arena* arena, const tensorf* t, f32 s) {
+    mga_temp maybe_temp = mga_temp_begin(arena);
+
+    tensorf* out = tensorf_create(arena, t->shape);
+
+    if (!tensorf_scale_ip(out, t, s)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
+
+    return out;
+}

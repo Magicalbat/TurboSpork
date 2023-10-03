@@ -57,4 +57,10 @@ b32 tensorf_component_mul_ip(tensorf* out, const tensorf* a, const tensorf* b);
 b32 tensorf_component_div_ip(tensorf* out, const tensorf* a, const tensorf* b);
 b32 tensorf_scale_ip(tensorf* out, const tensorf* t, f32 s);
 
+tensorf* tensorf_add(mg_arena* arena, const tensorf* a, const tensorf* b);
+tensorf* tensorf_sub(mg_arena* arena, const tensorf* a, const tensorf* b);
+tensorf* tensorf_component_mul(mg_arena* arena, const tensorf* a, const tensorf* b);
+tensorf* tensorf_component_div(mg_arena* arena, const tensorf* a, const tensorf* b);
+tensorf* tensorf_scale(mg_arena* arena, const tensorf* t, f32 s);
+
 #endif // TENSOR_H
