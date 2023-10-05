@@ -13,11 +13,18 @@ void mga_on_error(mga_error err) {
 }
 
 void print_tensor(const tensorf* t) {
-    printf("[ ");
+    printf("[\n");
 
-    u64 size = (u64)t->shape.width * t->shape.height * t->shape.depth;
-    for (u64 i = 0; i < size; i++) {
-        printf("%f ", t->data[i]);
+    for (u32 z = 0; z < t->shape.depth; z++) {
+        printf("\t[\n");
+        for (u32 y = 0; y < t->shape.height; y++) {
+            printf("\t\t[ ");
+            for (u32 x = 0; x < t->shape.width; x++) {
+                printf("%f ", t->data[x + y * t->shape.width + z * t->shape.width * t->shape.height]);
+            }
+            printf("],\n");
+        }
+        printf("\t],\n");
     }
     
     printf("]\n");
@@ -31,9 +38,9 @@ int main(void) {
     };
     mg_arena* perm_arena = mga_create(&desc);
 
-    u32 size = 2 * 3 * 4;
-    tensorf* t1 = tensorf_create(perm_arena, (tensor_shape){ 2, 3, 4 });
-    tensorf* t2 = tensorf_create(perm_arena, (tensor_shape){ 2, 3, 4 });
+    u32 size = 2 * 2 * 1;
+    tensorf* t1 = tensorf_create(perm_arena, (tensor_shape){ 2, 2, 1 });
+    tensorf* t2 = tensorf_create(perm_arena, (tensor_shape){ 2, 2, 1 });
     for (u32 i = 0; i < size; i++) {
         t1->data[i] = i;
         t2->data[i] = size - i - 1;
@@ -44,7 +51,7 @@ int main(void) {
     printf("t2: ");
     print_tensor(t2);
 
-    tensorf* t3 = tensorf_add(perm_arena, t1, t2);
+    tensorf* t3 = tensorf_dot(perm_arena, t1, t2);
 
     printf("\n\nt3: ");
     print_tensor(t3);

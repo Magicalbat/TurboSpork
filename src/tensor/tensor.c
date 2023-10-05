@@ -137,6 +137,82 @@ void tensorf_2d_view(tensorf* out, const tensorf* tensor, u32 z) {
     out->data = &tensor->data[start_i];
 }
 
+b32 tensorf_dot_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+    if (a->shape.depth != 1 || b->shape.depth != 1) {
+        fprintf(stderr, "Cannot dot tensorf in 3 dimensions\n");
+
+        return false;
+    }
+    if (a->shape.width != b->shape.height) {
+        fprintf(stderr, "Cannot dot tensorf: shapes do not align\n");
+
+        return false;
+    }
+
+    tensor_shape shape = {
+        .width = b->shape.width,
+        .height = a->shape.height,
+        .depth = 1
+    };
+    u64 data_size = (u64)shape.width * shape.height;
+
+    if (out->alloc < data_size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot dot tensorf: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    u32 a_width = a->shape.width;
+    u32 a_height = a->shape.height;
+    u32 b_width = b->shape.width;
+    
+    f32* a_data = a->data;
+    f32* b_data = b->data;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    if (a_data == out->data) {
+        u64 a_data_size = (u64)a->shape.width * a->shape.height;
+        a_data = MGA_PUSH_ARRAY(scratch.arena, f32, a_data_size);
+        memcpy(a_data, a->data, sizeof(f32) * a_data_size);
+    }
+    if (b_data == out->data) {
+        u64 b_data_size = (u64)b->shape.width * b->shape.height;
+        b_data = MGA_PUSH_ARRAY(scratch.arena, f32, b_data_size);
+        memcpy(b_data, b->data, sizeof(f32) * b_data_size);
+    }
+
+    out->shape = shape;
+    memset(out->data, 0, sizeof(f32) * data_size);
+
+    for (u32 y = 0; y < shape.height; y++) {
+        for (u32 i = 0; i < a_height; i++) {
+            for (u32 x = 0; x < shape.width; x++) {
+                out->data[(u64)x + (u64)y * shape.width] += a_data[(u64)i + (u64)y * a_width] * b_data[(u64)x + (u64)i * b_width];
+            }
+        }
+    }
+
+    mga_scratch_release(scratch);
+
+    return true;
+}
+tensorf* tensorf_dot(mg_arena* arena, const tensorf* a, const tensorf* b) {
+    tensor_shape shape = {
+        b->shape.width,
+        a->shape.height,
+        1
+    };
+
+    tensorf* out = tensorf_create(arena, shape);
+
+    tensorf_dot_ip(out, a, b);
+
+    return out;
+}
+
 b32 tensorf_add_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     if (!tensor_shape_eq(a->shape, b->shape)) {
         fprintf(stderr, "Cannot add tensorf: shapes do not align\n");

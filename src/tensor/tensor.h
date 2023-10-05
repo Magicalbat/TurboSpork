@@ -51,6 +51,10 @@ void tensorf_2d_view(tensorf* out, const tensorf* tensor, u32 z);
 #define TENSOR_PRINT_IP_ALLOC_ERRORS 1
 #endif
 
+// Only works for 2d or less
+b32 tensorf_dot_ip(tensorf* out, const tensorf* a, const tensorf* b);
+tensorf* tensorf_dot(mg_arena* arena, const tensorf* a, const tensorf* b);
+
 b32 tensorf_add_ip(tensorf* out, const tensorf* a, const tensorf* b);
 b32 tensorf_sub_ip(tensorf* out, const tensorf* a, const tensorf* b);
 b32 tensorf_component_mul_ip(tensorf* out, const tensorf* a, const tensorf* b);
