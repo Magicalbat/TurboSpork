@@ -24,6 +24,19 @@ int main(void) {
     };
     mg_arena* perm_arena = mga_create(&desc);
 
+    tensor* a = tensor_create(perm_arena, (tensor_shape){ 2, 3, 1 });
+    tensor* b = tensor_create(perm_arena, (tensor_shape){ 3, 2, 1 });
+    for (u32 i = 0; i < 2 * 3; i++) {
+        a->data[i] = i;
+        b->data[i] = i;
+    }
+
+    tensor_list list = { 0 };
+    tensor_list_push(perm_arena, &list, a, STR8("tensor a"));
+    tensor_list_push(perm_arena, &list, b, STR8("tensor b"));
+
+    tensor_list_save(&list, STR8("out.tp"));
+
     mga_destroy(perm_arena);
 
     return 0;

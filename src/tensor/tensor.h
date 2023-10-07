@@ -21,50 +21,72 @@ typedef struct {
     u64 alloc;
     // Data of tensor
     f32* data;
-} tensorf;
+} tensor;
+
+typedef struct tensor_node {
+    struct tensor_node* next;
+
+    tensor* tensor;
+    string8 name;
+} tensor_node;
+
+typedef struct {
+    tensor_node* first;
+    tensor_node* last;
+
+    u32 size;
+} tensor_list;
 
 /*
 NOTE:
-    All tensorf functions expect a height and depth of at least 1
+    All tensor functions expect a height and depth of at least 1
     ONLY CREATE TENSOR WITH ONE OF THE CREATION FUNCTIONS
 */
 
-#define TENSORF_INDEX(tensor, x, y, z) \
+#define tensor_INDEX(tensor, x, y, z) \
     ((u64)(x) + (u64)(y) * tensor->shape.width + (u64)(z) * tensor->shape.width * tensor->shape.height)
-#define TENSORF_AT(tensor, x, y, z) tensor->data[TENSORF_INDEX(tensor, x, y, z)]
+#define tensor_AT(tensor, x, y, z) tensor->data[tensor_INDEX(tensor, x, y, z)]
 
 b32 tensor_shape_eq(tensor_shape a, tensor_shape b);
 
-tensorf* tensorf_create(mg_arena* arena, tensor_shape shape);
-tensorf* tensorf_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc);
-tensorf* tensorf_copy(mg_arena* arena, const tensorf* tensor, b32 keep_alloc);
+tensor* tensor_create(mg_arena* arena, tensor_shape shape);
+tensor* tensor_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc);
+tensor* tensor_copy(mg_arena* arena, const tensor* tensor, b32 keep_alloc);
 
-void tensorf_fill(tensorf* tensor, f32 num);
+void tensor_fill(tensor* tensor, f32 num);
 
 // Indices work like substring (inclusive start, exclusive end)
-tensorf* tensorf_slice(mg_arena* arena, const tensorf* tensor, tensor_index start, tensor_index end);
-tensorf* tensorf_slice_size(mg_arena* arena, const tensorf* tensor, tensor_index start, tensor_shape shape);
+tensor* tensor_slice(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_index end);
+tensor* tensor_slice_size(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_shape shape);
 // Does not copy data
-void tensorf_2d_view(tensorf* out, const tensorf* tensor, u32 z);
+void tensor_2d_view(tensor* out, const tensor* tensor, u32 z);
 
 #ifndef TENSOR_PRINT_IP_ALLOC_ERRORS
 #define TENSOR_PRINT_IP_ALLOC_ERRORS 1
 #endif
 
 // Only works for 2d or less
-b32 tensorf_dot_ip(tensorf* out, const tensorf* a, const tensorf* b);
-tensorf* tensorf_dot(mg_arena* arena, const tensorf* a, const tensorf* b);
+b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b);
+tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b);
 
-b32 tensorf_add_ip(tensorf* out, const tensorf* a, const tensorf* b);
-b32 tensorf_sub_ip(tensorf* out, const tensorf* a, const tensorf* b);
-b32 tensorf_component_mul_ip(tensorf* out, const tensorf* a, const tensorf* b);
-b32 tensorf_component_div_ip(tensorf* out, const tensorf* a, const tensorf* b);
-b32 tensorf_scale_ip(tensorf* out, const tensorf* t, f32 s);
+b32 tensor_add_ip(tensor* out, const tensor* a, const tensor* b);
+b32 tensor_sub_ip(tensor* out, const tensor* a, const tensor* b);
+b32 tensor_component_mul_ip(tensor* out, const tensor* a, const tensor* b);
+b32 tensor_component_div_ip(tensor* out, const tensor* a, const tensor* b);
+b32 tensor_scale_ip(tensor* out, const tensor* t, f32 s);
 
-tensorf* tensorf_add(mg_arena* arena, const tensorf* a, const tensorf* b);
-tensorf* tensorf_sub(mg_arena* arena, const tensorf* a, const tensorf* b);
-tensorf* tensorf_component_mul(mg_arena* arena, const tensorf* a, const tensorf* b);
-tensorf* tensorf_component_div(mg_arena* arena, const tensorf* a, const tensorf* b);
-tensorf* tensorf_scale(mg_arena* arena, const tensorf* t, f32 s);
+tensor* tensor_add(mg_arena* arena, const tensor* a, const tensor* b);
+tensor* tensor_sub(mg_arena* arena, const tensor* a, const tensor* b);
+tensor* tensor_component_mul(mg_arena* arena, const tensor* a, const tensor* b);
+tensor* tensor_component_div(mg_arena* arena, const tensor* a, const tensor* b);
+tensor* tensor_scale(mg_arena* arena, const tensor* t, f32 s);
+
+void tensor_list_push_existing(tensor_list* list, tensor* tensor, string8 name, tensor_node* node);
+void tensor_list_push(mg_arena* arena, tensor_list* list, tensor* tensor, string8 name);
+// returns NULL if name is not found in list
+tensor* tensor_list_get(const tensor_list* list, string8 name);
+
+void tensor_list_save(const tensor_list* list, string8 file_name);
+tensor_list tensor_list_load(mg_arena* arena, string8 file_name);
 
 #endif // TENSOR_H

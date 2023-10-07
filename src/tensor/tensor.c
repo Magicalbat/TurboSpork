@@ -1,5 +1,7 @@
 #include "tensor.h"
 
+#include "os/os.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -7,16 +9,16 @@ b32 tensor_shape_eq(tensor_shape a, tensor_shape b) {
     return a.width == b.width && a.height == b.height && a.depth == b.depth;
 }
 
-tensorf* tensorf_create(mg_arena* arena, tensor_shape shape) {
+tensor* tensor_create(mg_arena* arena, tensor_shape shape) {
     if (shape.height == 0) { shape.height = 1; }
     if (shape.depth == 0) { shape.depth = 1; }
 
     u64 alloc = (u64)shape.width * shape.height * shape.depth;
-    return tensorf_create_alloc(arena, shape, alloc);
+    return tensor_create_alloc(arena, shape, alloc);
 }
-tensorf* tensorf_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc) {
+tensor* tensor_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc) {
     if (shape.width == 0) {
-        fprintf(stderr, "Unable to create tensorf of width 0\n");
+        fprintf(stderr, "Unable to create tensor of width 0\n");
         return NULL;
     }
 
@@ -25,10 +27,10 @@ tensorf* tensorf_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc) {
     
     u64 min_alloc = (u64)shape.width * shape.height * shape.depth;
     if (alloc < min_alloc) {
-        fprintf(stderr, "Cannot create tensorf, alloc is too small");
+        fprintf(stderr, "Cannot create tensor, alloc is too small");
     }
 
-    tensorf* out = MGA_PUSH_STRUCT(arena, tensorf);
+    tensor* out = MGA_PUSH_STRUCT(arena, tensor);
 
     out->shape = shape;
     out->alloc = alloc;
@@ -36,22 +38,22 @@ tensorf* tensorf_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc) {
     
     return out;
 }
-tensorf* tensorf_copy(mg_arena* arena, const tensorf* tensor, b32 keep_alloc) {
-    tensor_shape shape = tensor->shape;
-    u64 alloc = keep_alloc ? tensor->alloc : ((u64)shape.width * shape.height * shape.depth);
+tensor* tensor_copy(mg_arena* arena, const tensor* t, b32 keep_alloc) {
+    tensor_shape shape = t->shape;
+    u64 alloc = keep_alloc ? t->alloc : ((u64)shape.width * shape.height * shape.depth);
 
-    tensorf* out = MGA_PUSH_STRUCT(arena, tensorf);
+    tensor* out = MGA_PUSH_STRUCT(arena, tensor);
 
     out->shape = shape;
     out->alloc = alloc;
     out->data = MGA_PUSH_ZERO_ARRAY(arena, f32, out->alloc);
 
-    memcpy(out->data, tensor->data, sizeof(f32) * out->alloc);
+    memcpy(out->data, t->data, sizeof(f32) * out->alloc);
 
     return out;
 }
 
-void tensorf_fill(tensorf* tensor, f32 num) {
+void tensor_fill(tensor* tensor, f32 num) {
     tensor_shape shape = tensor->shape;
     u64 size = (u64)shape.width * shape.height * shape.depth;
 
@@ -60,14 +62,14 @@ void tensorf_fill(tensorf* tensor, f32 num) {
     }
 }
 
-tensorf* tensorf_slice(mg_arena* arena, const tensorf* tensor, tensor_index start, tensor_index end) {
-    if (end.x > tensor->shape.width || end.y > tensor->shape.height || end.z > tensor->shape.depth) {
-        fprintf(stderr, "Cannot create slice past end of tensorf\n");
+tensor* tensor_slice(mg_arena* arena, const tensor* t, tensor_index start, tensor_index end) {
+    if (end.x > t->shape.width || end.y > t->shape.height || end.z > t->shape.depth) {
+        fprintf(stderr, "Cannot create slice past end of tensor\n");
 
         return NULL;
     }
     if (start.x > end.x || start.y > end.y || start.z > end.z) {
-        fprintf(stderr, "Start of tensorf slice cannot exceed end\n");
+        fprintf(stderr, "Start of tensor slice cannot exceed end\n");
 
         return NULL;
     }
@@ -78,25 +80,25 @@ tensorf* tensorf_slice(mg_arena* arena, const tensorf* tensor, tensor_index star
         .depth = end.z - start.z,
     };
 
-    if (slice_shape.width > tensor->shape.width || slice_shape.height > tensor->shape.height || slice_shape.depth > tensor->shape.depth) {
-        fprintf(stderr, "Cannot create slice greater than original tensorf\n");
+    if (slice_shape.width > t->shape.width || slice_shape.height > t->shape.height || slice_shape.depth > t->shape.depth) {
+        fprintf(stderr, "Cannot create slice greater than original tensor\n");
         
         return NULL;
     }
 
-    tensorf* slice = tensorf_create(arena, slice_shape);
+    tensor* slice = tensor_create(arena, slice_shape);
     
     if (slice->shape.depth == 1) { // Fast path for 2d slice of 3d tensor
-        u64 start_i = (u64)start.z * tensor->shape.width * tensor->shape.height;
+        u64 start_i = (u64)start.z * t->shape.width * t->shape.height;
 
-        if (slice->shape.width == tensor->shape.width  && slice->shape.height == tensor->shape.height) {
-            u64 slice_size = (u64)tensor->shape.width * tensor->shape.height;
+        if (slice->shape.width == t->shape.width  && slice->shape.height == t->shape.height) {
+            u64 slice_size = (u64)t->shape.width * t->shape.height;
 
-            memcpy(slice->data, &tensor->data[start_i], sizeof(f32) * slice_size);
+            memcpy(slice->data, &t->data[start_i], sizeof(f32) * slice_size);
         } else {
             for (u64 y = start.y; y < end.y; y++) {
                 for (u64 x = start.x; x < end.x; x++) {
-                    slice->data[x + y * slice->shape.height] = tensor->data[start_i + x + y * tensor->shape.height];
+                    slice->data[x + y * slice->shape.height] = t->data[start_i + x + y * t->shape.height];
                 }
             }
         }
@@ -105,9 +107,9 @@ tensorf* tensorf_slice(mg_arena* arena, const tensorf* tensor, tensor_index star
             for (u64 y = start.y; y < end.y; y++) {
                 for (u64 x = start.x; x < end.x; x++) {
                     u64 slice_i = x + y * slice->shape.width + z * slice->shape.width * slice->shape.height;
-                    u64 tensor_i = x + y * tensor->shape.width + z * tensor->shape.width * tensor->shape.height;
+                    u64 tensor_i = x + y * t->shape.width + z * t->shape.width * t->shape.height;
                     
-                    slice->data[slice_i] = tensor->data[tensor_i];
+                    slice->data[slice_i] = t->data[tensor_i];
                 }
             }
         }
@@ -115,16 +117,16 @@ tensorf* tensorf_slice(mg_arena* arena, const tensorf* tensor, tensor_index star
 
     return slice;
 }
-tensorf* tensorf_slice_size(mg_arena* arena, const tensorf* tensor, tensor_index start, tensor_shape shape) {
+tensor* tensor_slice_size(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_shape shape) {
     tensor_index end = {
         start.x + shape.width,
         start.y + shape.height,
         start.z + shape.depth
     };
 
-    return tensorf_slice(arena, tensor, start, end);
+    return tensor_slice(arena, tensor, start, end);
 }
-void tensorf_2d_view(tensorf* out, const tensorf* tensor, u32 z) {
+void tensor_2d_view(tensor* out, const tensor* tensor, u32 z) {
     out->shape = (tensor_shape) {
         .width = tensor->shape.width,
         .height = tensor->shape.height,
@@ -137,14 +139,14 @@ void tensorf_2d_view(tensorf* out, const tensorf* tensor, u32 z) {
     out->data = &tensor->data[start_i];
 }
 
-b32 tensorf_dot_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b) {
     if (a->shape.depth != 1 || b->shape.depth != 1) {
-        fprintf(stderr, "Cannot dot tensorf in 3 dimensions\n");
+        fprintf(stderr, "Cannot dot tensor in 3 dimensions\n");
 
         return false;
     }
     if (a->shape.width != b->shape.height) {
-        fprintf(stderr, "Cannot dot tensorf: shapes do not align\n");
+        fprintf(stderr, "Cannot dot tensor: shapes do not align\n");
 
         return false;
     }
@@ -158,7 +160,7 @@ b32 tensorf_dot_ip(tensorf* out, const tensorf* a, const tensorf* b) {
 
     if (out->alloc < data_size) {
         #if TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot dot tensorf: not enough space in out\n");
+        fprintf(stderr, "Cannot dot tensor: not enough space in out\n");
         #endif
 
         return false;
@@ -199,23 +201,23 @@ b32 tensorf_dot_ip(tensorf* out, const tensorf* a, const tensorf* b) {
 
     return true;
 }
-tensorf* tensorf_dot(mg_arena* arena, const tensorf* a, const tensorf* b) {
+tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b) {
     tensor_shape shape = {
         b->shape.width,
         a->shape.height,
         1
     };
 
-    tensorf* out = tensorf_create(arena, shape);
+    tensor* out = tensor_create(arena, shape);
 
-    tensorf_dot_ip(out, a, b);
+    tensor_dot_ip(out, a, b);
 
     return out;
 }
 
-b32 tensorf_add_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+b32 tensor_add_ip(tensor* out, const tensor* a, const tensor* b) {
     if (!tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot add tensorf: shapes do not align\n");
+        fprintf(stderr, "Cannot add tensor: shapes do not align\n");
 
         return false;
     }
@@ -223,7 +225,7 @@ b32 tensorf_add_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
         #if TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot add tensorf: not enough space in out\n");
+        fprintf(stderr, "Cannot add tensor: not enough space in out\n");
         #endif
 
         return false;
@@ -236,9 +238,9 @@ b32 tensorf_add_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     
     return true;
 }
-b32 tensorf_sub_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+b32 tensor_sub_ip(tensor* out, const tensor* a, const tensor* b) {
     if (!tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot subtract tensorf: shapes do not align\n");
+        fprintf(stderr, "Cannot subtract tensor: shapes do not align\n");
 
         return false;
     }
@@ -246,7 +248,7 @@ b32 tensorf_sub_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
         #if TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot subtract tensorf: not enough space in out\n");
+        fprintf(stderr, "Cannot subtract tensor: not enough space in out\n");
         #endif
 
         return false;
@@ -259,9 +261,9 @@ b32 tensorf_sub_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     
     return true;
 }
-b32 tensorf_component_mul_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+b32 tensor_component_mul_ip(tensor* out, const tensor* a, const tensor* b) {
     if (!tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot multiply tensorf: shapes do not align\n");
+        fprintf(stderr, "Cannot multiply tensor: shapes do not align\n");
 
         return false;
     }
@@ -269,7 +271,7 @@ b32 tensorf_component_mul_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
         #if TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot multiply tensorf: not enough space in out\n");
+        fprintf(stderr, "Cannot multiply tensor: not enough space in out\n");
         #endif
 
         return false;
@@ -282,9 +284,9 @@ b32 tensorf_component_mul_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     
     return true;
 }
-b32 tensorf_component_div_ip(tensorf* out, const tensorf* a, const tensorf* b) {
+b32 tensor_component_div_ip(tensor* out, const tensor* a, const tensor* b) {
     if (!tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot divide tensorf: shapes do not align\n");
+        fprintf(stderr, "Cannot divide tensor: shapes do not align\n");
 
         return false;
     }
@@ -292,7 +294,7 @@ b32 tensorf_component_div_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     u64 data_size = (u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
         #if TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot divide tensorf: not enough space in out\n");
+        fprintf(stderr, "Cannot divide tensor: not enough space in out\n");
         #endif
 
         return false;
@@ -305,11 +307,11 @@ b32 tensorf_component_div_ip(tensorf* out, const tensorf* a, const tensorf* b) {
     
     return true;
 }
-b32 tensorf_scale_ip(tensorf* out, const tensorf* t, f32 s) {
+b32 tensor_scale_ip(tensor* out, const tensor* t, f32 s) {
     u64 data_size = (u64)t->shape.width * t->shape.height * t->shape.depth;
     if (out->alloc < data_size) {
         #if TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot scale tensorf: not enough space in out\n");
+        fprintf(stderr, "Cannot scale tensor: not enough space in out\n");
         #endif
 
         return false;
@@ -323,12 +325,12 @@ b32 tensorf_scale_ip(tensorf* out, const tensorf* t, f32 s) {
     return true;
 }
 
-tensorf* tensorf_add(mg_arena* arena, const tensorf* a, const tensorf* b) {
+tensor* tensor_add(mg_arena* arena, const tensor* a, const tensor* b) {
     mga_temp maybe_temp = mga_temp_begin(arena);
 
-    tensorf* out = tensorf_create(arena, a->shape);
+    tensor* out = tensor_create(arena, a->shape);
 
-    if (!tensorf_add_ip(out, a, b)) {
+    if (!tensor_add_ip(out, a, b)) {
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -336,12 +338,12 @@ tensorf* tensorf_add(mg_arena* arena, const tensorf* a, const tensorf* b) {
 
     return out;
 }
-tensorf* tensorf_sub(mg_arena* arena, const tensorf* a, const tensorf* b) {
+tensor* tensor_sub(mg_arena* arena, const tensor* a, const tensor* b) {
     mga_temp maybe_temp = mga_temp_begin(arena);
 
-    tensorf* out = tensorf_create(arena, a->shape);
+    tensor* out = tensor_create(arena, a->shape);
 
-    if (!tensorf_sub_ip(out, a, b)) {
+    if (!tensor_sub_ip(out, a, b)) {
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -349,12 +351,12 @@ tensorf* tensorf_sub(mg_arena* arena, const tensorf* a, const tensorf* b) {
 
     return out;
 }
-tensorf* tensorf_component_mul(mg_arena* arena, const tensorf* a, const tensorf* b) {
+tensor* tensor_component_mul(mg_arena* arena, const tensor* a, const tensor* b) {
     mga_temp maybe_temp = mga_temp_begin(arena);
 
-    tensorf* out = tensorf_create(arena, a->shape);
+    tensor* out = tensor_create(arena, a->shape);
 
-    if (!tensorf_component_mul_ip(out, a, b)) {
+    if (!tensor_component_mul_ip(out, a, b)) {
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -362,12 +364,12 @@ tensorf* tensorf_component_mul(mg_arena* arena, const tensorf* a, const tensorf*
 
     return out;
 }
-tensorf* tensorf_component_div(mg_arena* arena, const tensorf* a, const tensorf* b) {
+tensor* tensor_component_div(mg_arena* arena, const tensor* a, const tensor* b) {
     mga_temp maybe_temp = mga_temp_begin(arena);
 
-    tensorf* out = tensorf_create(arena, a->shape);
+    tensor* out = tensor_create(arena, a->shape);
 
-    if (!tensorf_component_div_ip(out, a, b)) {
+    if (!tensor_component_div_ip(out, a, b)) {
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -375,12 +377,12 @@ tensorf* tensorf_component_div(mg_arena* arena, const tensorf* a, const tensorf*
 
     return out;
 }
-tensorf* tensorf_scale(mg_arena* arena, const tensorf* t, f32 s) {
+tensor* tensor_scale(mg_arena* arena, const tensor* t, f32 s) {
     mga_temp maybe_temp = mga_temp_begin(arena);
 
-    tensorf* out = tensorf_create(arena, t->shape);
+    tensor* out = tensor_create(arena, t->shape);
 
-    if (!tensorf_scale_ip(out, t, s)) {
+    if (!tensor_scale_ip(out, t, s)) {
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -388,3 +390,73 @@ tensorf* tensorf_scale(mg_arena* arena, const tensorf* t, f32 s) {
 
     return out;
 }
+
+void tensor_list_push_existing(tensor_list* list, tensor* tensor, string8 name, tensor_node* node) {
+    node->tensor = tensor;
+    node->name = name;
+
+    SLL_PUSH_BACK(list->first, list->last, node);
+
+    list->size++;
+}
+void tensor_list_push(mg_arena* arena, tensor_list* list, tensor* tensor, string8 name) {
+    tensor_node* node = MGA_PUSH_ZERO_STRUCT(arena, tensor_node);
+    tensor_list_push_existing(list, tensor, name, node);
+}
+tensor* tensor_list_get(const tensor_list* list, string8 name) {
+    tensor* out = NULL;
+
+    for (tensor_node* node = list->first; node != NULL; node = node->next) {
+        if (str8_equals(node->name, name)) {
+            return node->tensor;
+        }
+    }
+
+    return out;
+}
+
+/*
+File Format:
+- Header "TP_tensor"
+- u32 size
+- List of tensors
+    - Name
+        - u64 size
+        - u8* str (of length size)
+    - Tensor
+        - u32 width, height, depth
+        - f32* data (of length width*height*depth)
+*/
+
+#define _WRITE_U32(num) str8_list_push(scratch.arena, &output_list, (string8){ sizeof(u32), (u8*)&num }) 
+#define _WRITE_U64(num) str8_list_push(scratch.arena, &output_list, (string8){ sizeof(u64), (u8*)&num }) 
+
+void tensor_list_save(const tensor_list* list, string8 file_name) {
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    string8_list output_list = { 0 };
+
+    str8_list_push(scratch.arena, &output_list, STR8("TP_tensor"));
+    _WRITE_U32(list->size);
+
+    for (tensor_node* node = list->first; node != NULL; node = node->next) {
+        _WRITE_U64(node->name.size);
+        str8_list_push(scratch.arena, &output_list, node->name);
+
+        tensor_shape* shape = &node->tensor->shape;
+
+        _WRITE_U32(shape->width);
+        _WRITE_U32(shape->height);
+        _WRITE_U32(shape->depth);
+
+        u64 data_size = (u64)shape->width * shape->height * shape->depth;
+
+        str8_list_push(scratch.arena, &output_list, (string8){ data_size * sizeof(f32), (u8*)node->tensor->data });
+    }
+
+    os_file_write(file_name, output_list);
+
+    mga_scratch_release(scratch);
+}
+tensor_list tensor_list_load(mg_arena* arena, string8 file_name);
+
