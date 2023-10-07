@@ -416,9 +416,11 @@ tensor* tensor_list_get(const tensor_list* list, string8 name) {
 }
 
 /*
+TODO: Figure out how to make it endian independent
+
 File Format:
-- Header "TP_tensor"
-- u32 size
+- Header "TP_tensors"
+- u32 num_tensors
 - List of tensors
     - Name
         - u64 size
@@ -428,33 +430,71 @@ File Format:
         - f32* data (of length width*height*depth)
 */
 
-#define _WRITE_U32(num) str8_list_push(scratch.arena, &output_list, (string8){ sizeof(u32), (u8*)&num }) 
-#define _WRITE_U64(num) str8_list_push(scratch.arena, &output_list, (string8){ sizeof(u64), (u8*)&num }) 
+static const string8 file_header = {
+    .size = 10,
+    .str = (u8*)"TP_tensors"
+};
+
+#define _WRITE_DATA(size, data) do { \
+        memcpy(file_buf_ptr, (data), (size)); \
+        file_buf_ptr += (size); \
+    } while (0);
 
 void tensor_list_save(const tensor_list* list, string8 file_name) {
-    mga_temp scratch = mga_scratch_get(NULL, 0);
+    u64 file_size = 0;
+    u8* file_buf = NULL;
 
-    string8_list output_list = { 0 };
-
-    str8_list_push(scratch.arena, &output_list, STR8("TP_tensor"));
-    _WRITE_U32(list->size);
+    file_size += file_header.size;
+    file_size += sizeof(u32); // for number of tensors
 
     for (tensor_node* node = list->first; node != NULL; node = node->next) {
-        _WRITE_U64(node->name.size);
-        str8_list_push(scratch.arena, &output_list, node->name);
+        file_size += sizeof(u64); // for str size
+        file_size += node->name.size; // for str
 
-        tensor_shape* shape = &node->tensor->shape;
+        tensor_shape shape = node->tensor->shape;
 
-        _WRITE_U32(shape->width);
-        _WRITE_U32(shape->height);
-        _WRITE_U32(shape->depth);
-
-        u64 data_size = (u64)shape->width * shape->height * shape->depth;
-
-        str8_list_push(scratch.arena, &output_list, (string8){ data_size * sizeof(f32), (u8*)node->tensor->data });
+        file_size += sizeof(u32) * 3; // for width, height, and depth
+        file_size += (u64)shape.width * shape.height * shape.depth * sizeof(f32); // for data
     }
 
-    os_file_write(file_name, output_list);
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    file_buf = MGA_PUSH_ARRAY(scratch.arena, u8, file_size);
+    if (file_buf == NULL) {
+        fprintf(stderr, "Cannot write file: failed to create buffer on scratch arena\n");
+
+        mga_scratch_release(scratch);
+
+        return;
+    }
+    u8* file_buf_ptr = file_buf;
+
+    _WRITE_DATA(file_header.size, file_header.str);
+    _WRITE_DATA(sizeof(u32), &list->size);
+
+    for (tensor_node* node = list->first; node != NULL; node = node->next) {
+        _WRITE_DATA(sizeof(u64), &node->name.size);
+        _WRITE_DATA(node->name.size, node->name.str);
+
+        tensor_shape shape = node->tensor->shape;
+
+        _WRITE_DATA(sizeof(u32), &shape.width);
+        _WRITE_DATA(sizeof(u32), &shape.height);
+        _WRITE_DATA(sizeof(u32), &shape.depth);
+
+        u64 data_size = (u64)shape.width * shape.height * shape.depth * sizeof(f32);
+
+        _WRITE_DATA(data_size, node->tensor->data);
+    }
+
+    if (file_size != (u64)(file_buf_ptr - file_buf)) {
+        fprintf(stderr, "Cannnot write file: buffer was not filled\n");
+    } else {
+        string8_list output_list = { 0 };
+        str8_list_push(scratch.arena, &output_list, (string8){ file_size, file_buf });
+
+        os_file_write(file_name, output_list);
+    }
 
     mga_scratch_release(scratch);
 }

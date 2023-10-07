@@ -18,10 +18,11 @@ void mga_on_error(mga_error err) {
 
 int main(void) {
     mga_desc desc = {
-        .desired_max_size = MGA_MiB(64),
-        .desired_block_size = MGA_KiB(256),
+        .desired_max_size = MGA_MiB(256),
+        .desired_block_size = MGA_MiB(1),
         .error_callback = mga_on_error
     };
+    mga_scratch_set_desc(&desc);
     mg_arena* perm_arena = mga_create(&desc);
 
     tensor* a = tensor_create(perm_arena, (tensor_shape){ 2, 3, 1 });
