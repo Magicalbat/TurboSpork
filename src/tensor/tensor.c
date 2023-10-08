@@ -438,7 +438,7 @@ static const string8 file_header = {
 #define _WRITE_DATA(size, data) do { \
         memcpy(file_buf_ptr, (data), (size)); \
         file_buf_ptr += (size); \
-    } while (0);
+    } while (0)
 
 void tensor_list_save(const tensor_list* list, string8 file_name) {
     u64 file_size = 0;
@@ -498,5 +498,72 @@ void tensor_list_save(const tensor_list* list, string8 file_name) {
 
     mga_scratch_release(scratch);
 }
-tensor_list tensor_list_load(mg_arena* arena, string8 file_name);
 
+#define _READ_DATA(data_size, data) do { \
+        if (file_pos + (data_size) > file.size) { \
+            memset((data), 0, (data_size)); \
+        } else { \
+            memcpy((data), &file.str[file_pos], (data_size)); \
+            file_pos += (data_size); \
+        } \
+    } while (0)
+    
+tensor_list tensor_list_load(mg_arena* arena, string8 file_name) {
+    mga_temp scratch = mga_scratch_get(&arena, 1);
+
+    string8 file = os_file_read(scratch.arena, file_name);
+    if (file.size == 0) {
+        fprintf(stderr, "Cannot load tensors: failed to read file\n");
+        
+        mga_scratch_release(scratch);
+        return (tensor_list){ 0 };
+    }
+
+    if (!str8_equals(file_header, str8_substr(file, 0, file_header.size))) {
+        fprintf(stderr, "Cannot load tensors: incorrect file type\n");
+        
+        mga_scratch_release(scratch);
+        return (tensor_list){ 0 };
+    }
+
+    u64 file_pos = file_header.size;
+
+    tensor_list out = { 0 };
+    
+    u32 size = 0;
+    _READ_DATA(sizeof(u32), &size);
+
+    for (u32 i = 0; i < size; i++) {
+        u64 name_size = 0;
+        _READ_DATA(sizeof(u64), &name_size);
+
+        string8 name = {
+            .size = name_size,
+            .str = MGA_PUSH_ZERO_ARRAY(arena, u8, name_size)
+        };
+
+        _READ_DATA(name_size, name.str);
+
+        u32 width = 0;
+        u32 height = 0;
+        u32 depth = 0;
+
+        _READ_DATA(sizeof(u32), &width);
+        _READ_DATA(sizeof(u32), &height);
+        _READ_DATA(sizeof(u32), &depth);
+
+        tensor* tensor = tensor_create(arena, (tensor_shape){ width, height, depth });
+        u64 data_size = (u64)width * height * depth * sizeof(f32);
+        _READ_DATA(data_size, tensor->data);
+
+        tensor_list_push(arena, &out, tensor, name);
+    }
+
+    if (file_pos > file.size) {
+        fprintf(stderr, "Could not load all tensors: cannot read outisde file bounds\n");
+    }
+
+    mga_scratch_release(scratch);
+
+    return out;
+}
