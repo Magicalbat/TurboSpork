@@ -55,6 +55,8 @@ tensor* tensor_copy(mg_arena* arena, const tensor* tensor, b32 keep_alloc);
 
 void tensor_fill(tensor* tensor, f32 num);
 
+tensor_index tensor_argmax(const tensor* t);
+
 // Indices work like substring (inclusive start, exclusive end)
 tensor* tensor_slice(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_index end);
 tensor* tensor_slice_size(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_shape shape);
@@ -68,6 +70,9 @@ void tensor_2d_view(tensor* out, const tensor* tensor, u32 z);
 // Only works for 2d or less
 b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b);
 tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b);
+
+// Only works for 2d or less
+void tensor_transpose(tensor* t);
 
 b32 tensor_add_ip(tensor* out, const tensor* a, const tensor* b);
 b32 tensor_sub_ip(tensor* out, const tensor* a, const tensor* b);

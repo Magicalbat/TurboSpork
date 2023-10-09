@@ -62,6 +62,24 @@ void tensor_fill(tensor* tensor, f32 num) {
     }
 }
 
+tensor_index tensor_argmax(const tensor* t) {
+    f32 max_num = t->data[0];
+    tensor_index max_index = { 0, 0, 0 };
+
+    for (u64 z = 0; z < t->shape.depth; z++) {
+        for (u64 y = 0; y < t->shape.height; y++) {
+            for (u64 x = 0; x < t->shape.width; x++) {
+                if (t->data[x + y * t->shape.width + z * t->shape.width * t->shape.height] > max_num) {
+                    max_num = t->data[x + y * t->shape.width + z * t->shape.width * t->shape.height];
+                    max_index = (tensor_index){ x, y, z };
+                }
+            }
+        }
+    }
+
+    return max_index;
+}
+
 tensor* tensor_slice(mg_arena* arena, const tensor* t, tensor_index start, tensor_index end) {
     if (end.x > t->shape.width || end.y > t->shape.height || end.z > t->shape.depth) {
         fprintf(stderr, "Cannot create slice past end of tensor\n");
@@ -213,6 +231,40 @@ tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b) {
     tensor_dot_ip(out, a, b);
 
     return out;
+}
+
+void tensor_transpose(tensor* t) {
+    if (t->shape.depth != 1) {
+        fprintf(stderr, "Cannot transpose tensor with depth");
+
+        return;
+    }
+
+    u32 temp_width = t->shape.width;
+    t->shape.width = t->shape.height;
+    t->shape.height = temp_width;
+
+    // If it is 1d, you do not need to move around the numbers
+    if (t->shape.width == 1 || t->shape.height == 1) {
+        return;
+    }
+
+    // Creating temporary copy of data
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    u32 orig_width = t->shape.height;
+
+    u64 data_size = (u64)t->shape.width * t->shape.height; // depth == 1
+    f32* orig_data = MGA_PUSH_ARRAY(scratch.arena, f32, data_size);
+    memcpy(orig_data, t->data, sizeof(f32) * data_size);
+
+    for (u32 y = 0; y < t->shape.height; y++) {
+        for (u32 x = 0; x < t->shape.width; x++) {
+            t->data[x + y * t->shape.width] = orig_data[y + x * orig_width];
+        }
+    }
+
+    mga_scratch_release(scratch);
 }
 
 b32 tensor_add_ip(tensor* out, const tensor* a, const tensor* b) {
