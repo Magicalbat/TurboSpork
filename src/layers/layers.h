@@ -59,10 +59,9 @@ typedef struct {
 } layer;
 
 layer* layer_create(mg_arena* arena, layer_desc* desc);
-// cache_arena is optional
-void layer_feedforward(layer* l, tensor* in_out, mg_arena* cache_arena); 
+void layer_feedforward(layer* l, tensor* in_out); 
 void layer_backprop(layer* l, tensor* delta);
-void layer_update(layer* l);
+void layer_apply_changes(layer* l);
 
 #endif // LAYERS_H
 
