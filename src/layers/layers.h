@@ -1,6 +1,8 @@
 #ifndef LAYERS_H
 #define LAYERS_H
 
+#include "mg/mg_arena.h"
+
 #include "base/base.h"
 #include "tensor/tensor.h"
 
@@ -35,7 +37,32 @@ typedef struct {
     };
 } layer_desc;
 
+typedef struct {
+    tensor* weight;
+    tensor* bias;
 
+    tensor* weight_change;
+    tensor* bias_change;
+} layer_dense_backend;
+
+typedef struct {
+    layer_activation_type func;
+} layer_activation_backend;
+
+typedef struct {
+    layer_type type;
+
+    union {
+        layer_dense_backend dense_backend;
+        layer_activation_backend activation_backend;
+    };
+} layer;
+
+layer* layer_create(mg_arena* arena, layer_desc* desc);
+// cache_arena is optional
+void layer_feedforward(layer* l, tensor* in_out, mg_arena* cache_arena); 
+void layer_backprop(layer* l, tensor* delta);
+void layer_update(layer* l);
 
 #endif // LAYERS_H
 

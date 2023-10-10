@@ -3,6 +3,7 @@ bin-int
 Makefile
 compile_commands.json
 **.bat
+**.sh
 .cache
 .replit
 replit.nix
