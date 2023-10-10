@@ -1,6 +1,7 @@
 #include "costs.h"
 
 #include <stdio.h>
+#include <math.h>
 
 typedef f32 (_cost_func)(const tensor*, const tensor*);
 typedef void (_cost_deriv)(tensor*, const tensor*);
@@ -66,6 +67,7 @@ static f32 quadratic_func(const tensor* in, const tensor* desired_out) {
         sum += 0.5f * (in->data[i] - desired_out->data[i]) * (in->data[i] - desired_out->data[i]);
     }
 
+    // TODO: average or sum?
     return sum;
 }
 static void quadratic_deriv(tensor* in_out, const tensor* desired_out) {
@@ -74,6 +76,8 @@ static void quadratic_deriv(tensor* in_out, const tensor* desired_out) {
         in_out->data[i] = (in_out->data[i] - desired_out->data[i]);
     }
 }
+
+// TODO: figure out what the cross entropy function really is
 static f32 cross_entropy_func(const tensor* in, const tensor* desired_out) {
     UNUSED(in);
     UNUSED(desired_out);

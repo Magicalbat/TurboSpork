@@ -72,7 +72,7 @@ int main(void) {
     tensor* img = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
     tensor* label = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
 
-    for (u32 i = 0; i < 5; i++) {
+    for (u32 i = 0; i < 1; i++) {
         tensor_2d_view(img, easy_train_imgs, i);
         tensor_2d_view(label, easy_train_labels, i);
 
@@ -88,7 +88,7 @@ int main(void) {
 void draw_mnist_digit(const tensor* digit) {
     mgp_init();
     mgp_set_title(MGP_STR8("MNIST Digit"));
-    mgp_set_win_size(300, 300);
+    mgp_set_win_size(600, 600);
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 

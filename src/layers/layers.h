@@ -10,6 +10,8 @@ typedef enum {
     LAYER_NULL = 0,
     LAYER_DENSE,
     LAYER_ACTIVATION,
+
+    LAYER_COUNT
 } layer_type;
 
 typedef enum {
@@ -18,6 +20,8 @@ typedef enum {
     ACTIVATION_TANH,
     ACTIVATION_RELU,
     ACTIVATION_LEAKY_RELU,
+
+    ACTIVATION_COUNT
 } layer_activation_type;
 
 typedef struct {
@@ -60,6 +64,7 @@ typedef struct {
 
 layer* layer_create(mg_arena* arena, layer_desc* desc);
 void layer_feedforward(layer* l, tensor* in_out); 
+// TODO: Include previous input in backprop?
 void layer_backprop(layer* l, tensor* delta);
 void layer_apply_changes(layer* l);
 
