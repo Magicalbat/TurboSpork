@@ -20,6 +20,7 @@ typedef enum {
     ACTIVATION_TANH,
     ACTIVATION_RELU,
     ACTIVATION_LEAKY_RELU,
+    ACTIVATION_SOFTMAX,
 
     ACTIVATION_COUNT
 } layer_activation_type;
@@ -50,21 +51,24 @@ typedef struct {
     tensor* weight;
     tensor* bias;
 
+    // Training mode
     tensor* weight_change;
     tensor* bias_change;
-
-    // for backprop
-    tensor* prev_input;
 } layer_dense_backend;
 
 typedef struct {
-    layer_activation_type func;
+    layer_activation_type type;
 } layer_activation_backend;
 
 typedef struct {
+    // Initialized in layer_create
     layer_type type;
     b32 training_mode;
 
+    // Training mode
+    tensor* prev_input;
+
+    // Layers need to initialize the rest
     tensor_shape input_shape;
     tensor_shape output_shape;
 
@@ -78,7 +82,7 @@ layer* layer_create(mg_arena* arena, const layer_desc* desc);
 void layer_feedforward(layer* l, tensor* in_out); 
 // TODO: Include previous input in backprop?
 void layer_backprop(layer* l, tensor* delta);
-void layer_apply_changes(layer* l);
+void layer_apply_changes(layer* l, u32 batch_size);
 
 #endif // LAYERS_H
 

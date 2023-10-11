@@ -74,7 +74,6 @@ int main(void) {
     tensor_2d_view(img, easy_train_imgs, 0);
     tensor_2d_view(label, easy_train_labels, 0);
 
-
     layer_desc ldesc = {
         .type = LAYER_DENSE,
         .training_mode = true,
@@ -92,10 +91,18 @@ int main(void) {
 
     layer* l1 = layer_create(perm_arena, &ldesc);
 
+    ldesc.type = LAYER_ACTIVATION;
+    ldesc.activation = (layer_activation_desc){
+        .type = ACTIVATION_SOFTMAX,
+        .size = 10
+    };
+    layer* l2 = layer_create(perm_arena, &ldesc);
+
     tensor* in_out = tensor_copy(perm_arena, img, false);
 
     layer_feedforward(l0, in_out);
     layer_feedforward(l1, in_out);
+    layer_feedforward(l2, in_out);
 
     printf("[ ");
     for (u32 i = 0; i < 10; i++) {

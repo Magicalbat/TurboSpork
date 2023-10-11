@@ -23,7 +23,6 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc) {
     if (out->training_mode) {
         dense->bias_change = tensor_create(arena, bias_shape);
         dense->weight_change = tensor_create(arena, weight_shape);
-        dense->prev_input = tensor_create(arena, (tensor_shape){ in_size, 1, 1 });
     }
 
     // TODO: better weight init
@@ -38,13 +37,6 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc) {
 void _layer_dense_feedforward(layer* l, tensor* in_out) {
     layer_dense_backend* dense = &l->dense_backend;
 
-    if (l->training_mode) {
-        tensor_copy_ip(dense->prev_input, in_out);
-
-        // transpose for backprop later
-        tensor_transpose(dense->prev_input);
-    }
-
     tensor_dot_ip(in_out, in_out, dense->weight);
     tensor_add_ip(in_out, in_out, dense->bias);
 }
@@ -57,14 +49,17 @@ void _layer_dense_backprop(layer* l, tensor* delta) {
     // Weight change is previous input dotted with delta
     /*
         delta is shape (out, 1)
-        prev input is shape (1, in)
+        prev input is shape (in, 1)
         weight is shape (out, in)
 
         weight_change -= dot(prev_input, delta)
     */
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    tensor* cur_weight_change = tensor_dot(scratch.arena, dense->prev_input, delta);
+    if (l->prev_input->shape.width != 1) {
+        tensor_transpose(l->prev_input);
+    }
+    tensor* cur_weight_change = tensor_dot(scratch.arena, l->prev_input, delta);
     tensor_sub_ip(dense->weight_change, dense->weight_change, cur_weight_change);
 
     mga_scratch_release(scratch);
@@ -86,8 +81,11 @@ void _layer_dense_backprop(layer* l, tensor* delta) {
 
     tensor_transpose(dense->weight);
 }
-void _layer_dense_apply_changes(layer* l) {
+void _layer_dense_apply_changes(layer* l, u32 batch_size) {
     layer_dense_backend* dense = &l->dense_backend;
+
+    tensor_scale_ip(dense->weight_change, dense->weight_change, 1.0f / (f32)batch_size);
+    tensor_scale_ip(dense->bias_change, dense->bias_change, 1.0f / (f32)batch_size);
 
     tensor_add_ip(dense->weight, dense->weight, dense->weight_change);
     tensor_add_ip(dense->bias, dense->bias, dense->bias_change);
