@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-static _layer_create_func* create_funcs[LAYER_COUNT] = {
+/*static _layer_create_func* create_funcs[LAYER_COUNT] = {
     [LAYER_NULL] = _layer_null_create,
     [LAYER_DENSE] = _layer_dense_create,
     [LAYER_ACTIVATION] = _layer_activation_create,
@@ -22,6 +22,20 @@ static _layer_apply_changes_func* apply_changes_funcs[LAYER_COUNT] = {
     [LAYER_NULL] = _layer_null_apply_changes,
     [LAYER_DENSE] = _layer_dense_apply_changes,
     [LAYER_ACTIVATION] = _layer_activation_apply_changes,
+};*/
+
+#define _DEF_LAYER_FUNCS(layer_name) \
+    { \
+        _layer_##layer_name##_create, \
+        _layer_##layer_name##_feedforward, \
+        _layer_##layer_name##_backprop, \
+        _layer_##layer_name##_apply_changes, \
+    }
+
+static _layer_func_defs layer_funcs[LAYER_COUNT] = {
+    _DEF_LAYER_FUNCS(null),
+    _DEF_LAYER_FUNCS(dense),
+    _DEF_LAYER_FUNCS(activation),
 };
 
 layer* layer_create(mg_arena* arena, const layer_desc* desc) {
@@ -32,7 +46,10 @@ layer* layer_create(mg_arena* arena, const layer_desc* desc) {
 
     layer* out = MGA_PUSH_ZERO_STRUCT(arena, layer);
 
-    create_funcs[desc->type](arena, out, desc);
+    out->type = desc->type;
+    out->training_mode = desc->training_mode;
+
+    layer_funcs[desc->type].create(arena, out, desc);
 
     return out;
 }
@@ -42,7 +59,7 @@ void layer_feedforward(layer* l, tensor* in_out) {
         return;
     }
 
-    feedforward_funcs[l->type](l, in_out);
+    layer_funcs[l->type].feedforward(l, in_out);
 }
 void layer_backprop(layer* l, tensor* delta) {
     if (l->type >= LAYER_COUNT) {
@@ -50,7 +67,7 @@ void layer_backprop(layer* l, tensor* delta) {
         return;
     }
 
-    backprop_funcs[l->type](l, delta);
+    layer_funcs[l->type].backprop(l, delta);
 }
 void layer_apply_changes(layer* l) {
     if (l->type >= LAYER_COUNT) {
@@ -58,7 +75,7 @@ void layer_apply_changes(layer* l) {
         return;
     }
 
-    apply_changes_funcs[l->type](l);
+    layer_funcs[l->type].apply_changes(l);
 }
 
 void _layer_null_create(mg_arena* arena, layer* out, const layer_desc* desc) {

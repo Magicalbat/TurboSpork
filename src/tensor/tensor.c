@@ -52,6 +52,21 @@ tensor* tensor_copy(mg_arena* arena, const tensor* t, b32 keep_alloc) {
 
     return out;
 }
+b32 tensor_copy_ip(tensor* out, const tensor* t) {
+    u64 size = (u64)t->shape.width * t->shape.height * t->shape.depth;
+    if (out->alloc < size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot copy tensor: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    out->shape = t->shape;
+    memcpy(out->data, t->data, size * sizeof(f32));
+
+    return true;
+}
 
 void tensor_fill(tensor* tensor, f32 num) {
     tensor_shape shape = tensor->shape;
@@ -185,7 +200,6 @@ b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b) {
     }
 
     u32 a_width = a->shape.width;
-    u32 a_height = a->shape.height;
     u32 b_width = b->shape.width;
     
     f32* a_data = a->data;
@@ -208,7 +222,7 @@ b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b) {
     memset(out->data, 0, sizeof(f32) * data_size);
 
     for (u32 y = 0; y < shape.height; y++) {
-        for (u32 i = 0; i < a_height; i++) {
+        for (u32 i = 0; i < a_width; i++) {
             for (u32 x = 0; x < shape.width; x++) {
                 out->data[(u64)x + (u64)y * shape.width] += a_data[(u64)i + (u64)y * a_width] * b_data[(u64)x + (u64)i * b_width];
             }

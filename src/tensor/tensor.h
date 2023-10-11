@@ -43,6 +43,10 @@ NOTE:
     ONLY CREATE TENSOR WITH ONE OF THE CREATION FUNCTIONS
 */
 
+#ifndef TENSOR_PRINT_IP_ALLOC_ERRORS
+#define TENSOR_PRINT_IP_ALLOC_ERRORS 1
+#endif
+
 #define tensor_INDEX(tensor, x, y, z) \
     ((u64)(x) + (u64)(y) * tensor->shape.width + (u64)(z) * tensor->shape.width * tensor->shape.height)
 #define tensor_AT(tensor, x, y, z) tensor->data[tensor_INDEX(tensor, x, y, z)]
@@ -52,6 +56,7 @@ b32 tensor_shape_eq(tensor_shape a, tensor_shape b);
 tensor* tensor_create(mg_arena* arena, tensor_shape shape);
 tensor* tensor_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc);
 tensor* tensor_copy(mg_arena* arena, const tensor* tensor, b32 keep_alloc);
+b32 tensor_copy_ip(tensor* out, const tensor* t);
 
 void tensor_fill(tensor* tensor, f32 num);
 
@@ -62,10 +67,6 @@ tensor* tensor_slice(mg_arena* arena, const tensor* tensor, tensor_index start, 
 tensor* tensor_slice_size(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_shape shape);
 // Does not copy data
 void tensor_2d_view(tensor* out, const tensor* tensor, u32 z);
-
-#ifndef TENSOR_PRINT_IP_ALLOC_ERRORS
-#define TENSOR_PRINT_IP_ALLOC_ERRORS 1
-#endif
 
 // Only works for 2d or less
 b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b);

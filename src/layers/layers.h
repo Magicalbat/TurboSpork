@@ -38,6 +38,8 @@ typedef struct {
 
 typedef struct {
     layer_type type;
+    b32 training_mode;
+
     union {
         layer_dense_desc dense;
         layer_activation_desc activation;
@@ -50,6 +52,9 @@ typedef struct {
 
     tensor* weight_change;
     tensor* bias_change;
+
+    // for backprop
+    tensor* prev_input;
 } layer_dense_backend;
 
 typedef struct {
@@ -58,6 +63,7 @@ typedef struct {
 
 typedef struct {
     layer_type type;
+    b32 training_mode;
 
     tensor_shape input_shape;
     tensor_shape output_shape;

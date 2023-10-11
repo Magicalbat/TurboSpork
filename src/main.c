@@ -71,14 +71,37 @@ int main(void) {
     // Initial memory is not used
     tensor* img = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
     tensor* label = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
+    tensor_2d_view(img, easy_train_imgs, 0);
+    tensor_2d_view(label, easy_train_labels, 0);
 
-    for (u32 i = 0; i < 1; i++) {
-        tensor_2d_view(img, easy_train_imgs, i);
-        tensor_2d_view(label, easy_train_labels, i);
 
-        printf("%u\n", tensor_argmax(label).x);
-        draw_mnist_digit(img);
+    layer_desc ldesc = {
+        .type = LAYER_DENSE,
+        .training_mode = true,
+
+        .dense = {
+            .in_size = 784,
+            .out_size = 64
+        }
+    };
+
+    layer* l0 = layer_create(perm_arena, &ldesc);
+
+    ldesc.dense.in_size = 64;
+    ldesc.dense.out_size = 10;
+
+    layer* l1 = layer_create(perm_arena, &ldesc);
+
+    tensor* in_out = tensor_copy(perm_arena, img, false);
+
+    layer_feedforward(l0, in_out);
+    layer_feedforward(l1, in_out);
+
+    printf("[ ");
+    for (u32 i = 0; i < 10; i++) {
+        printf("%f ", in_out->data[i]);
     }
+    printf("]\n");
     
     mga_destroy(perm_arena);
 
