@@ -7,6 +7,7 @@
 #include "layers/layers.h"
 #include "costs/costs.h"
 #include "optimizers/optimizers.h"
+#include "network/network.h"
 
 #include "tensor/tensor.h"
 
@@ -74,35 +75,46 @@ int main(void) {
     tensor_2d_view(img, easy_train_imgs, 0);
     tensor_2d_view(label, easy_train_labels, 0);
 
-    layer_desc ldesc = {
-        .type = LAYER_DENSE,
-        .training_mode = true,
-
-        .dense = {
-            .in_size = 784,
-            .out_size = 64
-        }
+    b32 training_mode = true;
+    layer_desc layer_descs[] = {
+        (layer_desc){
+            .type = LAYER_DENSE,
+            .training_mode = training_mode,
+            .dense = (layer_dense_desc){
+                .in_size = 784,
+                .out_size = 64
+            }
+        },
+        (layer_desc){
+            .type = LAYER_ACTIVATION,
+            .training_mode = training_mode,
+            .activation = (layer_activation_desc) {
+                .type = ACTIVATION_RELU,
+                .shape = (tensor_shape){ 64, 1, 1 }
+            }
+        },
+        (layer_desc){
+            .type = LAYER_DENSE,
+            .training_mode = training_mode,
+            .dense = (layer_dense_desc){
+                .in_size = 64,
+                .out_size = 10
+            }
+        },
+        (layer_desc){
+            .type = LAYER_ACTIVATION,
+            .training_mode = training_mode,
+            .activation = (layer_activation_desc) {
+                .type = ACTIVATION_SOFTMAX,
+                .shape = (tensor_shape){ 10, 1, 1 }
+            }
+        },
     };
-
-    layer* l0 = layer_create(perm_arena, &ldesc);
-
-    ldesc.dense.in_size = 64;
-    ldesc.dense.out_size = 10;
-
-    layer* l1 = layer_create(perm_arena, &ldesc);
-
-    ldesc.type = LAYER_ACTIVATION;
-    ldesc.activation = (layer_activation_desc){
-        .type = ACTIVATION_SOFTMAX,
-        .size = 10
-    };
-    layer* l2 = layer_create(perm_arena, &ldesc);
+    network* nn = network_create(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs);
 
     tensor* in_out = tensor_copy(perm_arena, img, false);
 
-    layer_feedforward(l0, in_out);
-    layer_feedforward(l1, in_out);
-    layer_feedforward(l2, in_out);
+    network_feedforward(nn, in_out, in_out);
 
     printf("[ ");
     for (u32 i = 0; i < 10; i++) {

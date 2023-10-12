@@ -33,7 +33,7 @@ typedef struct {
 } layer_dense_desc;
 
 typedef struct {
-    u32 size;
+    tensor_shape shape;
     layer_activation_type type;
 } layer_activation_desc;
 
@@ -80,7 +80,6 @@ typedef struct {
 
 layer* layer_create(mg_arena* arena, const layer_desc* desc);
 void layer_feedforward(layer* l, tensor* in_out); 
-// TODO: Include previous input in backprop?
 void layer_backprop(layer* l, tensor* delta);
 void layer_apply_changes(layer* l, u32 batch_size);
 

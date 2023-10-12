@@ -38,8 +38,8 @@ void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* des
 
     layer_activation_backend* activ = &out->activation_backend;
 
-    u32 size = desc->activation.size;
     activ->type = desc->activation.type;
+    tensor_shape shape = desc->activation.shape;;
 
     if (activ->type >= ACTIVATION_COUNT) {
         fprintf(stderr, "Invalid activation type\n");
@@ -47,7 +47,6 @@ void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* des
         activ->type = ACTIVATION_NULL;
     }
 
-    tensor_shape shape = { size, 1, 1 };
 
     out->input_shape = shape;
     out->output_shape = shape;
