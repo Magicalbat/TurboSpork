@@ -1,5 +1,7 @@
 #include "network.h"
 
+static u64 _network_max_layer_size(const network* nn);
+
 network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
 
@@ -13,6 +15,71 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
     return nn;
 }
 void network_feedforward(network* nn, tensor* out, const tensor* input) {
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    u64 max_layer_size = _network_max_layer_size(nn);
+
+    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
+    tensor_copy_ip(in_out, input);
+
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        layer_feedforward(nn->layers[i], in_out);
+    }
+
+    tensor_copy_ip(out, in_out);
+
+    mga_scratch_release(scratch);
+}
+#include <stdio.h>
+void network_train(network* nn, const network_train_desc* desc) {
+    for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
+        u32 num_batches = desc->train_inputs->shape.depth / desc->batch_size;
+
+        mga_temp scratch = mga_scratch_get(NULL, 0);
+
+        for (u32 batch = 0; batch < num_batches; batch++) {
+            printf("%u / %u\r", batch, num_batches);
+
+            for (u32 i = 0; i < desc->batch_size; i++) {
+                u64 index = (u64)i + (u64)batch * desc->batch_size;
+
+                tensor input_view = { 0 };
+                tensor output_view = { 0 };
+                tensor_2d_view(&input_view, desc->train_inputs, index);
+                tensor_2d_view(&output_view, desc->train_outputs, index);
+
+                u64 max_layer_size = _network_max_layer_size(nn);
+
+                tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
+                tensor_copy_ip(in_out, &input_view);
+                tensor* output = tensor_copy(scratch.arena, &output_view, false);
+
+                for (u32 i = 0; i < nn->num_layers; i++) {
+                    layer_feedforward(nn->layers[i], in_out);
+                }
+
+                // delta is also max_layer_size because of keep_alloc
+                tensor* delta = tensor_copy(scratch.arena, in_out, true);
+                cost_grad(desc->cost, in_out, output);
+
+                for (i64 i = nn->num_layers - 1; i >= 0; i--) {
+                    layer_backprop(nn->layers[i], delta);
+                }
+
+                // Reset arena
+                mga_temp_end(scratch);
+            }
+
+            for (u32 i = 0; i < nn->num_layers; i++) {
+                layer_apply_changes(nn->layers[i], desc->batch_size);
+            }
+        }
+
+        mga_scratch_release(scratch);
+    }
+}
+
+static u64 _network_max_layer_size(const network* nn) {
     u64 max_layer_size = 0;
     for (u32 i = 0; i < nn->num_layers; i++) {
         tensor_shape s1 = nn->layers[i]->input_shape;
@@ -29,19 +96,6 @@ void network_feedforward(network* nn, tensor* out, const tensor* input) {
         }
     }
 
-    mga_temp scratch = mga_scratch_get(NULL, 0);
-
-    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
-    tensor_copy_ip(in_out, input);
-
-    for (u32 i =0; i < nn->num_layers; i++) {
-        layer_feedforward(nn->layers[i], in_out);
-    }
-
-    tensor_copy_ip(out, in_out);
-
-    mga_scratch_release(scratch);
-}
-void network_train(network* nn, const network_train_desc* desc) {
+    return max_layer_size;
 }
 

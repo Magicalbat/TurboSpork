@@ -31,6 +31,11 @@ int main(void) {
     mga_scratch_set_desc(&desc);
     mg_arena* perm_arena = mga_create(&desc);
 
+    tensor_list mnist = tensor_list_load(perm_arena, STR8("data/mnist.tpt"));
+    tensor* train_imgs = tensor_list_get(&mnist, STR8("training_images"));
+    tensor* train_labels = tensor_list_get(&mnist, STR8("training_labels"));
+
+    #if 0
     // Just zeros and ones
     tensor* easy_train_imgs = NULL;
     tensor* easy_train_labels = NULL;
@@ -68,12 +73,13 @@ int main(void) {
 
         mga_scratch_release(scratch);
     }
+#endif
 
     // Initial memory is not used
     tensor* img = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
     tensor* label = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
-    tensor_2d_view(img, easy_train_imgs, 0);
-    tensor_2d_view(label, easy_train_labels, 0);
+    tensor_2d_view(img, train_imgs, 0);
+    tensor_2d_view(label, train_labels, 0);
 
     b32 training_mode = true;
     layer_desc layer_descs[] = {
@@ -113,6 +119,36 @@ int main(void) {
     network* nn = network_create(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs);
 
     tensor* in_out = tensor_copy(perm_arena, img, false);
+
+    network_feedforward(nn, in_out, in_out);
+    
+    printf("[ ");
+    for (u32 i = 0; i < 10; i++) {
+        printf("%f ", in_out->data[i]);
+    }
+    printf("]\n");
+    
+
+
+    network_train_desc train_desc = {
+        .epochs = 2,
+        .batch_size = 20,
+
+        .cost = COST_QUADRATIC,
+        .optim_desc = (optimizer_desc){
+            .type = OPTIMIZER_SGD,
+            .learning_rate = 0.05,
+        },
+        
+        .train_inputs = train_imgs,
+        .train_outputs = train_labels,
+
+        .accuracy_test = false
+    };
+    network_train(nn, &train_desc);
+    printf("\n");
+
+    in_out = tensor_copy(perm_arena, img, false);
 
     network_feedforward(nn, in_out, in_out);
 

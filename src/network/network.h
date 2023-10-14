@@ -18,6 +18,7 @@ typedef struct {
     u32 epochs;
     u32 batch_size;
 
+    cost_type cost;
     optimizer_desc optim_desc;
 
     tensor* train_inputs;
