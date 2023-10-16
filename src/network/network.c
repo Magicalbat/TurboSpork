@@ -1,5 +1,7 @@
 #include "network.h"
 
+#include <stdio.h>
+
 static u64 _network_max_layer_size(const network* nn);
 
 network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs) {
@@ -30,7 +32,6 @@ void network_feedforward(network* nn, tensor* out, const tensor* input) {
 
     mga_scratch_release(scratch);
 }
-#include <stdio.h>
 void network_train(network* nn, const network_train_desc* desc) {
     for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
         u32 num_batches = desc->train_inputs->shape.depth / desc->batch_size;
@@ -60,7 +61,7 @@ void network_train(network* nn, const network_train_desc* desc) {
 
                 // delta is also max_layer_size because of keep_alloc
                 tensor* delta = tensor_copy(scratch.arena, in_out, true);
-                cost_grad(desc->cost, in_out, output);
+                cost_grad(desc->cost, delta, output);
 
                 for (i64 i = nn->num_layers - 1; i >= 0; i--) {
                     layer_backprop(nn->layers[i], delta);

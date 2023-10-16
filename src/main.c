@@ -18,6 +18,13 @@
 #define MNIST_DIGIT_HEIGHT 28
 void draw_mnist_digit(const tensor* digit);
 
+typedef struct {
+    tensor* train_imgs;
+    tensor* train_labels;
+    tensor* test_imgs;
+    tensor* test_labels;
+} dataset;
+
 void mga_on_error(mga_error err) {
     fprintf(stderr, "MGA Error %u: %s\n", err.code, err.msg);
 }
@@ -31,31 +38,38 @@ int main(void) {
     mga_scratch_set_desc(&desc);
     mg_arena* perm_arena = mga_create(&desc);
 
-    tensor_list mnist = tensor_list_load(perm_arena, STR8("data/mnist.tpt"));
-    tensor* train_imgs = tensor_list_get(&mnist, STR8("training_images"));
-    tensor* train_labels = tensor_list_get(&mnist, STR8("training_labels"));
+    dataset data = { 0 };
 
-    #if 0
+#if 0
+
+    tensor_list mnist = tensor_list_load(perm_arena, STR8("data/mnist.tpt"));
+    data.train_imgs = tensor_list_get(&mnist, STR8("training_images"));
+    data.train_labels = tensor_list_get(&mnist, STR8("training_labels"));
+    data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
+    data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
+
+#else 
+
     // Just zeros and ones
-    tensor* easy_train_imgs = NULL;
-    tensor* easy_train_labels = NULL;
     {
         mga_temp scratch = mga_scratch_get(NULL, 0);
         
         tensor_list mnist = tensor_list_load(scratch.arena, STR8("data/mnist.tpt"));
         tensor* train_imgs = tensor_list_get(&mnist, STR8("training_images"));
         tensor* train_labels = tensor_list_get(&mnist, STR8("training_labels"));
+        tensor* test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
+        tensor* test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
 
-        u32 easy_size = 0;
+        u32 train_size = 0;
         for (u32 i = 0; i < train_imgs->shape.depth; i++) {
             u32 j = i * train_labels->shape.width;
             if (train_labels->data[j] == 1.0f || train_labels->data[j + 1] == 1.0f) {
-                easy_size += 1.0f;
+                train_size += 1.0f;
             }
         }
 
-        easy_train_imgs = tensor_create(perm_arena, (tensor_shape){ train_imgs->shape.width, 1, easy_size });
-        easy_train_labels = tensor_create(perm_arena, (tensor_shape){ train_labels->shape.width, 1, easy_size });
+        data.train_imgs = tensor_create(perm_arena, (tensor_shape){ train_imgs->shape.width, 1, train_size });
+        data.train_labels = tensor_create(perm_arena, (tensor_shape){ train_labels->shape.width, 1, train_size });
 
         u64 imgs_i = 0;
         u64 labels_i = 0;
@@ -63,11 +77,36 @@ int main(void) {
         for (u64 i = 0; i < train_imgs->shape.depth; i++) {
             u64 j = i * train_labels->shape.width;
             if (train_labels->data[j] == 1.0f || train_labels->data[j + 1] == 1.0f) {
-                memcpy(&easy_train_imgs->data[imgs_i], &train_imgs->data[i * train_imgs->shape.width], sizeof(f32) * train_imgs->shape.width);
-                memcpy(&easy_train_labels->data[labels_i], &train_labels->data[i * train_labels->shape.width], sizeof(f32) * train_labels->shape.width);
+                memcpy(&data.train_imgs->data[imgs_i], &train_imgs->data[i * train_imgs->shape.width], sizeof(f32) * train_imgs->shape.width);
+                memcpy(&data.train_labels->data[labels_i], &train_labels->data[i * train_labels->shape.width], sizeof(f32) * train_labels->shape.width);
 
                 imgs_i += train_imgs->shape.width;
                 labels_i += train_labels->shape.width;
+            }
+        }
+
+        u32 test_size = 0;
+        for (u32 i = 0; i < test_imgs->shape.depth; i++) {
+            u32 j = i * test_labels->shape.width;
+            if (test_labels->data[j] == 1.0f || test_labels->data[j + 1] == 1.0f) {
+                test_size += 1.0f;
+            }
+        }
+
+        data.test_imgs = tensor_create(perm_arena, (tensor_shape){ test_imgs->shape.width, 1, test_size });
+        data.test_labels = tensor_create(perm_arena, (tensor_shape){ test_labels->shape.width, 1, test_size });
+
+        imgs_i = 0;
+        labels_i = 0;
+
+        for (u64 i = 0; i < test_imgs->shape.depth; i++) {
+            u64 j = i * test_labels->shape.width;
+            if (test_labels->data[j] == 1.0f || test_labels->data[j + 1] == 1.0f) {
+                memcpy(&data.test_imgs->data[imgs_i], &test_imgs->data[i * test_imgs->shape.width], sizeof(f32) * test_imgs->shape.width);
+                memcpy(&data.test_labels->data[labels_i], &test_labels->data[i * test_labels->shape.width], sizeof(f32) * test_labels->shape.width);
+
+                imgs_i += test_imgs->shape.width;
+                labels_i += test_labels->shape.width;
             }
         }
 
@@ -78,8 +117,8 @@ int main(void) {
     // Initial memory is not used
     tensor* img = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
     tensor* label = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
-    tensor_2d_view(img, train_imgs, 0);
-    tensor_2d_view(label, train_labels, 0);
+    tensor_2d_view(img, data.train_imgs, 0);
+    tensor_2d_view(label, data.train_labels, 0);
 
     b32 training_mode = true;
     layer_desc layer_descs[] = {
@@ -127,11 +166,9 @@ int main(void) {
         printf("%f ", in_out->data[i]);
     }
     printf("]\n");
-    
-
 
     network_train_desc train_desc = {
-        .epochs = 2,
+        .epochs = 3,
         .batch_size = 20,
 
         .cost = COST_QUADRATIC,
@@ -140,8 +177,8 @@ int main(void) {
             .learning_rate = 0.05,
         },
         
-        .train_inputs = train_imgs,
-        .train_outputs = train_labels,
+        .train_inputs = data.train_imgs,
+        .train_outputs = data.train_labels,
 
         .accuracy_test = false
     };
@@ -157,6 +194,26 @@ int main(void) {
         printf("%f ", in_out->data[i]);
     }
     printf("]\n");
+
+    // test accuracy
+    {
+        u32 num_correct = 0;
+        tensor* out = tensor_create(perm_arena, (tensor_shape){ 10, 1, 1 });
+        tensor view = { 0 };
+
+        for (u32 i = 0; i < data.test_imgs->shape.depth; i++) {
+            tensor_2d_view(&view, data.test_imgs, i);
+
+            network_feedforward(nn, out, &view);
+
+            tensor_2d_view(&view, data.test_labels, i);
+            if (tensor_argmax(out).x == tensor_argmax(&view).x) {
+                num_correct += 1;
+            }
+        }
+
+        printf("accuracy: %f\n", (f32)num_correct / data.test_imgs->shape.depth);
+    }
     
     mga_destroy(perm_arena);
 

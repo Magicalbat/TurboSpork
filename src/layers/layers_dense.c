@@ -85,7 +85,7 @@ void _layer_dense_apply_changes(layer* l, u32 batch_size) {
     layer_dense_backend* dense = &l->dense_backend;
 
     // TODO: make work with optimizer
-    f32 learning_rate = 0.2f;
+    f32 learning_rate = 0.05f;
 
     tensor_scale_ip(dense->weight_change, dense->weight_change, learning_rate / (f32)batch_size);
     tensor_scale_ip(dense->bias_change, dense->bias_change, learning_rate / (f32)batch_size);
