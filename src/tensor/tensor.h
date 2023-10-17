@@ -62,6 +62,8 @@ void tensor_fill(tensor* tensor, f32 num);
 
 tensor_index tensor_argmax(const tensor* t);
 
+b32 tensor_is_zero(const tensor* t);
+
 // Indices work like substring (inclusive start, exclusive end)
 tensor* tensor_slice(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_index end);
 tensor* tensor_slice_size(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_shape shape);

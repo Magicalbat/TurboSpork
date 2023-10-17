@@ -1,6 +1,7 @@
 #include "optimizers.h"
 
 #include <stdio.h>
+#include <math.h>
 
 void param_change_create(mg_arena* arena, param_change* out, tensor_shape shape) {
     out->change = tensor_create(arena, shape);
@@ -61,14 +62,30 @@ void _rms_prop_param_update(const optimizer* optim, tensor* param, param_change*
     tensor_scale_ip(change->change, change->change, 1.0f / (f32)optim->_batch_size);
     tensor* real_change = tensor_copy(scratch.arena, change->change, false);
 
-    // S_t = beta * S_t-1 + (1 - beta) * d^2
-    tensor_scale_ip(change->_S, change->_S, beta);
-    tensor_component_mul_ip(change->change, change->change, change->change);
-    tensor_scale_ip(change->change, change->change, 1.0f - beta);
-    tensor_add_ip(change->_S, change->_S, change->change);
+    /*if (param->shape.width == 10 && param->shape.height == 1) {
+        printf("[ ");
+        for (u32 i = 0; i < 10; i++) {
+            printf("%f ", change->change->data[i]);
+        }
+        printf("]\n");
+    }*/
+
+    if (tensor_is_zero(change->_S)) {
+        // S_0 = d^2
+        tensor_component_mul_ip(change->change, change->change, change->change);
+        tensor_copy_ip(change->_S, change->change);
+
+    } else {
+        // S_t = beta * S_t-1 + (1 - beta) * d^2
+        tensor_scale_ip(change->_S, change->_S, beta);
+        tensor_component_mul_ip(change->change, change->change, change->change);
+        tensor_scale_ip(change->change, change->change, 1.0f - beta);
+        tensor_add_ip(change->_S, change->_S, change->change);
+    }
 
     // param = param - (learning_rate / sqrt(S + epsilon)) * dW
     tensor* sqrt_S = tensor_copy(scratch.arena, change->_S, false);
+
     u64 size = (u64)sqrt_S->shape.width * sqrt_S->shape.height * sqrt_S->shape.depth;
     for (u64 i = 0; i < size; i++) {
         sqrt_S->data[i] += epsilon;
@@ -78,9 +95,54 @@ void _rms_prop_param_update(const optimizer* optim, tensor* param, param_change*
     tensor_component_div_ip(real_change, real_change, sqrt_S);
     tensor_scale_ip(real_change, real_change, optim->learning_rate);
 
+    /*if (param->shape.width == 10 && param->shape.height == 1) {
+        printf("[ ");
+        for (u32 i = 0; i < 10; i++) {
+            printf("%f ", real_change->data[i]);
+        }
+        printf("]\n\n\n");
+    }*/
+
     tensor_sub_ip(param, param, real_change);
 
     mga_scratch_release(scratch);
 }
 void _adam_param_update(const optimizer* optim, tensor* param, param_change* change) {
+    optimizer_adam adam = optim->adam;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    // Averaging change over batch 
+    tensor_scale_ip(change->change, change->change, 1.0f / (f32)optim->_batch_size);
+    tensor* real_change = tensor_copy(scratch.arena, change->change, false);
+
+    // V_t = beta * V_t-1 + (1 - beta) * d
+    tensor_scale_ip(change->_V, change->_V, adam.beta1);
+    tensor_scale_ip(change->change, change->change, 1.0f - adam.beta1);
+    tensor_add_ip(change->_V, change->_V, change->change);
+
+    // Putting original change back in change->change
+    tensor_copy_ip(change->change, real_change);
+
+    // S_t = beta * S_t-1 + (1 - beta) * d^2
+    tensor_scale_ip(change->_S, change->_S, adam.beta2);
+    tensor_component_mul_ip(change->change, change->change, change->change);
+    tensor_scale_ip(change->change, change->change, 1.0f - adam.beta2);
+    tensor_add_ip(change->_S, change->_S, change->change);
+
+    // param = param - (learning_rate / sqrt(S + epsilon)) * V
+    tensor* sqrt_S = tensor_copy(scratch.arena, change->_S, false);
+    u64 size = (u64)sqrt_S->shape.width * sqrt_S->shape.height * sqrt_S->shape.depth;
+    for (u64 i = 0; i < size; i++) {
+        sqrt_S->data[i] = sqrtf(sqrt_S->data[i] + adam.epsilon);
+    }
+
+    tensor_copy_ip(real_change, change->_V);
+
+    tensor_component_div_ip(real_change, real_change, sqrt_S);
+    tensor_scale_ip(real_change, real_change, optim->learning_rate);
+
+    tensor_sub_ip(param, param, real_change);
+
+    mga_scratch_release(scratch);
 }

@@ -96,6 +96,20 @@ tensor_index tensor_argmax(const tensor* t) {
     return max_index;
 }
 
+b32 tensor_is_zero(const tensor* t) {
+    b32 is_zero = true;
+
+    u64 size = (u64)t->shape.width * t->shape.height * t->shape.depth;
+    for (u64 i = 0; i < size; i++) {
+        if (t->data[i] != 0.0f) {
+            is_zero = false;
+            break;
+        }
+    }
+
+    return is_zero;
+}
+
 tensor* tensor_slice(mg_arena* arena, const tensor* t, tensor_index start, tensor_index end) {
     if (end.x > t->shape.width || end.y > t->shape.height || end.z > t->shape.depth) {
         fprintf(stderr, "Cannot create slice past end of tensor\n");
