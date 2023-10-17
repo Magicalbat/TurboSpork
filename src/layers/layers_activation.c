@@ -59,7 +59,9 @@ void _layer_activation_feedforward(layer* l, tensor* in_out) {
 void _layer_activation_backprop(layer* l, tensor* delta) {
     layer_activation_backend* activ = &l->activation_backend;
 
-    _activations[activ->type].grad(delta);
+    _activations[activ->type].grad(l->prev_input);
+
+    tensor_component_mul_ip(delta, delta, l->prev_input);
 }
 void _layer_activation_apply_changes(layer* l, u32 batch_size) {
     UNUSED(l);

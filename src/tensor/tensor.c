@@ -272,8 +272,8 @@ void tensor_transpose(tensor* t) {
     f32* orig_data = MGA_PUSH_ARRAY(scratch.arena, f32, data_size);
     memcpy(orig_data, t->data, sizeof(f32) * data_size);
 
-    for (u32 y = 0; y < t->shape.height; y++) {
-        for (u32 x = 0; x < t->shape.width; x++) {
+    for (u64 y = 0; y < t->shape.height; y++) {
+        for (u64 x = 0; x < t->shape.width; x++) {
             t->data[x + y * t->shape.width] = orig_data[y + x * orig_width];
         }
     }

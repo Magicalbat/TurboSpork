@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
 // TODO: replace with more official version
 // https://en.wikipedia.org/wiki/Box–Muller_transform
 f32 _standard_normal() {
@@ -40,8 +39,7 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc) {
 
     dense->bias = tensor_create(arena, bias_shape);
     dense->weight = tensor_create(arena, weight_shape);
-
-    if (out->training_mode) {
+if (out->training_mode) {
         dense->bias_change = tensor_create(arena, bias_shape);
         dense->weight_change = tensor_create(arena, weight_shape);
     }
@@ -69,12 +67,10 @@ void _layer_dense_backprop(layer* l, tensor* delta) {
     tensor_add_ip(dense->bias_change, dense->bias_change, delta);
 
     // Weight change is previous input dotted with delta
-    // weight_change -= dot(prev_input, delta)
+    // weight_change += dot(prev_input, delta)
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    if (l->prev_input->shape.width != 1) {
-        tensor_transpose(l->prev_input);
-    }
+    tensor_transpose(l->prev_input);
     tensor* cur_weight_change = tensor_dot(scratch.arena, l->prev_input, delta);
     tensor_add_ip(dense->weight_change, dense->weight_change, cur_weight_change);
 
@@ -95,9 +91,10 @@ void _layer_dense_apply_changes(layer* l, u32 batch_size) {
     layer_dense_backend* dense = &l->dense_backend;
 
     // TODO: make work with optimizer
-    f32 learning_rate = 0.05f;
+    f32 learning_rate = 0.02f;
 
-    tensor_scale_ip(dense->weight_change, dense->weight_change, learning_rate / (f32)batch_size); tensor_scale_ip(dense->bias_change, dense->bias_change, learning_rate / (f32)batch_size);
+    tensor_scale_ip(dense->weight_change, dense->weight_change, learning_rate / (f32)batch_size);
+    tensor_scale_ip(dense->bias_change, dense->bias_change, learning_rate / (f32)batch_size);
 
     tensor_sub_ip(dense->weight, dense->weight, dense->weight_change);
     tensor_sub_ip(dense->bias, dense->bias, dense->bias_change);

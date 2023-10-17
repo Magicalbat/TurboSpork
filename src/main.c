@@ -127,22 +127,22 @@ int main(void) {
             .training_mode = training_mode,
             .dense = (layer_dense_desc){
                 .in_size = 784,
-                .out_size = 30
+                .out_size = 64
             }
         },
         (layer_desc){
             .type = LAYER_ACTIVATION,
             .training_mode = training_mode,
             .activation = (layer_activation_desc) {
-                .type = ACTIVATION_SIGMOID,
-                .shape = (tensor_shape){ 30, 1, 1 }
+                .type = ACTIVATION_RELU,
+                .shape = (tensor_shape){ 64, 1, 1 }
             }
         },
         (layer_desc){
             .type = LAYER_DENSE,
             .training_mode = training_mode,
             .dense = (layer_dense_desc){
-                .in_size = 30,
+                .in_size = 64,
                 .out_size = 10
             }
         },
@@ -150,7 +150,7 @@ int main(void) {
             .type = LAYER_ACTIVATION,
             .training_mode = training_mode,
             .activation = (layer_activation_desc) {
-                .type = ACTIVATION_SIGMOID,
+                .type = ACTIVATION_SOFTMAX,
                 .shape = (tensor_shape){ 10, 1, 1 }
             }
         },
@@ -168,8 +168,8 @@ int main(void) {
     printf("]\n");
 
     network_train_desc train_desc = {
-        .epochs = 5,
-        .batch_size = 10,
+        .epochs = 10,
+        .batch_size = 50,
 
         .cost = COST_QUADRATIC,
         .optim_desc = (optimizer_desc){
