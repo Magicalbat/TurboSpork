@@ -39,7 +39,7 @@ void network_train(network* nn, const network_train_desc* desc) {
         mga_temp scratch = mga_scratch_get(NULL, 0);
 
         for (u32 batch = 0; batch < num_batches; batch++) {
-            printf("%u / %u\r", batch, num_batches);
+            printf("%u / %u\r", batch + 1, num_batches);
 
             for (u32 i = 0; i < desc->batch_size; i++) {
                 u64 index = (u64)i + (u64)batch * desc->batch_size;
@@ -75,6 +75,8 @@ void network_train(network* nn, const network_train_desc* desc) {
                 layer_apply_changes(nn->layers[i], desc->batch_size);
             }
         }
+
+        printf("\n");
 
         mga_scratch_release(scratch);
     }

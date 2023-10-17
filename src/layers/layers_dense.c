@@ -5,6 +5,27 @@
 #include <stdlib.h>
 #include <math.h>
 
+// TODO: replace with more official version
+// https://en.wikipedia.org/wiki/Box–Muller_transform
+f32 _standard_normal() {
+    f32 epsilon = 1e-6;
+    f32 two_pi = 2.0 * 3.141592653f;
+
+    f32 u1 = epsilon;
+    f32 u2 = 0.0f;
+
+    do {
+        u1 = ((f32)rand() / (f32)RAND_MAX) * 2.0f - 1.0f;
+    } while (u1 <= epsilon);
+    u2 = ((f32)rand() / (f32)RAND_MAX) * 2.0f - 1.0f;
+
+    f32 mag = sqrtf(-2.0f * logf(u1));
+    f32 z0 = mag * cos(two_pi * u2);
+    //f32 z1 = mag * sin(two_pi * u2);
+
+    return z0;
+}
+
 void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc) {
     u32 in_size = desc->dense.in_size;
     u32 out_size = desc->dense.out_size;
@@ -30,7 +51,8 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc) {
     f32 weight_scale = 1.0f / sqrtf(out_size);
     u64 weight_size = (u64)weight_shape.width * weight_shape.height * weight_shape.depth;
     for (u64 i = 0; i < weight_size; i++) {
-        dense->weight->data[i] = ((f32)rand() / (f32)RAND_MAX) * 2.0f - 1.0f;
+        //dense->weight->data[i] = ((f32)rand() / (f32)RAND_MAX) * 2.0f - 1.0f;
+        dense->weight->data[i] = _standard_normal();
         dense->weight->data[i] *= weight_scale;
     }
 }
@@ -47,13 +69,7 @@ void _layer_dense_backprop(layer* l, tensor* delta) {
     tensor_add_ip(dense->bias_change, dense->bias_change, delta);
 
     // Weight change is previous input dotted with delta
-    /*
-        delta is shape (out, 1)
-        prev input is shape (in, 1)
-        weight is shape (out, in)
-
-        weight_change -= dot(prev_input, delta)
-    */
+    // weight_change -= dot(prev_input, delta)
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     if (l->prev_input->shape.width != 1) {
@@ -65,13 +81,7 @@ void _layer_dense_backprop(layer* l, tensor* delta) {
     mga_scratch_release(scratch);
 
     // Delta is updated by weight
-    /*
-        delta is shape (out, 1)
-        weight is shape (out, in)
-        output delta is shape (in, 1)
-
-        delta = dot(delta, transpose(weight))
-    */
+    // delta = dot(delta, transpose(weight))
 
     // TODO: benchmark double transpose vs caching
 
@@ -87,8 +97,7 @@ void _layer_dense_apply_changes(layer* l, u32 batch_size) {
     // TODO: make work with optimizer
     f32 learning_rate = 0.05f;
 
-    tensor_scale_ip(dense->weight_change, dense->weight_change, learning_rate / (f32)batch_size);
-    tensor_scale_ip(dense->bias_change, dense->bias_change, learning_rate / (f32)batch_size);
+    tensor_scale_ip(dense->weight_change, dense->weight_change, learning_rate / (f32)batch_size); tensor_scale_ip(dense->bias_change, dense->bias_change, learning_rate / (f32)batch_size);
 
     tensor_sub_ip(dense->weight, dense->weight, dense->weight_change);
     tensor_sub_ip(dense->bias, dense->bias, dense->bias_change);
