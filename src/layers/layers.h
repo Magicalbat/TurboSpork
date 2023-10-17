@@ -5,6 +5,7 @@
 
 #include "base/base.h"
 #include "tensor/tensor.h"
+#include "optimizers/optimizers.h"
 
 typedef enum {
     LAYER_NULL = 0,
@@ -52,8 +53,8 @@ typedef struct {
     tensor* bias;
 
     // Training mode
-    tensor* weight_change;
-    tensor* bias_change;
+    param_change weight_change;
+    param_change bias_change;
 } layer_dense_backend;
 
 typedef struct {
@@ -81,7 +82,7 @@ typedef struct {
 layer* layer_create(mg_arena* arena, const layer_desc* desc);
 void layer_feedforward(layer* l, tensor* in_out); 
 void layer_backprop(layer* l, tensor* delta);
-void layer_apply_changes(layer* l, u32 batch_size);
+void layer_apply_changes(layer* l, const optimizer* optim);
 
 #endif // LAYERS_H
 

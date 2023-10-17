@@ -80,12 +80,14 @@ b32 tensor_sub_ip(tensor* out, const tensor* a, const tensor* b);
 b32 tensor_component_mul_ip(tensor* out, const tensor* a, const tensor* b);
 b32 tensor_component_div_ip(tensor* out, const tensor* a, const tensor* b);
 b32 tensor_scale_ip(tensor* out, const tensor* t, f32 s);
+b32 tensor_sqrt_ip(tensor* out, const tensor* t);
 
 tensor* tensor_add(mg_arena* arena, const tensor* a, const tensor* b);
 tensor* tensor_sub(mg_arena* arena, const tensor* a, const tensor* b);
 tensor* tensor_component_mul(mg_arena* arena, const tensor* a, const tensor* b);
 tensor* tensor_component_div(mg_arena* arena, const tensor* a, const tensor* b);
 tensor* tensor_scale(mg_arena* arena, const tensor* t, f32 s);
+tensor* tensor_sqrt(mg_arena* arena, const tensor* t);
 
 void tensor_list_push_existing(tensor_list* list, tensor* tensor, string8 name, tensor_node* node);
 void tensor_list_push(mg_arena* arena, tensor_list* list, tensor* tensor, string8 name);

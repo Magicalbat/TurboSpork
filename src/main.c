@@ -168,13 +168,20 @@ int main(void) {
     printf("]\n");
 
     network_train_desc train_desc = {
-        .epochs = 10,
-        .batch_size = 50,
+        .epochs = 5,
+        .batch_size = 20,
 
         .cost = COST_QUADRATIC,
-        .optim_desc = (optimizer_desc){
-            .type = OPTIMIZER_SGD,
-            .learning_rate = 0.05,
+        .optim = (optimizer){
+            .type = OPTIMIZER_RMS_PROP,
+            .learning_rate = 0.05f,
+
+            //.sgd.momentum = 0.9f,
+
+            .rms_prop = (optimizer_rms_prop){ 
+                .beta = 0.99f,
+                .epsilon = 1e-10f
+            }
         },
         
         .train_inputs = data.train_imgs,

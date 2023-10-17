@@ -56,13 +56,13 @@ void layer_backprop(layer* l, tensor* delta) {
 
     layer_funcs[l->type].backprop(l, delta);
 }
-void layer_apply_changes(layer* l, u32 batch_size) {
+void layer_apply_changes(layer* l, const optimizer* optim) {
     if (l->type >= LAYER_COUNT) {
         fprintf(stderr, "Cannot feedforward layer: invalid type\n");
         return;
     }
 
-    layer_funcs[l->type].apply_changes(l, batch_size);
+    layer_funcs[l->type].apply_changes(l, optim);
 }
 
 void _layer_null_create(mg_arena* arena, layer* out, const layer_desc* desc) {
@@ -78,8 +78,8 @@ void _layer_null_backprop(layer* l, tensor* delta) {
     UNUSED(l);
     UNUSED(delta);
 }
-void _layer_null_apply_changes(layer* l, u32 batch_size) {
+void _layer_null_apply_changes(layer* l, const optimizer* optim) {
     UNUSED(l);
-    UNUSED(batch_size);
+    UNUSED(optim);
 }
 

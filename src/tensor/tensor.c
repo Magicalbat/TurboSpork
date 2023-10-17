@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 b32 tensor_shape_eq(tensor_shape a, tensor_shape b) {
     return a.width == b.width && a.height == b.height && a.depth == b.depth;
@@ -390,6 +391,23 @@ b32 tensor_scale_ip(tensor* out, const tensor* t, f32 s) {
 
     return true;
 }
+b32 tensor_sqrt_ip(tensor* out, const tensor* t) {
+    u64 data_size = (u64)t->shape.width * t->shape.height * t->shape.depth;
+    if (out->alloc < data_size) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot sqrt tensor: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    out->shape = t->shape;
+    for (u64 i = 0; i < data_size; i++) {
+        out->data[i] = sqrtf(t->data[i]);
+    }
+
+    return true;
+}
 
 tensor* tensor_add(mg_arena* arena, const tensor* a, const tensor* b) {
     mga_temp maybe_temp = mga_temp_begin(arena);
@@ -453,6 +471,13 @@ tensor* tensor_scale(mg_arena* arena, const tensor* t, f32 s) {
         
         out = NULL;
     }
+
+    return out;
+}
+tensor* tensor_sqrt(mg_arena* arena, const tensor* t) {
+    tensor* out = tensor_create(arena, t->shape);
+
+    tensor_sqrt_ip(out, t);
 
     return out;
 }

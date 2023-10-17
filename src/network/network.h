@@ -19,7 +19,7 @@ typedef struct {
     u32 batch_size;
 
     cost_type cost;
-    optimizer_desc optim_desc;
+    optimizer optim;
 
     tensor* train_inputs;
     tensor* train_outputs;

@@ -33,6 +33,9 @@ void network_feedforward(network* nn, tensor* out, const tensor* input) {
     mga_scratch_release(scratch);
 }
 void network_train(network* nn, const network_train_desc* desc) {
+    optimizer optim = desc->optim;
+    optim._batch_size = desc->batch_size;
+
     for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
         u32 num_batches = desc->train_inputs->shape.depth / desc->batch_size;
 
@@ -72,7 +75,7 @@ void network_train(network* nn, const network_train_desc* desc) {
             }
 
             for (u32 i = 0; i < nn->num_layers; i++) {
-                layer_apply_changes(nn->layers[i], desc->batch_size);
+                layer_apply_changes(nn->layers[i], &optim);
             }
         }
 

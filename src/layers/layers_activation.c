@@ -63,9 +63,9 @@ void _layer_activation_backprop(layer* l, tensor* delta) {
 
     tensor_component_mul_ip(delta, delta, l->prev_input);
 }
-void _layer_activation_apply_changes(layer* l, u32 batch_size) {
+void _layer_activation_apply_changes(layer* l, const optimizer* optim) {
     UNUSED(l);
-    UNUSED(batch_size);
+    UNUSED(optim);
 }
 
 static void _null_func(tensor* t) {
