@@ -62,14 +62,6 @@ void _rms_prop_param_update(const optimizer* optim, tensor* param, param_change*
     tensor_scale_ip(change->change, change->change, 1.0f / (f32)optim->_batch_size);
     tensor* real_change = tensor_copy(scratch.arena, change->change, false);
 
-    /*if (param->shape.width == 10 && param->shape.height == 1) {
-        printf("[ ");
-        for (u32 i = 0; i < 10; i++) {
-            printf("%f ", change->change->data[i]);
-        }
-        printf("]\n");
-    }*/
-
     if (tensor_is_zero(change->_S)) {
         // S_0 = d^2
         tensor_component_mul_ip(change->change, change->change, change->change);
@@ -94,14 +86,6 @@ void _rms_prop_param_update(const optimizer* optim, tensor* param, param_change*
 
     tensor_component_div_ip(real_change, real_change, sqrt_S);
     tensor_scale_ip(real_change, real_change, optim->learning_rate);
-
-    /*if (param->shape.width == 10 && param->shape.height == 1) {
-        printf("[ ");
-        for (u32 i = 0; i < 10; i++) {
-            printf("%f ", real_change->data[i]);
-        }
-        printf("]\n\n\n");
-    }*/
 
     tensor_sub_ip(param, param, real_change);
 
@@ -134,8 +118,9 @@ void _adam_param_update(const optimizer* optim, tensor* param, param_change* cha
     tensor* sqrt_S = tensor_copy(scratch.arena, change->_S, false);
     u64 size = (u64)sqrt_S->shape.width * sqrt_S->shape.height * sqrt_S->shape.depth;
     for (u64 i = 0; i < size; i++) {
-        sqrt_S->data[i] = sqrtf(sqrt_S->data[i] + adam.epsilon);
+        sqrt_S->data[i] += adam.epsilon;
     }
+    tensor_sqrt_ip(sqrt_S, sqrt_S);
 
     tensor_copy_ip(real_change, change->_V);
 

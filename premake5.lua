@@ -43,6 +43,7 @@ project "TurboSpork"
 
     filter "configurations:release"
         optimize "On"
+
         defines { "NDEBUG" }
 
     filter "system:windows"
@@ -51,3 +52,4 @@ project "TurboSpork"
         links {
             "gdi32", "user32", "opengl32"
         }
+

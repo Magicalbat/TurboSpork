@@ -39,7 +39,7 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc) {
 
     dense->bias = tensor_create(arena, bias_shape);
     dense->weight = tensor_create(arena, weight_shape);
-if (out->training_mode) {
+    if (out->training_mode) {
         dense->bias_change = (param_change){ 0 };
         dense->weight_change = (param_change){ 0 };
         param_change_create(arena, &dense->bias_change, bias_shape);
