@@ -1,5 +1,6 @@
 #include "network.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -35,18 +36,62 @@ void network_feedforward(network* nn, tensor* out, const tensor* input) {
 
     mga_scratch_release(scratch);
 }
+
+u32 _num_digits (u32 n) {
+    if (n < 10) return 1;
+    if (n < 100) return 2;
+    if (n < 1000) return 3;
+    if (n < 10000) return 4;
+    if (n < 100000) return 5;
+    if (n < 1000000) return 6;
+    if (n < 10000000) return 7;
+    if (n < 100000000) return 8;
+    if (n < 1000000000) return 9;
+    /*      2147483647 is 2^31-1 - add more ifs as needed
+       and adjust this final return as well. */
+    return 10;
+}
+
+#define _BAR_SIZE 20
 void network_train(network* nn, const network_train_desc* desc) {
     optimizer optim = desc->optim;
     optim._batch_size = desc->batch_size;
 
+    u8 bar_str_data[_BAR_SIZE + 1] = { 0 };
+    memset(bar_str_data, ' ', _BAR_SIZE);
+
+    u8 batch_str_data[10] = { 0 };
+
     for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
+        printf("Epoch: %u / %u\n", epoch + 1, desc->epochs);
+
         u32 num_batches = desc->train_inputs->shape.depth / desc->batch_size;
+        u32 num_batches_digits = _num_digits(num_batches);
 
         mga_temp scratch = mga_scratch_get(NULL, 0);
 
         for (u32 batch = 0; batch < num_batches; batch++) {
-            printf("%u / %u\r", batch + 1, num_batches);
+            // Progress in stdout
+            {
+                // This is so the batch number always takes up the same amount of space
+                u32 batch_digits = _num_digits(batch + 1);
+                memset(batch_str_data, ' ', 9);
+                snprintf((char*)(batch_str_data + (num_batches_digits - batch_digits)), 10, "%u", batch + 1);
+                printf("%.*s / %u  ", (int)num_batches_digits, batch_str_data, num_batches);
 
+                f32 bar_length = (f32)_BAR_SIZE * ((f32)(batch + 1) / num_batches);
+                u32 bar_chars = ceilf(bar_length);
+                memset(bar_str_data, '=', bar_chars);
+                if (batch + 1 != num_batches) {
+                    bar_str_data[bar_chars - 1] = '>';
+                }
+
+                printf("[%s]", bar_str_data);
+
+                printf("\r");
+            }
+
+            // Training batch
             for (u32 i = 0; i < desc->batch_size; i++) {
                 u64 index = (u64)i + (u64)batch * desc->batch_size;
 
@@ -83,6 +128,30 @@ void network_train(network* nn, const network_train_desc* desc) {
         }
 
         printf("\n");
+        memset(bar_str_data, ' ', _BAR_SIZE);
+
+        if (desc->accuracy_test) {
+            string8 load_anim = STR8("-\\|/");
+
+            u32 num_correct = 0;
+            tensor* out = tensor_create(scratch.arena, (tensor_shape){ 10, 1, 1 });
+            tensor view = { 0 };
+
+            for (u32 i = 0; i < desc->test_inputs->shape.depth; i++) {
+                printf("Test Accuracy: %c\r", load_anim.str[(i / 1000) % load_anim.size]);
+
+                tensor_2d_view(&view, desc->test_inputs, i);
+
+                network_feedforward(nn, out, &view);
+
+                tensor_2d_view(&view, desc->test_outputs, i);
+                if (tensor_argmax(out).x == tensor_argmax(&view).x) {
+                    num_correct += 1;
+                }
+            }
+
+            printf("Test Accuracy: %f\n", (f32)num_correct / desc->test_inputs->shape.depth);
+        }
 
         mga_scratch_release(scratch);
     }

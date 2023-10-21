@@ -7,7 +7,7 @@ static const char* _layer_names[LAYER_COUNT] = {
     [LAYER_NULL] = "null",
     [LAYER_INPUT] = "input",
     [LAYER_DENSE] = "dense",
-    [LAYER_ACTIVATION] = "activation"
+    [LAYER_ACTIVATION] = "activation",
 };
 
 string8 layer_get_name(layer_type type) {

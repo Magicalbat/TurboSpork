@@ -187,7 +187,9 @@ int main(void) {
         .train_inputs = data.train_imgs,
         .train_outputs = data.train_labels,
 
-        .accuracy_test = false
+        .accuracy_test = true,
+        .test_inputs = data.test_imgs,
+        .test_outputs = data.test_labels
     };
     network_train(nn, &train_desc);
     printf("\n");
