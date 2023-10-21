@@ -33,13 +33,12 @@ static _activation _activations[ACTIVATION_COUNT] = {
     [ACTIVATION_SOFTMAX] = { _softmax_func, _softmax_grad },
 };
 
-void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* desc) {
+void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
     UNUSED(arena);
 
     layer_activation_backend* activ = &out->activation_backend;
 
     activ->type = desc->activation.type;
-    tensor_shape shape = desc->activation.shape;;
 
     if (activ->type >= ACTIVATION_COUNT) {
         fprintf(stderr, "Invalid activation type\n");
@@ -47,9 +46,7 @@ void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* des
         activ->type = ACTIVATION_NULL;
     }
 
-
-    out->input_shape = shape;
-    out->output_shape = shape;
+    out->shape = prev_shape;
 }
 void _layer_activation_feedforward(layer* l, tensor* in_out) {
     layer_activation_backend* activ = &l->activation_backend;
@@ -62,10 +59,6 @@ void _layer_activation_backprop(layer* l, tensor* delta) {
     _activations[activ->type].grad(l->prev_input);
 
     tensor_component_mul_ip(delta, delta, l->prev_input);
-}
-void _layer_activation_apply_changes(layer* l, const optimizer* optim) {
-    UNUSED(l);
-    UNUSED(optim);
 }
 
 static void _null_func(tensor* t) {

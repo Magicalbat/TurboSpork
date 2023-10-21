@@ -9,6 +9,7 @@
 
 typedef enum {
     LAYER_NULL = 0,
+    LAYER_INPUT,
     LAYER_DENSE,
     LAYER_ACTIVATION,
 
@@ -27,14 +28,16 @@ typedef enum {
 } layer_activation_type;
 
 typedef struct {
-    u32 in_size;
-    u32 out_size;
+    tensor_shape shape;
+} layer_input_desc;
+
+typedef struct {
+    u32 size;
 
     // TODO: weight initialization options
 } layer_dense_desc;
 
 typedef struct {
-    tensor_shape shape;
     layer_activation_type type;
 } layer_activation_desc;
 
@@ -43,6 +46,7 @@ typedef struct {
     b32 training_mode;
 
     union {
+        layer_input_desc input;
         layer_dense_desc dense;
         layer_activation_desc activation;
     };
@@ -69,9 +73,8 @@ typedef struct {
     // Training mode
     tensor* prev_input;
 
-    // Layers need to initialize the rest
-    tensor_shape input_shape;
-    tensor_shape output_shape;
+    // Should be set by layer
+    tensor_shape shape;
 
     union {
         layer_dense_backend dense_backend;
@@ -79,7 +82,10 @@ typedef struct {
     };
 } layer;
 
-layer* layer_create(mg_arena* arena, const layer_desc* desc);
+string8 layer_get_name(layer_type type);
+layer_type layer_from_name(string8 name);
+
+layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_shape);
 void layer_feedforward(layer* l, tensor* in_out); 
 void layer_backprop(layer* l, tensor* delta);
 void layer_apply_changes(layer* l, const optimizer* optim);

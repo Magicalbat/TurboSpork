@@ -123,39 +123,33 @@ int main(void) {
     b32 training_mode = true;
     layer_desc layer_descs[] = {
         (layer_desc){
-            .type = LAYER_DENSE,
-            .training_mode = training_mode,
-            .dense = (layer_dense_desc){
-                .in_size = 784,
-                .out_size = 64
-            }
-        },
-        (layer_desc){
-            .type = LAYER_ACTIVATION,
-            .training_mode = training_mode,
-            .activation = (layer_activation_desc) {
-                .type = ACTIVATION_RELU,
-                .shape = (tensor_shape){ 64, 1, 1 }
-            }
+            .type = LAYER_INPUT,
+            .input.shape = (tensor_shape){ 784, 1, 1 }
         },
         (layer_desc){
             .type = LAYER_DENSE,
             .training_mode = training_mode,
-            .dense = (layer_dense_desc){
-                .in_size = 64,
-                .out_size = 10
-            }
+            .dense.size = 64
         },
         (layer_desc){
             .type = LAYER_ACTIVATION,
             .training_mode = training_mode,
-            .activation = (layer_activation_desc) {
-                .type = ACTIVATION_SOFTMAX,
-                .shape = (tensor_shape){ 10, 1, 1 }
-            }
+            .activation.type = ACTIVATION_RELU,
+        },
+        (layer_desc){
+            .type = LAYER_DENSE,
+            .training_mode = training_mode,
+            .dense.size = 10
+        },
+        (layer_desc){
+            .type = LAYER_ACTIVATION,
+            .training_mode = training_mode,
+            .activation.type = ACTIVATION_SOFTMAX,
         },
     };
     network* nn = network_create(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs);
+
+    network_summary(nn);
 
     tensor* in_out = tensor_copy(perm_arena, img, false);
 

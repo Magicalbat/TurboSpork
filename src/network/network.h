@@ -33,5 +33,8 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
 void network_feedforward(network* nn, tensor* out, const tensor* input);
 void network_train(network* nn, const network_train_desc* desc);
 
+// Prints the network summary to stdout
+void network_summary(const network* nn);
+
 #endif // NETWORK_H
 

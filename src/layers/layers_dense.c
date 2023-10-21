@@ -25,15 +25,14 @@ f32 _standard_normal() {
     return z0;
 }
 
-void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc) {
-    u32 in_size = desc->dense.in_size;
-    u32 out_size = desc->dense.out_size;
+void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
+    u32 in_size = prev_shape.width;
+    u32 out_size = desc->dense.size;
 
     tensor_shape bias_shape = { out_size, 1, 1 };
     tensor_shape weight_shape = { out_size, in_size, 1 };
 
-    out->input_shape = (tensor_shape){ in_size, 1, 1 };
-    out->output_shape = bias_shape;
+    out->shape = bias_shape;
 
     layer_dense_backend* dense = &out->dense_backend;
 
