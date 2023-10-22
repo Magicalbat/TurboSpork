@@ -52,10 +52,47 @@ u32 _num_digits (u32 n) {
     return 10;
 }
 
+typedef struct {
+    network* nn;
+    tensor* in_out;
+    tensor* output;
+    cost_type cost;
+} _network_backprop_args;
+void _network_backprop_thread(void* args) {
+    _network_backprop_args* bargs = (_network_backprop_args*)args;
+
+    network* nn = bargs->nn;
+    tensor* in_out = bargs->in_out;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+    tensor** prev_inputs = MGA_PUSH_ZERO_ARRAY(scratch.arena, tensor*, nn->num_layers);
+
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        prev_inputs[i] = tensor_copy(scratch.arena, in_out, false);
+        layer_feedforward(nn->layers[i], in_out);
+    }
+
+    // Renaming for clarity
+    tensor* delta = in_out;
+    cost_grad(bargs->cost, delta, bargs->output);
+
+    for (i64 i = nn->num_layers - 1; i >= 0; i--) {
+        layer_backprop(nn->layers[i], delta, prev_inputs[i]);
+    }
+
+    mga_scratch_release(scratch);
+}
+
 #define _BAR_SIZE 20
 void network_train(network* nn, const network_train_desc* desc) {
     optimizer optim = desc->optim;
     optim._batch_size = desc->batch_size;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    // +1 is just for insurance
+    os_thread_pool* tpool = os_thread_pool_create(scratch.arena, MAX(1, desc->num_threads), desc->batch_size + 1);
+    _network_backprop_args* backprop_args = MGA_PUSH_ZERO_ARRAY(scratch.arena, _network_backprop_args, desc->batch_size);
 
     u8 bar_str_data[_BAR_SIZE + 1] = { 0 };
     memset(bar_str_data, ' ', _BAR_SIZE);
@@ -68,7 +105,6 @@ void network_train(network* nn, const network_train_desc* desc) {
         u32 num_batches = desc->train_inputs->shape.depth / desc->batch_size;
         u32 num_batches_digits = _num_digits(num_batches);
 
-        mga_temp scratch = mga_scratch_get(NULL, 0);
 
         for (u32 batch = 0; batch < num_batches; batch++) {
             // Progress in stdout
@@ -91,6 +127,8 @@ void network_train(network* nn, const network_train_desc* desc) {
                 printf("\r");
             }
 
+            mga_temp batch_temp = mga_temp_begin(scratch.arena);
+
             // Training batch
             for (u32 i = 0; i < desc->batch_size; i++) {
                 u64 index = (u64)i + (u64)batch * desc->batch_size;
@@ -102,29 +140,45 @@ void network_train(network* nn, const network_train_desc* desc) {
 
                 u64 max_layer_size = _network_max_layer_size(nn);
 
-                tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
+                tensor* in_out = tensor_create_alloc(batch_temp.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
                 tensor_copy_ip(in_out, &input_view);
-                tensor* output = tensor_copy(scratch.arena, &output_view, false);
+                tensor* output = tensor_copy(batch_temp.arena, &output_view, false);
 
-                for (u32 i = 0; i < nn->num_layers; i++) {
+                backprop_args[i] = (_network_backprop_args){ 
+                    .nn = nn,
+                    .in_out = in_out,
+                    .output = output,
+                    .cost = desc->cost,
+                };
+
+                os_thread_pool_add_task(
+                    tpool,
+                    (os_thread_task){
+                        .func = _network_backprop_thread,
+                        .arg = &backprop_args[i]
+                    }
+                );
+
+                /*for (u32 i = 0; i < nn->num_layers; i++) {
                     layer_feedforward(nn->layers[i], in_out);
                 }
 
-                // delta is also max_layer_size because of keep_alloc
-                tensor* delta = tensor_copy(scratch.arena, in_out, true);
-                cost_grad(desc->cost, delta, output);
+                // Renaming for clarity
+                tensor* delta = in_out;
+                cost_grad(desc->cost, delta, &output_view);
 
                 for (i64 i = nn->num_layers - 1; i >= 0; i--) {
                     layer_backprop(nn->layers[i], delta);
-                }
-
-                // Reset arena
-                mga_temp_end(scratch);
+                }*/
             }
+
+            os_thread_pool_wait(tpool);
 
             for (u32 i = 0; i < nn->num_layers; i++) {
                 layer_apply_changes(nn->layers[i], &optim);
             }
+
+            mga_temp_end(batch_temp);
         }
 
         printf("\n");
@@ -152,9 +206,11 @@ void network_train(network* nn, const network_train_desc* desc) {
 
             printf("Test Accuracy: %f\n", (f32)num_correct / desc->test_inputs->shape.depth);
         }
-
-        mga_scratch_release(scratch);
     }
+
+    os_thread_pool_destroy(tpool);
+
+    mga_scratch_release(scratch);
 }
 
 static u64 _network_max_layer_size(const network* nn) {

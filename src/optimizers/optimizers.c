@@ -4,9 +4,14 @@
 #include <math.h>
 
 void param_change_create(mg_arena* arena, param_change* out, tensor_shape shape) {
+    out->mutex = os_thread_mutex_create(arena);
+
     out->change = tensor_create(arena, shape);
     out->_V = tensor_create(arena, shape);
     out->_S = tensor_create(arena, shape);
+}
+void param_change_delete(param_change* change) {
+    os_thread_mutex_destroy(change->mutex);
 }
 
 typedef void(_param_update_func)(const optimizer*, tensor*, param_change*);
@@ -29,7 +34,11 @@ void param_change_update(const optimizer* optim, tensor* param, param_change* ch
         return;
     }
 
+    os_thread_mutex_lock(change->mutex);
+
     _update_funcs[optim->type](optim, param, change);
+
+    os_thread_mutex_unlock(change->mutex);
 }
 
 void _null_param_update(const optimizer* optim, tensor* param, param_change* change) {

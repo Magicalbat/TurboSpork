@@ -18,6 +18,8 @@ typedef struct {
     u32 epochs;
     u32 batch_size;
 
+    u32 num_threads;
+
     cost_type cost;
     optimizer optim;
 

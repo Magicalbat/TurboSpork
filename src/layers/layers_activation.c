@@ -53,12 +53,12 @@ void _layer_activation_feedforward(layer* l, tensor* in_out) {
 
     _activations[activ->type].func(in_out);
 }
-void _layer_activation_backprop(layer* l, tensor* delta) {
+void _layer_activation_backprop(layer* l, tensor* delta, tensor* prev_input) {
     layer_activation_backend* activ = &l->activation_backend;
 
-    _activations[activ->type].grad(l->prev_input);
+    _activations[activ->type].grad(prev_input);
 
-    tensor_component_mul_ip(delta, delta, l->prev_input);
+    tensor_component_mul_ip(delta, delta, prev_input);
 }
 
 static void _null_func(tensor* t) {

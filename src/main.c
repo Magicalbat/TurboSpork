@@ -40,79 +40,11 @@ int main(void) {
 
     dataset data = { 0 };
 
-#if 1
-
     tensor_list mnist = tensor_list_load(perm_arena, STR8("data/mnist.tpt"));
     data.train_imgs = tensor_list_get(&mnist, STR8("training_images"));
     data.train_labels = tensor_list_get(&mnist, STR8("training_labels"));
     data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
     data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
-
-#else 
-
-    // Just zeros and ones
-    {
-        mga_temp scratch = mga_scratch_get(NULL, 0);
-        
-        tensor_list mnist = tensor_list_load(scratch.arena, STR8("data/mnist.tpt"));
-        tensor* train_imgs = tensor_list_get(&mnist, STR8("training_images"));
-        tensor* train_labels = tensor_list_get(&mnist, STR8("training_labels"));
-        tensor* test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
-        tensor* test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
-
-        u32 train_size = 0;
-        for (u32 i = 0; i < train_imgs->shape.depth; i++) {
-            u32 j = i * train_labels->shape.width;
-            if (train_labels->data[j] == 1.0f || train_labels->data[j + 1] == 1.0f) {
-                train_size += 1.0f;
-            }
-        }
-
-        data.train_imgs = tensor_create(perm_arena, (tensor_shape){ train_imgs->shape.width, 1, train_size });
-        data.train_labels = tensor_create(perm_arena, (tensor_shape){ train_labels->shape.width, 1, train_size });
-
-        u64 imgs_i = 0;
-        u64 labels_i = 0;
-
-        for (u64 i = 0; i < train_imgs->shape.depth; i++) {
-            u64 j = i * train_labels->shape.width;
-            if (train_labels->data[j] == 1.0f || train_labels->data[j + 1] == 1.0f) {
-                memcpy(&data.train_imgs->data[imgs_i], &train_imgs->data[i * train_imgs->shape.width], sizeof(f32) * train_imgs->shape.width);
-                memcpy(&data.train_labels->data[labels_i], &train_labels->data[i * train_labels->shape.width], sizeof(f32) * train_labels->shape.width);
-
-                imgs_i += train_imgs->shape.width;
-                labels_i += train_labels->shape.width;
-            }
-        }
-
-        u32 test_size = 0;
-        for (u32 i = 0; i < test_imgs->shape.depth; i++) {
-            u32 j = i * test_labels->shape.width;
-            if (test_labels->data[j] == 1.0f || test_labels->data[j + 1] == 1.0f) {
-                test_size += 1.0f;
-            }
-        }
-
-        data.test_imgs = tensor_create(perm_arena, (tensor_shape){ test_imgs->shape.width, 1, test_size });
-        data.test_labels = tensor_create(perm_arena, (tensor_shape){ test_labels->shape.width, 1, test_size });
-
-        imgs_i = 0;
-        labels_i = 0;
-
-        for (u64 i = 0; i < test_imgs->shape.depth; i++) {
-            u64 j = i * test_labels->shape.width;
-            if (test_labels->data[j] == 1.0f || test_labels->data[j + 1] == 1.0f) {
-                memcpy(&data.test_imgs->data[imgs_i], &test_imgs->data[i * test_imgs->shape.width], sizeof(f32) * test_imgs->shape.width);
-                memcpy(&data.test_labels->data[labels_i], &test_labels->data[i * test_labels->shape.width], sizeof(f32) * test_labels->shape.width);
-
-                imgs_i += test_imgs->shape.width;
-                labels_i += test_labels->shape.width;
-            }
-        }
-
-        mga_scratch_release(scratch);
-    }
-#endif
 
     // Initial memory is not used
     tensor* img = tensor_create(perm_arena, (tensor_shape){ 1, 1, 1 });
@@ -164,6 +96,8 @@ int main(void) {
     network_train_desc train_desc = {
         .epochs = 8,
         .batch_size = 50,
+
+        .num_threads = 8,
 
         .cost = COST_QUADRATIC,
         .optim = (optimizer){

@@ -223,4 +223,128 @@ os_file_stats os_file_get_stats(string8 path) {
     return stats;
 }
 
+typedef struct _os_thread_mutex {
+    CRITICAL_SECTION cs;
+} os_thread_mutex;
+
+os_thread_mutex* os_thread_mutex_create(mg_arena* arena) {
+    os_thread_mutex* mutex = MGA_PUSH_ZERO_STRUCT(arena, os_thread_mutex);
+
+    InitializeCriticalSection(&mutex->cs);
+
+    return mutex;
+}
+void os_thread_mutex_destroy(os_thread_mutex* mutex) {
+    DeleteCriticalSection(&mutex->cs);
+}
+void os_thread_mutex_lock(os_thread_mutex* mutex) {
+    EnterCriticalSection(&mutex->cs);
+}
+void os_thread_mutex_unlock(os_thread_mutex* mutex) {
+    LeaveCriticalSection(&mutex->cs);
+}
+
+typedef struct _os_thread_pool {
+    u32 num_threads;
+    HANDLE* threads;
+
+    u32 max_tasks;
+    u32 num_tasks;
+    os_thread_task* task_queue;
+
+    CRITICAL_SECTION mutex; // I know that it is not technically a mutex on win32
+    CONDITION_VARIABLE queue_cond_var;
+
+    u32 num_active;
+    CONDITION_VARIABLE active_cond_var;
+} os_thread_pool;
+
+static DWORD _thread_start(void* arg) {
+    os_thread_pool* tp = (os_thread_pool*)arg;
+    os_thread_task task = { 0 };
+
+    while (true) {
+        EnterCriticalSection(&tp->mutex);
+        while (tp->num_tasks == 0) {
+            SleepConditionVariableCS(&tp->queue_cond_var, &tp->mutex, INFINITE);
+        }
+
+        tp->num_active++;
+        task = tp->task_queue[0];
+        for (u32 i = 0; i < tp->num_tasks - 1; i++) {
+            tp->task_queue[i] = tp->task_queue[i + 1];
+        }
+        tp->num_tasks--;
+
+        LeaveCriticalSection(&tp->mutex);
+
+        task.func(task.arg);
+
+        EnterCriticalSection(&tp->mutex);
+
+        tp->num_active--;
+        if (tp->num_active == 0) {
+            WakeConditionVariable(&tp->active_cond_var);
+        }
+
+        LeaveCriticalSection(&tp->mutex);
+    }
+
+    return 0;
+}
+
+os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_tasks) {
+    os_thread_pool* tp = MGA_PUSH_ZERO_STRUCT(arena, os_thread_pool);
+
+    tp->max_tasks = max_tasks;
+    tp->task_queue = MGA_PUSH_ZERO_ARRAY(arena, os_thread_task, max_tasks);
+
+    InitializeCriticalSection(&tp->mutex);
+    InitializeConditionVariable(&tp->queue_cond_var);
+    InitializeConditionVariable(&tp->active_cond_var);
+
+    tp->num_threads = num_threads;
+    tp->threads = MGA_PUSH_ZERO_ARRAY(arena, HANDLE, num_threads);
+    for (u32 i = 0; i < num_threads; i++) {
+        tp->threads[i] = CreateThread(
+            NULL, 0, _thread_start, tp, 0, NULL
+        );
+    }
+
+    return tp;
+}
+void os_thread_pool_destroy(os_thread_pool* tp) {
+    for (u32 i = 0; i < tp->num_threads; i++) {
+        CloseHandle(tp->threads[i]);
+    }
+
+    DeleteCriticalSection(&tp->mutex);
+}
+
+void os_thread_pool_add_task(os_thread_pool* tp, os_thread_task task) {
+    EnterCriticalSection(&tp->mutex);
+
+    if ((u64)tp->num_tasks + 1 >= (u64)tp->max_tasks) {
+        LeaveCriticalSection(&tp->mutex);
+        fprintf(stderr, "Thread pool exceeded max tasks\n");
+        return;
+    }
+
+    tp->task_queue[tp->num_tasks++] = task;
+
+    LeaveCriticalSection(&tp->mutex);
+    WakeConditionVariable(&tp->queue_cond_var);
+}
+void os_thread_pool_wait(os_thread_pool* tp) {
+    EnterCriticalSection(&tp->mutex);
+    while (true) {
+        if (tp->num_active != 0 || tp->num_tasks != 0) {
+            SleepConditionVariableCS(&tp->active_cond_var, &tp->mutex, INFINITE);
+        } else {
+            break;
+        }
+    }
+    LeaveCriticalSection(&tp->mutex);
+}
+
 #endif // PLATFORM_WIN32

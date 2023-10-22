@@ -54,6 +54,7 @@ typedef struct {
 
 typedef struct {
     tensor* weight;
+    tensor* weight_transposed;
     tensor* bias;
 
     // Training mode
@@ -70,9 +71,6 @@ typedef struct {
     layer_type type;
     b32 training_mode;
 
-    // Training mode
-    tensor* prev_input;
-
     // Should be set by layer
     tensor_shape shape;
 
@@ -87,8 +85,9 @@ layer_type layer_from_name(string8 name);
 
 layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_shape);
 void layer_feedforward(layer* l, tensor* in_out); 
-void layer_backprop(layer* l, tensor* delta);
+void layer_backprop(layer* l, tensor* delta, tensor* prev_input);
 void layer_apply_changes(layer* l, const optimizer* optim);
+void layer_delete(layer* l);
 
 #endif // LAYERS_H
 

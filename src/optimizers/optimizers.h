@@ -2,6 +2,7 @@
 #define OPTIMIZERS_H
 
 #include "base/base.h"
+#include "os/os.h"
 #include "tensor/tensor.h"
 
 typedef enum {
@@ -71,7 +72,9 @@ typedef struct {
 // If a tensor is updated through training,
 // the change should be stored in one of these
 typedef struct {
-    // change should be set by layers before calling param_change_update
+    os_thread_mutex* mutex;
+
+    // Change should be set by layers before calling param_change_update
     tensor* change;
 
     // These two are "private" and should not be modified by layres
@@ -84,8 +87,9 @@ typedef struct {
 } param_change;
 
 void param_change_create(mg_arena* arena, param_change* out, tensor_shape shape);
-// param_change_update modifies change->change
+// param_change_update may affect change->change
 void param_change_update(const optimizer* optim, tensor* param, param_change* change);
+void param_change_delete(param_change* change);
 
 #endif // OPTIMIZERS_H
 

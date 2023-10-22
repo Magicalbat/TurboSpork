@@ -34,25 +34,29 @@ static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
         _layer_null_create,
         _layer_null_feedforward,
         _layer_null_backprop,
-        _layer_null_apply_changes
+        _layer_null_apply_changes,
+        _layer_null_delete,
     },
     [LAYER_INPUT] = {
         _layer_input_create,
         _layer_null_feedforward,
         _layer_null_backprop,
-        _layer_null_apply_changes
+        _layer_null_apply_changes,
+        _layer_null_delete,
     },
     [LAYER_DENSE] = {
         _layer_dense_create,
         _layer_dense_feedforward,
         _layer_dense_backprop,
         _layer_dense_apply_changes,
+        _layer_dense_delete,
     },
     [LAYER_ACTIVATION] = {
         _layer_activation_create,
         _layer_activation_feedforward,
         _layer_activation_backprop,
         _layer_null_apply_changes,
+        _layer_null_delete,
     }
 };
 
@@ -69,10 +73,6 @@ layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_s
 
     _layer_funcs[desc->type].create(arena, out, desc, prev_shape);
 
-    if (out->training_mode) {
-        out->prev_input = tensor_create(arena, prev_shape);
-    }
-
     return out;
 }
 void layer_feedforward(layer* l, tensor* in_out) {
@@ -81,19 +81,15 @@ void layer_feedforward(layer* l, tensor* in_out) {
         return;
     }
 
-    if (l->training_mode) {
-        tensor_copy_ip(l->prev_input, in_out);
-    }
-
     _layer_funcs[l->type].feedforward(l, in_out);
 }
-void layer_backprop(layer* l, tensor* delta) {
+void layer_backprop(layer* l, tensor* delta, tensor* prev_input) {
     if (l->type >= LAYER_COUNT) {
         fprintf(stderr, "Cannot feedforward layer: invalid type\n");
         return;
     }
 
-    _layer_funcs[l->type].backprop(l, delta);
+    _layer_funcs[l->type].backprop(l, delta, prev_input);
 }
 void layer_apply_changes(layer* l, const optimizer* optim) {
     if (l->type >= LAYER_COUNT) {
@@ -102,6 +98,14 @@ void layer_apply_changes(layer* l, const optimizer* optim) {
     }
 
     _layer_funcs[l->type].apply_changes(l, optim);
+}
+void layer_delete(layer* l) {
+    if (l->type >= LAYER_COUNT) {
+        fprintf(stderr, "Cannot delete layer: invalid type\n");
+        return;
+    }
+
+    _layer_funcs[l->type].delete(l);
 }
 
 void _layer_null_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
@@ -114,13 +118,17 @@ void _layer_null_feedforward(layer* l, tensor* in_out) {
     UNUSED(l);
     UNUSED(in_out);
 }
-void _layer_null_backprop(layer* l, tensor* delta) {
+void _layer_null_backprop(layer* l, tensor* delta, tensor* prev_input) {
     UNUSED(l);
     UNUSED(delta);
+    UNUSED(prev_input);
 }
 void _layer_null_apply_changes(layer* l, const optimizer* optim) {
     UNUSED(l);
     UNUSED(optim);
+}
+void _layer_null_delete(layer* l) {
+    UNUSED(l);
 }
 
 void _layer_input_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
