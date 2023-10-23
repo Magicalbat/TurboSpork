@@ -12,6 +12,7 @@ typedef enum {
     LAYER_INPUT,
     LAYER_DENSE,
     LAYER_ACTIVATION,
+    LAYER_DROPOUT,
 
     LAYER_COUNT
 } layer_type;
@@ -42,6 +43,10 @@ typedef struct {
 } layer_activation_desc;
 
 typedef struct {
+    f32 keep_rate;
+} layer_dropout_desc;
+
+typedef struct {
     layer_type type;
     b32 training_mode;
 
@@ -49,6 +54,7 @@ typedef struct {
         layer_input_desc input;
         layer_dense_desc dense;
         layer_activation_desc activation;
+        layer_dropout_desc dropout;
     };
 } layer_desc;
 
@@ -67,6 +73,10 @@ typedef struct {
 } layer_activation_backend;
 
 typedef struct {
+    f32 keep_rate;
+} layer_dropout_backend;
+
+typedef struct {
     // Initialized in layer_create
     layer_type type;
     b32 training_mode;
@@ -77,6 +87,7 @@ typedef struct {
     union {
         layer_dense_backend dense_backend;
         layer_activation_backend activation_backend;
+        layer_dropout_backend dropout_backend;
     };
 } layer;
 

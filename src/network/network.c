@@ -104,14 +104,13 @@ void network_train(network* nn, const network_train_desc* desc) {
     // TODO: detect windows cmd?
 
     // Hides cursor
-    printf("\e[?25l");
+    //printf("\e[?25l");
 
     for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
         printf("Epoch: %u / %u\n", epoch + 1, desc->epochs);
 
         u32 num_batches = desc->train_inputs->shape.depth / desc->batch_size;
         u32 num_batches_digits = _num_digits(num_batches);
-
 
         for (u32 batch = 0; batch < num_batches; batch++) {
             // Progress in stdout

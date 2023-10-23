@@ -5,8 +5,7 @@
 
 typedef void (_layer_create_func)(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 typedef void (_layer_feedforward_func)(layer* l, tensor* in_out, layers_cache* cache);
-typedef void (_layer_backprop_func)(layer* l, tensor* delta, layers_cache* cache);
-typedef void (_layer_apply_changes_func)(layer* l, const optimizer* optim);
+typedef void (_layer_backprop_func)(layer* l, tensor* delta, layers_cache* cache); typedef void (_layer_apply_changes_func)(layer* l, const optimizer* optim);
 typedef void (_layer_delete_func)(layer* l);
 
 typedef struct {
@@ -37,6 +36,11 @@ void _layer_dense_delete(layer* l);
 void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_activation_feedforward(layer* l, tensor* in_out, layers_cache* cache);
 void _layer_activation_backprop(layer* l, tensor* delta, layers_cache* cache);
+// Uses null apply_changes and delete
+
+void _layer_dropout_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
+void _layer_dropout_feedforward(layer* l, tensor* in_out, layers_cache* cache);
+void _layer_dropout_backprop(layer* l, tensor* delta, layers_cache* cache);
 // Uses null apply_changes and delete
 
 #endif // LAYERS_INTERNAL_H

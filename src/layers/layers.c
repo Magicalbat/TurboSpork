@@ -8,6 +8,7 @@ static const char* _layer_names[LAYER_COUNT] = {
     [LAYER_INPUT] = "input",
     [LAYER_DENSE] = "dense",
     [LAYER_ACTIVATION] = "activation",
+    [LAYER_DROPOUT] = "dropout",
 };
 
 string8 layer_get_name(layer_type type) {
@@ -55,6 +56,13 @@ static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
         _layer_activation_create,
         _layer_activation_feedforward,
         _layer_activation_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+    },
+    [LAYER_DROPOUT] = {
+        _layer_dropout_create,
+        _layer_dropout_feedforward,
+        _layer_dropout_backprop,
         _layer_null_apply_changes,
         _layer_null_delete,
     }

@@ -1,10 +1,10 @@
 #include "layers.h"
 #include "layers_internal.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-// TODO: replace with more official version
+
+// TODO: replace with better version (look into better rng)
 // https://en.wikipedia.org/wiki/Box–Muller_transform
 f32 _standard_normal() {
     f32 epsilon = 1e-6;
@@ -45,8 +45,6 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, te
         param_change_create(arena, &dense->bias_change, bias_shape);
         param_change_create(arena, &dense->weight_change, weight_shape);
     }
-
-    // TODO: better weight init
 
     f32 weight_scale = 1.0f / sqrtf(out_size);
     u64 weight_size = (u64)weight_shape.width * weight_shape.height * weight_shape.depth;

@@ -65,6 +65,10 @@ int main(void) {
             .type = LAYER_ACTIVATION,
             .activation.type = ACTIVATION_RELU,
         },
+        (layer_desc){ 
+            .type = LAYER_DROPOUT,
+            .dropout.keep_rate = 0.9f
+        },
         (layer_desc){
             .type = LAYER_DENSE,
             .dense.size = 10
@@ -97,7 +101,7 @@ int main(void) {
         .cost = COST_QUADRATIC,
         .optim = (optimizer){
             .type = OPTIMIZER_ADAM,
-            .learning_rate = 0.0005f,
+            .learning_rate = 0.0002f,
 
             //.sgd.momentum = 0.9f,
 
