@@ -80,14 +80,30 @@ typedef struct {
     };
 } layer;
 
+typedef struct layers_cache_node {
+    tensor* t;
+    struct layers_cache_node* next;
+} layers_cache_node;
+
+typedef struct {
+    mg_arena* arena;
+
+    layers_cache_node* first;
+    layers_cache_node* last;
+} layers_cache;
+
 string8 layer_get_name(layer_type type);
 layer_type layer_from_name(string8 name);
 
 layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_shape);
-void layer_feedforward(layer* l, tensor* in_out); 
-void layer_backprop(layer* l, tensor* delta, tensor* prev_input);
+// cache can be NULL, only used for training
+void layer_feedforward(layer* l, tensor* in_out, layers_cache* cache); 
+void layer_backprop(layer* l, tensor* delta, layers_cache* cache);
 void layer_apply_changes(layer* l, const optimizer* optim);
 void layer_delete(layer* l);
+
+void layers_cache_push(layers_cache* cache, tensor* t);
+tensor* layers_cache_pop(layers_cache* cache);
 
 #endif // LAYERS_H
 

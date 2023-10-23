@@ -6,7 +6,7 @@
 
 static u64 _network_max_layer_size(const network* nn);
 
-network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs) {
+network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
 
     nn->num_layers = num_layers;
@@ -14,7 +14,10 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
 
     tensor_shape prev_shape = { 0 };
     for (u32 i = 0; i < nn->num_layers; i++) {
-        nn->layers[i] = layer_create(arena, &layer_descs[i], prev_shape);
+        layer_desc desc = layer_descs[i];
+        desc.training_mode = training_mode;
+
+        nn->layers[i] = layer_create(arena, &desc, prev_shape);
         prev_shape = nn->layers[i]->shape;
     }
 
@@ -29,7 +32,7 @@ void network_feedforward(network* nn, tensor* out, const tensor* input) {
     tensor_copy_ip(in_out, input);
 
     for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_feedforward(nn->layers[i], in_out);
+        layer_feedforward(nn->layers[i], in_out, NULL);
     }
 
     tensor_copy_ip(out, in_out);
@@ -65,11 +68,10 @@ void _network_backprop_thread(void* args) {
     tensor* in_out = bargs->in_out;
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
-    tensor** prev_inputs = MGA_PUSH_ZERO_ARRAY(scratch.arena, tensor*, nn->num_layers);
+    layers_cache cache = { .arena = scratch.arena };
 
     for (u32 i = 0; i < nn->num_layers; i++) {
-        prev_inputs[i] = tensor_copy(scratch.arena, in_out, false);
-        layer_feedforward(nn->layers[i], in_out);
+        layer_feedforward(nn->layers[i], in_out, &cache);
     }
 
     // Renaming for clarity
@@ -77,7 +79,7 @@ void _network_backprop_thread(void* args) {
     cost_grad(bargs->cost, delta, bargs->output);
 
     for (i64 i = nn->num_layers - 1; i >= 0; i--) {
-        layer_backprop(nn->layers[i], delta, prev_inputs[i]);
+        layer_backprop(nn->layers[i], delta, &cache);
     }
 
     mga_scratch_release(scratch);
@@ -98,6 +100,11 @@ void network_train(network* nn, const network_train_desc* desc) {
     memset(bar_str_data, ' ', _BAR_SIZE);
 
     u8 batch_str_data[10] = { 0 };
+
+    // TODO: detect windows cmd?
+
+    // Hides cursor
+    printf("\e[?25l");
 
     for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
         printf("Epoch: %u / %u\n", epoch + 1, desc->epochs);
@@ -207,6 +214,9 @@ void network_train(network* nn, const network_train_desc* desc) {
             printf("Test Accuracy: %f\n", (f32)num_correct / desc->test_inputs->shape.depth);
         }
     }
+
+    // Unhides cursor
+    printf("\e[?25h");
 
     os_thread_pool_destroy(tpool);
 

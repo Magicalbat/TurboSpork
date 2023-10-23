@@ -52,7 +52,6 @@ int main(void) {
     tensor_2d_view(img, data.train_imgs, 0);
     tensor_2d_view(label, data.train_labels, 0);
 
-    b32 training_mode = true;
     layer_desc layer_descs[] = {
         (layer_desc){
             .type = LAYER_INPUT,
@@ -60,26 +59,22 @@ int main(void) {
         },
         (layer_desc){
             .type = LAYER_DENSE,
-            .training_mode = training_mode,
             .dense.size = 64
         },
         (layer_desc){
             .type = LAYER_ACTIVATION,
-            .training_mode = training_mode,
             .activation.type = ACTIVATION_RELU,
         },
         (layer_desc){
             .type = LAYER_DENSE,
-            .training_mode = training_mode,
             .dense.size = 10
         },
         (layer_desc){
             .type = LAYER_ACTIVATION,
-            .training_mode = training_mode,
             .activation.type = ACTIVATION_SOFTMAX,
         },
     };
-    network* nn = network_create(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs);
+    network* nn = network_create(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs, true);
 
     network_summary(nn);
 
@@ -94,7 +89,7 @@ int main(void) {
     printf("]\n");
 
     network_train_desc train_desc = {
-        .epochs = 8,
+        .epochs = 16,
         .batch_size = 50,
 
         .num_threads = 8,

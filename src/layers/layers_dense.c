@@ -59,13 +59,18 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, te
     tensor_copy_ip(dense->weight_transposed, dense->weight);
     tensor_transpose(dense->weight_transposed);
 }
-void _layer_dense_feedforward(layer* l, tensor* in_out) {
+void _layer_dense_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     layer_dense_backend* dense = &l->dense_backend;
+
+    if (cache != NULL && l->training_mode) {
+        tensor* input = tensor_copy(cache->arena, in_out, false);
+        layers_cache_push(cache, input);
+    }
 
     tensor_dot_ip(in_out, in_out, dense->weight);
     tensor_add_ip(in_out, in_out, dense->bias);
 }
-void _layer_dense_backprop(layer* l, tensor* delta, tensor* prev_input) {
+void _layer_dense_backprop(layer* l, tensor* delta, layers_cache* cache) {
     layer_dense_backend* dense = &l->dense_backend;
 
     // Bias change is just delta
@@ -73,7 +78,9 @@ void _layer_dense_backprop(layer* l, tensor* delta, tensor* prev_input) {
 
     // Weight change is previous input dotted with delta
     // weight_change += dot(prev_input, delta)
-    mga_temp scratch = mga_scratch_get(NULL, 0);
+    mga_temp scratch = mga_scratch_get(&cache->arena, 1);
+
+    tensor* prev_input = layers_cache_pop(cache);
 
     tensor_transpose(prev_input);
     tensor* cur_weight_change = tensor_dot(scratch.arena, prev_input, delta);

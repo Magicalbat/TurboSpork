@@ -75,21 +75,21 @@ layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_s
 
     return out;
 }
-void layer_feedforward(layer* l, tensor* in_out) {
+void layer_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     if (l->type >= LAYER_COUNT) {
         fprintf(stderr, "Cannot feedforward layer: invalid type\n");
         return;
     }
 
-    _layer_funcs[l->type].feedforward(l, in_out);
+    _layer_funcs[l->type].feedforward(l, in_out, cache);
 }
-void layer_backprop(layer* l, tensor* delta, tensor* prev_input) {
+void layer_backprop(layer* l, tensor* delta, layers_cache* cache) {
     if (l->type >= LAYER_COUNT) {
         fprintf(stderr, "Cannot feedforward layer: invalid type\n");
         return;
     }
 
-    _layer_funcs[l->type].backprop(l, delta, prev_input);
+    _layer_funcs[l->type].backprop(l, delta, cache);
 }
 void layer_apply_changes(layer* l, const optimizer* optim) {
     if (l->type >= LAYER_COUNT) {
@@ -108,20 +108,35 @@ void layer_delete(layer* l) {
     _layer_funcs[l->type].delete(l);
 }
 
+void layers_cache_push(layers_cache* cache, tensor* t) {
+    layers_cache_node* node = MGA_PUSH_ZERO_STRUCT(cache->arena, layers_cache_node);
+    node->t = t;
+
+    SLL_PUSH_FRONT(cache->first, cache->last, node);
+}
+tensor* layers_cache_pop(layers_cache* cache) {
+    tensor* out = cache->first->t;
+
+    SLL_POP_FRONT(cache->first, cache->last);
+
+    return out;
+}
+
 void _layer_null_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
     UNUSED(arena);
     UNUSED(desc);
 
     out->shape = prev_shape;
 }
-void _layer_null_feedforward(layer* l, tensor* in_out) {
+void _layer_null_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     UNUSED(l);
     UNUSED(in_out);
+    UNUSED(cache);
 }
-void _layer_null_backprop(layer* l, tensor* delta, tensor* prev_input) {
+void _layer_null_backprop(layer* l, tensor* delta, layers_cache* cache) {
     UNUSED(l);
     UNUSED(delta);
-    UNUSED(prev_input);
+    UNUSED(cache);
 }
 void _layer_null_apply_changes(layer* l, const optimizer* optim) {
     UNUSED(l);

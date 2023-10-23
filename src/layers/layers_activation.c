@@ -48,13 +48,20 @@ void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* des
 
     out->shape = prev_shape;
 }
-void _layer_activation_feedforward(layer* l, tensor* in_out) {
+void _layer_activation_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     layer_activation_backend* activ = &l->activation_backend;
+
+    if (cache != NULL && l->training_mode) {
+        tensor* input = tensor_copy(cache->arena, in_out, false);
+        layers_cache_push(cache, input);
+    }
 
     _activations[activ->type].func(in_out);
 }
-void _layer_activation_backprop(layer* l, tensor* delta, tensor* prev_input) {
+void _layer_activation_backprop(layer* l, tensor* delta, layers_cache* cache) {
     layer_activation_backend* activ = &l->activation_backend;
+
+    tensor* prev_input = layers_cache_pop(cache);
 
     _activations[activ->type].grad(prev_input);
 

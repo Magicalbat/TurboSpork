@@ -31,7 +31,8 @@ typedef struct {
     tensor* test_outputs;
 } network_train_desc;
 
-network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs);
+// This training_mode overrides the one in the desc
+network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode);
 void network_feedforward(network* nn, tensor* out, const tensor* input);
 void network_train(network* nn, const network_train_desc* desc);
 
