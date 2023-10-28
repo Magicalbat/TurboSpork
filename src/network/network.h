@@ -15,6 +15,14 @@ typedef struct {
 } network;
 
 typedef struct {
+    u32 epoch;
+
+    f32 test_accuracy;
+} network_epoch_info;
+
+typedef void(network_epoch_callback)(const network_epoch_info*);
+
+typedef struct {
     u32 epochs;
     u32 batch_size;
 
@@ -22,6 +30,10 @@ typedef struct {
 
     cost_type cost;
     optimizer optim;
+
+    // Can be null
+    // Gives information to function after each epoch
+    network_epoch_callback* epoch_callback;
 
     tensor* train_inputs;
     tensor* train_outputs;
@@ -33,6 +45,8 @@ typedef struct {
 
 // This training_mode overrides the one in the desc
 network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode);
+void network_delete(network* nn);
+
 void network_feedforward(network* nn, tensor* out, const tensor* input);
 void network_train(network* nn, const network_train_desc* desc);
 

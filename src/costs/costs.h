@@ -6,8 +6,10 @@
 
 typedef enum {
     COST_NULL = 0,
-    COST_QUADRATIC,
-    COST_CROSS_ENTROPY,
+
+    COST_MEAN_SQUARED_ERROR,
+
+    COST_CATEGORICAL_CROSS_ENTROPY,
 
     COST_COUNT
 } cost_type;

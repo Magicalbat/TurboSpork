@@ -14,9 +14,9 @@ void _layer_dropout_create(mg_arena* arena, layer* out, const layer_desc* desc, 
     out->shape = prev_shape;
 }
 void _layer_dropout_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
-    f32 keep_rate = l->dropout_backend.keep_rate;
-
     if (l->training_mode && cache != NULL) {
+        f32 keep_rate = l->dropout_backend.keep_rate;
+
         // Creating dropout tensor
         tensor_shape s = in_out->shape;
         tensor* dropout_tensor = tensor_create(cache->arena, s);
@@ -36,8 +36,6 @@ void _layer_dropout_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
         //layers_cache_push(cache, input);
         layers_cache_push(cache, dropout_tensor);
     }
-
-    // Only for training
 }
 void _layer_dropout_backprop(layer* l, tensor* delta, layers_cache* cache) {
     f32 keep_rate = l->dropout_backend.keep_rate;

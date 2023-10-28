@@ -13,15 +13,15 @@ typedef struct {
 
 static f32 null_func(const tensor* in, const tensor* desired_out);
 static void null_grad(tensor* in_out, const tensor* desired_out);
-static f32 quadratic_func(const tensor* in, const tensor* desired_out);
-static void quadratic_grad(tensor* in_out, const tensor* desired_out);
-static f32 cross_entropy_func(const tensor* in, const tensor* desired_out);
-static void cross_entropy_grad(tensor* in_out, const tensor* desired_out);
+static f32 mean_squared_func(const tensor* in, const tensor* desired_out);
+static void mean_squared_grad(tensor* in_out, const tensor* desired_out);
+static f32 cce_func(const tensor* in, const tensor* desired_out);
+static void cce_grad(tensor* in_out, const tensor* desired_out);
 
 static _cost _costs[COST_COUNT] = {
     [COST_NULL] = { null_func, null_grad },
-    [COST_QUADRATIC] = { quadratic_func, quadratic_grad },
-    [COST_CROSS_ENTROPY] = { cross_entropy_func, quadratic_grad },
+    [COST_MEAN_SQUARED_ERROR] = { mean_squared_func, mean_squared_grad },
+    [COST_CATEGORICAL_CROSS_ENTROPY] = { cce_func, cce_grad },
 };
 
 f32 cost_func(cost_type type, const tensor* in, const tensor* desired_out) {
@@ -59,7 +59,7 @@ static void null_grad(tensor* in_out, const tensor* desired_out) {
     UNUSED(in_out);
     UNUSED(desired_out);
 }
-static f32 quadratic_func(const tensor* in, const tensor* desired_out) {
+static f32 mean_squared_func(const tensor* in, const tensor* desired_out) {
     f32 sum = 0.0f;
 
     u64 size = (u64)in->shape.width * in->shape.height * in->shape.depth;
@@ -67,25 +67,29 @@ static f32 quadratic_func(const tensor* in, const tensor* desired_out) {
         sum += 0.5f * (in->data[i] - desired_out->data[i]) * (in->data[i] - desired_out->data[i]);
     }
 
-    // TODO: average or sum?
-    return sum;
+    return sum / (f32)size;
 }
-static void quadratic_grad(tensor* in_out, const tensor* desired_out) {
+static void mean_squared_grad(tensor* in_out, const tensor* desired_out) {
     u64 size = (u64)in_out->shape.width * in_out->shape.height * in_out->shape.depth;
     for (u64 i = 0; i < size; i++) {
         in_out->data[i] = (in_out->data[i] - desired_out->data[i]);
     }
 }
 
-// TODO: figure out what the cross entropy function really is
-static f32 cross_entropy_func(const tensor* in, const tensor* desired_out) {
-    UNUSED(in);
-    UNUSED(desired_out);
+static f32 cce_func(const tensor* in, const tensor* desired_out) {
+    f32 sum = 0.0f;
 
-    return 0.0f;
+    u64 size = (u64)in->shape.width * in->shape.height * in->shape.depth;
+    for (u64 i = 0; i < size; i++) {
+        sum += desired_out->data[i] * logf(in->data[i]);
+    }
+
+    return -sum;
 }
-static void cross_entropy_grad(tensor* in_out, const tensor* desired_out) {
-    UNUSED(in_out);
-    UNUSED(desired_out);
+static void cce_grad(tensor* in_out, const tensor* desired_out) {
+    u64 size = (u64)in_out->shape.width * in_out->shape.height * in_out->shape.depth;
+    for (u64 i = 0; i < size; i++) {
+        in_out->data[i] = -desired_out->data[i] / (in_out->data[i] + 1e-8);
+    }
 }
 

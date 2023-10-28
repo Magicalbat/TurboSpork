@@ -174,6 +174,8 @@ void os_thread_mutex_unlock(os_thread_mutex* mutex) {
 typedef struct _os_thread_pool {
     u32 num_threads;
     pthread_t* threads;
+    
+    b32 stop;
 
     u32 max_tasks;
     u32 num_tasks;
@@ -190,11 +192,17 @@ static void* linux_thread_start(void* arg) {
     os_thread_pool* tp = (os_thread_pool*)arg;
     os_thread_task task = { 0 };
 
+    //pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
     while (true) {
         pthread_mutex_lock(&tp->mutex);
 
-        while (tp->num_tasks == 0) {
+        while (tp->num_tasks == 0 && !tp->stop) {
             pthread_cond_wait(&tp->queue_cond_var, &tp->mutex);
+        }
+
+        if (tp->stop) {
+            break;
         }
 
         tp->num_active++;
@@ -218,13 +226,17 @@ static void* linux_thread_start(void* arg) {
         pthread_mutex_unlock(&tp->mutex);
     }
 
+    tp->num_threads--;
+    pthread_cond_signal(&tp->active_cond_var);
+    pthread_mutex_unlock(&tp->mutex);
+
     return NULL;
 }
 
 os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_tasks) {
     os_thread_pool* tp = MGA_PUSH_ZERO_STRUCT(arena, os_thread_pool);
 
-    tp->max_tasks = max_tasks;
+    tp->max_tasks = MAX(num_threads, max_tasks);
     tp->task_queue = MGA_PUSH_ZERO_ARRAY(arena, os_thread_task, max_tasks);
 
     pthread_mutex_init(&tp->mutex, NULL);
@@ -235,11 +247,27 @@ os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_
     tp->threads = MGA_PUSH_ZERO_ARRAY(arena, pthread_t, num_threads);
     for (u32 i = 0; i < num_threads; i++) {
         pthread_create(&tp->threads[i], NULL, linux_thread_start, tp);
+        pthread_detach(tp->threads[i]);
     }
 
     return tp;
 }
 void os_thread_pool_destroy(os_thread_pool* tp) {
+    if (tp->num_tasks > 0) {
+        // TODO: how should I handle this case?
+    }
+
+    pthread_mutex_lock(&tp->mutex);
+
+    tp->num_tasks = 0;
+
+    tp->stop = true;
+    pthread_cond_broadcast(&tp->queue_cond_var);
+
+    pthread_mutex_unlock(&tp->mutex);
+
+    os_thread_pool_wait(tp);
+
     for (u32 i = 0; i < tp->num_threads; i++) {
         pthread_cancel(tp->threads[i]);
     }
@@ -268,7 +296,8 @@ void os_thread_pool_wait(os_thread_pool* tp) {
     pthread_mutex_lock(&tp->mutex);
 
     while (true) {
-        if (tp->num_active != 0 || tp->num_tasks != 0) {
+        //if (tp->num_active != 0 || tp->num_tasks != 0) {
+        if ((!tp->stop && tp->num_active != 0) || (tp->stop && tp->num_threads != 0)) {
             pthread_cond_wait(&tp->active_cond_var, &tp->mutex);
         } else {
             break;

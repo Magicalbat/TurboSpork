@@ -23,6 +23,11 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
 
     return nn;
 }
+void network_delete(network* nn) {
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        layer_delete(nn->layers[i]);
+    }
+}
 void network_feedforward(network* nn, tensor* out, const tensor* input) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
@@ -157,6 +162,7 @@ void network_train(network* nn, const network_train_desc* desc) {
                     .cost = desc->cost,
                 };
 
+                // Stopping here?
                 os_thread_pool_add_task(
                     tpool,
                     (os_thread_task){
@@ -190,6 +196,8 @@ void network_train(network* nn, const network_train_desc* desc) {
         printf("\n");
         memset(bar_str_data, ' ', _BAR_SIZE);
 
+        f32 accuracy = -1.0f;
+
         if (desc->accuracy_test) {
             string8 load_anim = STR8("-\\|/");
 
@@ -210,7 +218,19 @@ void network_train(network* nn, const network_train_desc* desc) {
                 }
             }
 
-            printf("Test Accuracy: %f\n", (f32)num_correct / desc->test_inputs->shape.depth);
+            accuracy = (f32)num_correct / desc->test_inputs->shape.depth;
+
+            printf("Test Accuracy: %f\n", accuracy);
+        }
+
+        if (desc->epoch_callback) {
+            network_epoch_info info = {
+                .epoch = epoch,
+
+                .test_accuracy = accuracy
+            };
+
+            desc->epoch_callback(&info);
         }
     }
 
