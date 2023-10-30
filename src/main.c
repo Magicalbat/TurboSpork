@@ -25,23 +25,6 @@ typedef struct {
     tensor* test_labels;
 } dataset;
 
-#define EPOCHS 12
-#define NUM_LEARNING_RATES 6
-static f32 learning_rates[NUM_LEARNING_RATES] = {
-    1.0f,
-    0.1f,
-    0.01f,
-    0.001f,
-    0.0001f,
-    0.00001f,
-};
-static f32 accuracies[NUM_LEARNING_RATES * EPOCHS] = { 0 };
-static u32 iter = 0;
-
-static void epoch_info(const network_epoch_info* info) {
-    accuracies[info->epoch + iter * EPOCHS] = info->test_accuracy;
-}
-
 void mga_on_error(mga_error err) {
     fprintf(stderr, "MGA Error %u: %s\n", err.code, err.msg);
 }
@@ -63,108 +46,68 @@ int main(void) {
     data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
     data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
 
-    for (u32 i = 0; i < sizeof(learning_rates) / sizeof(f32); i++) {
-        mga_temp scratch = mga_scratch_get(NULL, 0);
+    layer_desc layer_descs[] = {
+        (layer_desc){
+            .type = LAYER_INPUT,
+            .input.shape = (tensor_shape){ 784, 1, 1 }
+        },
+        (layer_desc){
+            .type = LAYER_DENSE,
+            .dense.size = 64
+        },
+        (layer_desc){
+            .type = LAYER_ACTIVATION,
+            .activation.type = ACTIVATION_RELU,
+        },
+        (layer_desc){
+            .type = LAYER_DENSE,
+            .dense.size = 10
+        },
+        (layer_desc){
+            .type = LAYER_ACTIVATION,
+            .activation.type = ACTIVATION_SOFTMAX,
+        },
+    };
+    network* nn = network_create(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs, true);
 
-        layer_desc layer_descs[] = {
-            (layer_desc){
-                .type = LAYER_INPUT,
-                .input.shape = (tensor_shape){ 784, 1, 1 }
-            },
-            (layer_desc){
-                .type = LAYER_DENSE,
-                .dense.size = 64
-            },
-            (layer_desc){
-                .type = LAYER_ACTIVATION,
-                .activation.type = ACTIVATION_RELU,
-            },
-            (layer_desc){
-                .type = LAYER_DENSE,
-                .dense.size = 10
-            },
-            (layer_desc){
-                .type = LAYER_ACTIVATION,
-                .activation.type = ACTIVATION_SOFTMAX,
-            },
-        };
-        network* nn = network_create(scratch.arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs, true);
+    network_summary(nn);
 
-        network_summary(nn);
+    network_train_desc train_desc = {
+        .epochs = 16,
+        .batch_size = 50,
 
-        network_train_desc train_desc = {
-            .epochs = EPOCHS,
-            .batch_size = 50,
+        .num_threads = 8,
 
-            .num_threads = 8,
+        .cost = COST_CATEGORICAL_CROSS_ENTROPY,
+        .optim = (optimizer){
+            .type = OPTIMIZER_ADAM,
+            .learning_rate = 0.0005f,
 
-            .cost = COST_MEAN_SQUARED_ERROR,
-            .optim = (optimizer){
-                .type = OPTIMIZER_ADAM,
-                .learning_rate = learning_rates[i],
+            //.sgd.momentum = 0.9f,
 
-                //.sgd.momentum = 0.9f,
+            /*.rms_prop = (optimizer_rms_prop){ 
+                .beta = 0.999f,
+                .epsilon = 1e-8f
+            }*/
 
-                /*.rms_prop = (optimizer_rms_prop){ 
-                    .beta = 0.999f,
-                    .epsilon = 1e-8f
-                }*/
+            .adam = (optimizer_adam){
+                .beta1 = 0.9f,
+                .beta2 = 0.999f,
+                .epsilon = 1e-8f
+            }
+        },
 
-                .adam = (optimizer_adam){
-                    .beta1 = 0.9f,
-                    .beta2 = 0.999f,
-                    .epsilon = 1e-8f
-                }
-            },
+        .train_inputs = data.train_imgs,
+        .train_outputs = data.train_labels,
 
-            .epoch_callback = epoch_info,
-            
-            .train_inputs = data.train_imgs,
-            .train_outputs = data.train_labels,
+        .accuracy_test = true,
+        .test_inputs = data.test_imgs,
+        .test_outputs = data.test_labels
+    };
 
-            .accuracy_test = true,
-            .test_inputs = data.test_imgs,
-            .test_outputs = data.test_labels
-        };
+    network_train(nn, &train_desc);
 
-        network_train(nn, &train_desc);
-
-        iter++;
-
-        network_delete(nn);
-
-        mga_scratch_release(scratch);
-    }
-
-    for (u32 i = 0; i < NUM_LEARNING_RATES; i++) {
-        printf("[ ");
-        for (u32 j = 0; j < EPOCHS; j++) {
-            printf("%f ", accuracies[i * EPOCHS + j]);
-        }
-        printf("]\n");
-    }
-
-    mgp_init();
-    mgp_set_view((mgp_view){
-        .left = 0.0f,
-        .right = (f32)EPOCHS - 1,
-        .bottom = 0.0f,
-        .top = 1.0f
-    });
-
-    mga_temp scratch = mga_scratch_get(NULL, 0);
-    f32* xs = MGA_PUSH_ZERO_ARRAY(scratch.arena, f32, EPOCHS);
-    for (u32 i = 0; i < EPOCHS; i++) {
-        xs[i] = i;
-    }
-
-    for (u32 i = 0; i < NUM_LEARNING_RATES; i++) {
-        mgp_lines(EPOCHS, xs, &accuracies[i * EPOCHS]);
-    }
-
-    mga_scratch_release(scratch);
-
-    mgp_plot_show();
+    network_delete(nn);
 
     mga_destroy(perm_arena);
 

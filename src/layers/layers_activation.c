@@ -4,7 +4,7 @@
 #include <math.h>
 
 typedef void (_activ_func)(tensor*);
-typedef void (_activ_grad)(tensor*);
+typedef void (_activ_grad)(tensor*, tensor*);
 
 typedef struct {
     _activ_func* func;
@@ -12,17 +12,17 @@ typedef struct {
 } _activation;
 
 static void _null_func(tensor* t);
-static void _null_grad(tensor* t);
+static void _null_grad(tensor* prev_in, tensor* delta);
 static void _sigmoid_func(tensor* t);
-static void _sigmoid_grad(tensor* t);
+static void _sigmoid_grad(tensor* prev_in, tensor* delta);
 static void _tanh_func(tensor* t);
-static void _tanh_grad(tensor* t);
+static void _tanh_grad(tensor* prev_in, tensor* delta);
 static void _relu_func(tensor* t);
-static void _relu_grad(tensor* t);
+static void _relu_grad(tensor* prev_in, tensor* delta);
 static void _leaky_relu_func(tensor* t);
-static void _leaky_relu_grad(tensor* t);
+static void _leaky_relu_grad(tensor* prev_in, tensor* delta);
 static void _softmax_func(tensor* t);
-static void _softmax_grad(tensor* t);
+static void _softmax_grad(tensor* prev_in, tensor* delta);
 
 static _activation _activations[ACTIVATION_COUNT] = {
     [ACTIVATION_NULL] = { _null_func, _null_grad },
@@ -63,16 +63,15 @@ void _layer_activation_backprop(layer* l, tensor* delta, layers_cache* cache) {
 
     tensor* prev_input = layers_cache_pop(cache);
 
-    _activations[activ->type].grad(prev_input);
-
-    tensor_component_mul_ip(delta, delta, prev_input);
+    _activations[activ->type].grad(prev_input, delta);
 }
 
 static void _null_func(tensor* t) {
     UNUSED(t);
 }
-static void _null_grad(tensor* t) {
-    UNUSED(t);
+static void _null_grad(tensor* prev_in, tensor* delta) {
+    UNUSED(prev_in);
+    UNUSED(delta);
 }
 
 #define _LOOP_T(t) u64 _size = (u64)t->shape.width * t->shape.height * t->shape.depth; \
@@ -83,11 +82,13 @@ static void _sigmoid_func(tensor* t) {
         t->data[i] = 1.0f / (1.0f + expf(-t->data[i]));
     }
 }
-static void _sigmoid_grad(tensor* t) {
-    _LOOP_T(t) {
-        f32 s = 1.0f / (1.0f + expf(-t->data[i]));
-        t->data[i] = s * (1.0f - s);
+static void _sigmoid_grad(tensor* prev_in, tensor* delta) {
+    _LOOP_T(prev_in) {
+        f32 s = 1.0f / (1.0f + expf(-prev_in->data[i]));
+        prev_in->data[i] = s * (1.0f - s);
     }
+
+    tensor_component_mul_ip(delta, delta, prev_in);
 }
 
 static void _tanh_func(tensor* t) {
@@ -95,11 +96,13 @@ static void _tanh_func(tensor* t) {
         t->data[i] = tanh(t->data[i]);
     }
 }
-static void _tanh_grad(tensor* t) {
-    _LOOP_T(t) {
-        f32 tnh = tanh(t->data[i]);
-        t->data[i] = 1.0f - tnh * tnh;
+static void _tanh_grad(tensor* prev_in, tensor* delta) {
+    _LOOP_T(prev_in) {
+        f32 tnh = tanh(prev_in->data[i]);
+        prev_in->data[i] = 1.0f - tnh * tnh;
     }
+
+    tensor_component_mul_ip(delta, delta, prev_in);
 }
 
 static void _relu_func(tensor* t) {
@@ -107,10 +110,12 @@ static void _relu_func(tensor* t) {
         t->data[i] = t->data[i] > 0.0f ? t->data[i] : 0.0f;
     }
 }
-static void _relu_grad(tensor* t) {
-    _LOOP_T(t) {
-        t->data[i] = (t->data[i] > 0.0f);
+static void _relu_grad(tensor* prev_in, tensor* delta) {
+    _LOOP_T(prev_in) {
+        prev_in->data[i] = (prev_in->data[i] > 0.0f);
     }
+
+    tensor_component_mul_ip(delta, delta, prev_in);
 }
 
 static void _leaky_relu_func(tensor* t) {
@@ -118,10 +123,12 @@ static void _leaky_relu_func(tensor* t) {
         t->data[i] = t->data[i] > 0.0f ? t->data[i] : t->data[i] * 0.01f;
     }
 }
-static void _leaky_relu_grad(tensor* t) {
-    _LOOP_T(t) {
-        t->data[i] = t->data[i] > 0.0f ? 1.0f : 0.01f;
+static void _leaky_relu_grad(tensor* prev_in, tensor* delta) {
+    _LOOP_T(prev_in) {
+        prev_in->data[i] = prev_in->data[i] > 0.0f ? 1.0f : 0.01f;
     }
+
+    tensor_component_mul_ip(delta, delta, prev_in);
 }
 
 // https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative 
@@ -147,12 +154,26 @@ static void _softmax_func(tensor* t) {
         t->data[i] /= exp_sum;
     }
 }
-static void _softmax_grad(tensor* t) {
-    _softmax_func(t);
+static void _softmax_grad(tensor* prev_in, tensor* delta) {
+    _softmax_func(prev_in);
 
-    _LOOP_T(t) {
-        t->data[i] = t->data[i] * (1.0f - t->data[i]);
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    u64 w = prev_in->shape.width;
+    tensor* jacobian = tensor_create(scratch.arena, (tensor_shape){ w, w, 1 });
+    for (u64 x = 0; x < w; x++ ){
+        for (u64 y = 0; y < w; y++) {
+            if (x == y) {
+                jacobian->data[x + y * w] = prev_in->data[x] * (1.0f - prev_in->data[y]);
+            } else {
+                jacobian->data[x + y * w] = prev_in->data[x] * (-prev_in->data[y]);
+            }
+        }
     }
+
+    tensor_dot_ip(delta, delta, jacobian);
+
+    mga_scratch_release(scratch);
 }
 
 
