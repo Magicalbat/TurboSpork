@@ -57,7 +57,7 @@ int main(void) {
         },
         (layer_desc){
             .type = LAYER_ACTIVATION,
-            .activation.type = ACTIVATION_RELU,
+            .activation.type = ACTIVATION_SIGMOID,
         },
         (layer_desc){
             .type = LAYER_DENSE,
@@ -65,7 +65,7 @@ int main(void) {
         },
         (layer_desc){
             .type = LAYER_ACTIVATION,
-            .activation.type = ACTIVATION_SOFTMAX,
+            .activation.type = ACTIVATION_SIGMOID,
         },
     };
     network* nn = network_create(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs, true);
@@ -73,15 +73,15 @@ int main(void) {
     network_summary(nn);
 
     network_train_desc train_desc = {
-        .epochs = 16,
+        .epochs = 64,
         .batch_size = 50,
 
-        .num_threads = 8,
+        .num_threads = 16,
 
-        .cost = COST_CATEGORICAL_CROSS_ENTROPY,
+        .cost = COST_MEAN_SQUARED_ERROR,
         .optim = (optimizer){
             .type = OPTIMIZER_ADAM,
-            .learning_rate = 0.0005f,
+            .learning_rate = 0.0002f,
 
             //.sgd.momentum = 0.9f,
 
