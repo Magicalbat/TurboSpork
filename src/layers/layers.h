@@ -106,6 +106,9 @@ typedef struct {
 string8 layer_get_name(layer_type type);
 layer_type layer_from_name(string8 name);
 
+void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc);
+layer_desc layer_desc_load(string8 str);
+
 layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_shape);
 // cache can be NULL, only used for training
 void layer_feedforward(layer* l, tensor* in_out, layers_cache* cache); 

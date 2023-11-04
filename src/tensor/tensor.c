@@ -523,7 +523,7 @@ tensor* tensor_list_get(const tensor_list* list, string8 name) {
 /*
 TODO: Figure out how to make it endian independent
 
-File Format:
+File Format (*.tpt):
 - Header "TP_tensors"
 - u32 num_tensors
 - List of tensors

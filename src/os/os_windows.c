@@ -42,7 +42,7 @@ static string8 _error_string(mg_arena* arena) {
 #define _w32_error(msg, ...) do {\
         mga_temp scratch = mga_scratch_get(NULL, 0); \
         string8 err_str = _error_string(scratch.arena); \
-        fprintf(stderr, msg ", Win32 Error: %.*s", __VA_ARGS__, (int)err_str.size, (char*)err_str.str); \
+        fprintf(stderr, msg ", Win32 Error: %.*s\n", __VA_ARGS__, (int)err_str.size, (char*)err_str.str); \
         mga_scratch_release(scratch); \
     } while (0)
 

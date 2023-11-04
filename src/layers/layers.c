@@ -1,7 +1,10 @@
 #include "layers.h"
 #include "layers_internal.h"
 
+#include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static const char* _layer_names[LAYER_COUNT] = {
     [LAYER_NULL] = "null",
@@ -28,6 +31,272 @@ layer_type layer_from_name(string8 name) {
     }
 
     return LAYER_NULL;
+}
+
+static const char* _activ_names[ACTIVATION_COUNT] = {
+    [ACTIVATION_NULL] = "null",
+    [ACTIVATION_SIGMOID] = "sigmoid",
+    [ACTIVATION_TANH] = "tanh",
+    [ACTIVATION_RELU] = "relu",
+    [ACTIVATION_LEAKY_RELU] = "leaky_relu",
+    [ACTIVATION_SOFTMAX] = "softmax",
+};
+
+/*
+Layer desc save:
+
+layer_type:
+    field = value;
+    field = value;
+
+*/
+void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc) {
+    if (desc->type >= LAYER_COUNT) {
+        fprintf(stderr, "Cannot save desc: invalid layer type\n");
+
+        return;
+    }
+
+    string8 type_str = layer_get_name(desc->type);
+
+    // type:\n
+    u64 out_type_size = type_str.size + 2;
+    string8 out_type = {
+        .size = out_type_size,
+        .str = MGA_PUSH_ZERO_ARRAY(arena, u8, out_type_size)
+    };
+    out_type.str[out_type_size - 2] = ':';
+    out_type.str[out_type_size - 1] = '\n';
+    memcpy(out_type.str, type_str.str, type_str.size);
+
+    str8_list_push(arena, list, out_type);
+
+    switch (desc->type) {
+        case LAYER_INPUT: {
+            tensor_shape s = desc->input.shape;
+            string8 shape_str = str8_pushf(arena, "    shape = (%u, %u, %u);\n", s.width, s.height, s.depth);
+
+            str8_list_push(arena, list, shape_str);
+        } break;
+        case LAYER_DENSE: {
+            string8 size_str = str8_pushf(arena, "    size = %u;\n", desc->dense.size);
+
+            str8_list_push(arena, list, size_str);
+        } break;
+        case LAYER_ACTIVATION: {
+            if (desc->activation.type >= ACTIVATION_COUNT) {
+                fprintf(stderr, "Cannot save desc: invalid activation type\n");
+
+                break;
+            }
+
+            string8 type_str = str8_pushf(arena, "    type = %s;\n", _activ_names[desc->activation.type]);
+
+            str8_list_push(arena, list, type_str);
+        } break;
+        case LAYER_DROPOUT: {
+            string8 rate_str = str8_pushf(arena, "    keep_rate = %f;\n", desc->dropout.keep_rate);
+
+            str8_list_push(arena, list, rate_str);
+        } break;
+
+        default: break;
+    }
+}
+layer_desc layer_desc_load(string8 str) {
+    layer_desc out = { };
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    string8 stripped_str = str8_remove_space(scratch.arena, str);
+
+    u64 colon_index = 0;
+    if (!str8_index_of(stripped_str, (u8)':', &colon_index)) {
+        fprintf(stderr, "Cannot load layer desc: Invalid string\n");
+
+        mga_scratch_release(scratch);
+    }
+
+    string8 type_str = str8_substr(stripped_str, 0, colon_index);
+
+    out.type = layer_from_name(type_str);
+
+    string8 cur_str = str8_substr(stripped_str, type_str.size + 1, stripped_str.size + 1);
+
+    while (cur_str.size > 0) {
+        // Parsing of format
+        // key=value;
+
+        u64 eq_index = 0;
+        if (!str8_index_of(cur_str, (u8)'=', &eq_index)) {
+            fprintf(stderr, "Cannot load layer desc: Invalid field (no '=')\n");
+            break;
+        }
+        
+        u64 semi_index = 0;
+        if (!str8_index_of(cur_str, (u8)';', &semi_index)) {
+            fprintf(stderr, "Cannot load layer desc: Invalid field (no ';')\n");
+            break;
+        }
+
+        string8 key = str8_substr(cur_str, 0, eq_index);
+        string8 value = str8_substr(cur_str, eq_index + 1, semi_index);
+
+        cur_str.str += semi_index + 1;
+        cur_str.size -= semi_index + 1;
+
+        if (key.size == 0 || value.size == 0) {
+            fprintf(stderr, "Cannot load layer desc: Invalid key/value\n");
+
+            break;
+        }
+
+        switch (out.type) {
+            case LAYER_INPUT: {
+                if (str8_equals(key, STR8("shape"))) {
+                    // Parsing (w, h, d)
+
+                    // Comma indices
+                    u64 comma_1 = 0;
+                    u64 comma_2 = 0;
+
+                    b32 valid = true;
+
+                    if (value.str[0] != '(' || value.str[value.size - 1] != ')') {
+                        valid = false;
+                    }
+
+                    for (u64 i = 1; i < value.size - 1; i++) {
+                        if (value.str[i] == ',') {
+                            if (comma_1 == 0) {
+                                comma_1 = i;
+                            } else {
+                                comma_2 = i;
+                            }
+                        } else if (!isdigit(value.str[i])) {
+                            valid = false;
+                            break;
+                        }
+                    }
+
+                    if (comma_1 == 0 || comma_2 == 0) {
+                        valid = false;
+                    }
+
+                    if (!valid) {
+                        fprintf(stderr, "Cannot load layer desc: Invalid input shape format, must be format \"(w,h,d)\"\n");
+
+                        break;
+                    }
+
+                    // Getting w, h, and d strings
+                    string8 num1_str = str8_substr(value, 1, comma_1);
+                    string8 num2_str = str8_substr(value, comma_1 + 1, comma_2);
+                    string8 num3_str = str8_substr(value, comma_2 + 1, value.size-1);
+
+                    mga_temp tmp = mga_temp_begin(scratch.arena);
+
+                    // strtol requires c strings
+                    u8* num1_cstr = str8_to_cstr(tmp.arena, num1_str);
+                    u8* num2_cstr = str8_to_cstr(tmp.arena, num2_str);
+                    u8* num3_cstr = str8_to_cstr(tmp.arena, num3_str);
+
+                    tensor_shape shape = {};
+                    char* end_ptr = NULL;
+
+                    shape.width = strtol((char*)num1_cstr, &end_ptr, 10);
+                    shape.height = strtol((char*)num2_cstr, &end_ptr, 10);
+                    shape.depth = strtol((char*)num3_cstr, &end_ptr, 10);
+
+                    out.input.shape = shape;
+
+                    mga_temp_end(tmp);
+                }
+            } break;
+            case LAYER_DENSE: {
+                if (str8_equals(key, STR8("size"))) {
+                    // Size should be a u32
+                    // Checking if the string is made of valid characters
+                    b32 is_num = true;
+
+                    for (u64 i = 0; i < value.size; i++) {
+                        if (!isdigit(value.str[i])) {
+                            is_num = false;
+                            break;
+                        }
+                    }
+
+                    if (!is_num) {
+                        fprintf(stderr, "Cannot load layer desc: Invalid character for dense shape\n");
+
+                        break;
+                    }
+
+                    mga_temp tmp = mga_temp_begin(scratch.arena);
+
+                    // strtol requiers c strings
+                    u8* num_cstr = str8_to_cstr(tmp.arena, value);
+                    char* end_ptr = NULL;
+
+                    u32 size = strtol((char*)num_cstr, &end_ptr, 10);
+
+                    out.dense.size = size;
+
+                    mga_temp_end(tmp);
+                }
+            } break;
+            case LAYER_ACTIVATION: {
+                if (str8_equals(key, STR8("type"))) {
+                    // Type is an enum
+                    // Strings of each enum are in `_activ_names`
+
+                    for (u32 i = 0; i < ACTIVATION_COUNT; i++) {
+                        if (str8_equals(value, str8_from_cstr((u8*)_activ_names[i]))) {
+                            out.activation.type = i;
+                            break;
+                        }
+                    }
+                }
+            } break;
+            case LAYER_DROPOUT: {
+                if (str8_equals(key, STR8("keep_rate"))) {
+                    // keep_rate is an f32
+                    b32 is_num = true;
+
+                    for (u64 i = 0; i < value.size; i++) {
+                        if (!isdigit(value.str[i]) && value.str[i] != '.' && value.str[i] != '-') {
+                            is_num = false;
+
+                            break;
+                        }
+                    }
+
+                    if (!is_num) {
+                        fprintf(stderr, "Cannot load layer desc: Invalid character for dropout keep_rate\n");
+
+                        break;
+                    }
+
+                    mga_temp tmp = mga_temp_begin(scratch.arena);
+
+                    // strtol requiers c strings
+                    u8* num_cstr = str8_to_cstr(tmp.arena, value);
+                    char* end_ptr = NULL;
+
+                    f32 keep_rate = strtof((char*)num_cstr, &end_ptr);
+
+                    out.dropout.keep_rate = keep_rate;
+
+                    mga_temp_end(tmp);
+                }
+            } break;
+            default: break;
+        }
+    }
+
+    mga_scratch_release(scratch);
+
+    return out;
 }
 
 static _layer_func_defs _layer_funcs[LAYER_COUNT] = {

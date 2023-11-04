@@ -89,6 +89,33 @@ string8 str8_substr_size(string8 str, u64 start, u64 size) {
     return str8_substr(str, start, start + size);
 }
 
+#define _WHITESPACE(c) ((c) == ' ' || (c) == '\t' || (c) == '\n')
+string8 str8_remove_space(mg_arena* arena, string8 str) {
+    mga_temp scratch = mga_scratch_get(&arena, 1);
+
+    string8 stripped = {
+        .size = str.size,
+        .str = MGA_PUSH_ZERO_ARRAY(scratch.arena, u8, str.size)
+    };
+
+    u64 s_i = 0;
+    for (u64 i = 0; i < str.size; i++) {
+        u8 c = str.str[i];
+        
+        if (c != ' ' && c != '\t' && c != '\n') {
+            stripped.str[s_i++] = str.str[i];
+        } else {
+            stripped.size--;
+        }
+    }
+
+    string8 out = str8_copy(arena, stripped);
+
+    mga_scratch_release(scratch);
+
+    return out;
+}
+
 void str8_list_push_existing(string8_list* list, string8 str, string8_node* node) {
     node->str = str;
     SLL_PUSH_BACK(list->first, list->last, node);

@@ -6,29 +6,104 @@
 
 static u64 _network_max_layer_size(const network* nn);
 
-network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
+network* network_create_new(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
 
     nn->num_layers = num_layers;
+
+    nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, layer_desc, nn->num_layers);
+    memcpy(nn->layer_descs, layer_descs, sizeof(layer_desc) * nn->num_layers);
+
     nn->layers = MGA_PUSH_ZERO_ARRAY(arena, layer*, nn->num_layers);
 
     tensor_shape prev_shape = { 0 };
     for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_desc desc = layer_descs[i];
-        desc.training_mode = training_mode;
+        nn->layer_descs[i].training_mode = training_mode;
 
-        nn->layers[i] = layer_create(arena, &desc, prev_shape);
+        nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
         prev_shape = nn->layers[i]->shape;
     }
 
     return nn;
 }
+
+// Reads layout file (*.tpl)
+network* network_create_layout(mg_arena* arena, string8 file_name, b32 training_mode) {
+    network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
+
+    mga_temp scratch = mga_scratch_get(&arena, 1);
+
+    string8 raw_file = os_file_read(scratch.arena, file_name);
+    string8 file = str8_remove_space(scratch.arena, raw_file);
+
+    // Each string in list is a layer_desc save str
+    string8_list desc_str_list = { 0 };
+
+    u64 desc_str_start = 0;
+    u64 last_semi = 0;
+    b32 first_colon = true;
+    for (u64 i = 0; i < file.size; i++) {
+        u8 c = file.str[i];
+
+        if (c == ';') {
+            last_semi = i;
+
+            continue;
+        }
+
+        // Colon triggers start of new desc
+        // So the old one gets pushed onto the list
+        if (c == ':') {
+            // If it is the first colon, the string should not be saved 
+            if (first_colon) {
+                first_colon = false;
+
+                continue;
+            }
+
+            string8 desc_str = str8_substr(file, desc_str_start, last_semi + 1);
+
+            str8_list_push(scratch.arena, &desc_str_list, desc_str);
+
+            desc_str_start = last_semi + 1;
+
+            // This makes it so that layers without parameters still work correctly
+            // (Layers without params would have no semi colons)
+            last_semi = i;
+        }
+    }
+    string8 last_str = str8_substr(file, desc_str_start, file.size);
+    str8_list_push(scratch.arena, &desc_str_list, last_str);
+
+    nn->num_layers = desc_str_list.node_count;
+
+    nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, layer_desc, nn->num_layers);
+    nn->layers = MGA_PUSH_ZERO_ARRAY(arena, layer*, nn->num_layers);
+
+    string8_node* n = desc_str_list.first;
+    tensor_shape prev_shape = { 0 };
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        nn->layer_descs[i] = layer_desc_load(n->str);
+        nn->layer_descs[i].training_mode = training_mode;
+
+        nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
+        prev_shape = nn->layers[i]->shape;
+
+        n = n->next;
+    }
+
+    mga_scratch_release(scratch);
+
+    return nn;
+}
+
 void network_delete(network* nn) {
     for (u32 i = 0; i < nn->num_layers; i++) {
         layer_delete(nn->layers[i]);
     }
 }
-void network_feedforward(network* nn, tensor* out, const tensor* input) {
+
+void network_feedforward(const network* nn, tensor* out, const tensor* input) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     u64 max_layer_size = _network_max_layer_size(nn);
@@ -357,6 +432,30 @@ void network_summary(const network* nn) {
 
 
     printf("%.*s", (int)out.size, (char*)out.str);
+
+    mga_scratch_release(scratch);
+}
+
+/*
+File Format (*.tpl):
+
+List of layer_desc saves
+See layer_desc_save
+*/
+void network_layout_save(const network* nn, string8 file_name) {
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    string8_list save_list = { 0 };
+
+    // For spacing between layer_descs
+    string8 new_line = STR8("\n");
+
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        layer_desc_save(scratch.arena, &save_list, &nn->layer_descs[i]);
+        str8_list_push(scratch.arena, &save_list, new_line);
+    }
+
+    os_file_write(file_name, save_list);
 
     mga_scratch_release(scratch);
 }
