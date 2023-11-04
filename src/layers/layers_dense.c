@@ -109,4 +109,32 @@ void _layer_dense_delete(layer* l) {
     param_change_delete(&dense->weight_change);
     param_change_delete(&dense->bias_change);
 }
+void _layer_dense_save(mg_arena* arena, tensor_list* list, layer* l, u32 index) {
+    layer_dense_backend* dense = &l->dense_backend;
+
+    string8 weight_name = str8_pushf(arena, "dense_weight_%u", index);
+    string8 bias_name = str8_pushf(arena, "dense_bias_%u", index);
+
+    tensor_list_push(arena, list, dense->weight, weight_name);
+    tensor_list_push(arena, list, dense->bias, bias_name);
+}
+void _layer_dense_load(layer* l, const tensor_list* list, u32 index) {
+    layer_dense_backend* dense = &l->dense_backend;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    string8 weight_name = str8_pushf(scratch.arena, "dense_weight_%u", index);
+    string8 bias_name = str8_pushf(scratch.arena, "dense_bias_%u", index);
+
+    tensor* loaded_weight = tensor_list_get(list, weight_name);
+    tensor* loaded_bias = tensor_list_get(list, bias_name);
+
+    tensor_copy_ip(dense->weight, loaded_weight);
+    tensor_copy_ip(dense->bias, loaded_bias);
+
+    tensor_copy_ip(dense->weight_transposed, loaded_weight);
+    tensor_transpose(dense->weight_transposed);
+
+    mga_scratch_release(scratch);
+}
 

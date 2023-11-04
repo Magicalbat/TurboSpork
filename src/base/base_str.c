@@ -89,7 +89,6 @@ string8 str8_substr_size(string8 str, u64 start, u64 size) {
     return str8_substr(str, start, start + size);
 }
 
-#define _WHITESPACE(c) ((c) == ' ' || (c) == '\t' || (c) == '\n')
 string8 str8_remove_space(mg_arena* arena, string8 str) {
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
@@ -102,7 +101,7 @@ string8 str8_remove_space(mg_arena* arena, string8 str) {
     for (u64 i = 0; i < str.size; i++) {
         u8 c = str.str[i];
         
-        if (c != ' ' && c != '\t' && c != '\n') {
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
             stripped.str[s_i++] = str.str[i];
         } else {
             stripped.size--;

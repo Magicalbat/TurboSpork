@@ -65,7 +65,7 @@ b32 str8_index_of(string8 str, u8 c, u64* index);
 string8 str8_substr(string8 str, u64 start, u64 end);
 string8 str8_substr_size(string8 str, u64 start, u64 size);
 
-// Removes all ' ', '\t', and '\n'
+// Removes all ' ', '\t', '\n', and '\r'
 string8 str8_remove_space(mg_arena* arena, string8 str);
 
 void str8_list_push_existing(string8_list* list, string8 str, string8_node* node);

@@ -6,7 +6,7 @@
 
 static u64 _network_max_layer_size(const network* nn);
 
-network* network_create_new(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
+network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
 
     nn->num_layers = num_layers;
@@ -27,15 +27,9 @@ network* network_create_new(mg_arena* arena, u32 num_layers, const layer_desc* l
     return nn;
 }
 
-// Reads layout file (*.tpl)
-network* network_create_layout(mg_arena* arena, string8 file_name, b32 training_mode) {
-    network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
-
-    mga_temp scratch = mga_scratch_get(&arena, 1);
-
-    string8 raw_file = os_file_read(scratch.arena, file_name);
-    string8 file = str8_remove_space(scratch.arena, raw_file);
-
+// Inits layers from stripped tpl string
+// See network_save_layout for more detail
+static void _network_load_layout_impl(mg_arena* arena, mga_temp scratch, network* nn, string8 file, b32 training_mode) {
     // Each string in list is a layer_desc save str
     string8_list desc_str_list = { 0 };
 
@@ -82,20 +76,36 @@ network* network_create_layout(mg_arena* arena, string8 file_name, b32 training_
 
     string8_node* n = desc_str_list.first;
     tensor_shape prev_shape = { 0 };
-    for (u32 i = 0; i < nn->num_layers; i++) {
+    for (u32 i = 0; i < nn->num_layers; i++, n = n->next) {
         nn->layer_descs[i] = layer_desc_load(n->str);
         nn->layer_descs[i].training_mode = training_mode;
 
         nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
         prev_shape = nn->layers[i]->shape;
-
-        n = n->next;
     }
+}
+
+// Creates network from layout file (*.tpl)
+network* network_load_layout(mg_arena* arena, string8 file_name, b32 training_mode) {
+    network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
+
+    mga_temp scratch = mga_scratch_get(&arena, 1);
+
+    string8 raw_file = os_file_read(scratch.arena, file_name);
+    string8 file = str8_remove_space(scratch.arena, raw_file);
+
+    _network_load_layout_impl(arena, scratch, nn, file, training_mode);
 
     mga_scratch_release(scratch);
 
     return nn;
 }
+
+// This is also used in network_save
+static const char* _tpn_header = "TP_network";
+
+// Creates network from network file (*.tpn)
+network* network_load(mg_arena* arena, string8 file_name, b32 training_mode);
 
 void network_delete(network* nn) {
     for (u32 i = 0; i < nn->num_layers; i++) {
@@ -245,18 +255,6 @@ void network_train(network* nn, const network_train_desc* desc) {
                         .arg = &backprop_args[i]
                     }
                 );
-
-                /*for (u32 i = 0; i < nn->num_layers; i++) {
-                    layer_feedforward(nn->layers[i], in_out);
-                }
-
-                // Renaming for clarity
-                tensor* delta = in_out;
-                cost_grad(desc->cost, delta, &output_view);
-
-                for (i64 i = nn->num_layers - 1; i >= 0; i--) {
-                    layer_backprop(nn->layers[i], delta);
-                }*/
             }
 
             os_thread_pool_wait(tpool);
@@ -420,7 +418,6 @@ void network_summary(const network* nn) {
     u32 header_spacing = (row_width - 1 - header.size) / 2;
     memcpy(out.str + row_width + header_spacing, header.str, header.size);
 
-
     u32 shape_start_x = 1 + max_type_width + 2;
     for (u32 i = 0; i < nn->num_layers + 2; i++) {
         // Start index into row
@@ -429,7 +426,6 @@ void network_summary(const network* nn) {
         memcpy(out.str + start_i + 1, types[i].str, types[i].size);
         memcpy(out.str + start_i + shape_start_x, shapes[i].str, shapes[i].size);
     }
-
 
     printf("%.*s", (int)out.size, (char*)out.str);
 
@@ -442,7 +438,7 @@ File Format (*.tpl):
 List of layer_desc saves
 See layer_desc_save
 */
-void network_layout_save(const network* nn, string8 file_name) {
+void network_save_layout(const network* nn, string8 file_name) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     string8_list save_list = { 0 };
@@ -454,6 +450,51 @@ void network_layout_save(const network* nn, string8 file_name) {
         layer_desc_save(scratch.arena, &save_list, &nn->layer_descs[i]);
         str8_list_push(scratch.arena, &save_list, new_line);
     }
+
+    os_file_write(file_name, save_list);
+
+    mga_scratch_release(scratch);
+}
+
+/*
+File Format (*.tpn):
+
+Header
+Network Layout (tpl)
+Tensor List of layer params
+*/
+void network_save(const network* nn, string8 file_name) {
+    string8 header = str8_from_cstr((u8*)_tpn_header);
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+    string8 layout_str = { 0 };
+
+    {
+        mga_temp scratch2 = mga_scratch_get(&scratch.arena, 1);
+
+        string8_list layout_list = { 0 };
+        for (u32 i = 0; i < nn->num_layers; i++) {
+            layer_desc_save(scratch.arena, &layout_list, &nn->layer_descs[i]);
+        }
+
+        string8 full_layout_str = str8_concat(scratch2.arena, layout_list);
+        layout_str = str8_remove_space(scratch.arena, full_layout_str);
+
+        mga_scratch_release(scratch2);
+    }
+
+
+    tensor_list param_list = { 0 };
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        layer_save(scratch.arena, &param_list, nn->layers[i], i);
+    }
+
+    string8 param_str = tensor_list_to_str(scratch.arena, &param_list);
+
+    string8_list save_list = { 0 };
+    str8_list_push(scratch.arena, &save_list, header);
+    str8_list_push(scratch.arena, &save_list, layout_str);
+    str8_list_push(scratch.arena, &save_list, param_str);
 
     os_file_write(file_name, save_list);
 

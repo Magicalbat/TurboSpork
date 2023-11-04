@@ -38,11 +38,11 @@ f32 cost_func(cost_type type, const tensor* in, const tensor* desired_out) {
     return _costs[type].func(in, desired_out);
 }
 void cost_grad(cost_type type, tensor* in_out, const tensor* desired_out) {
-    if (type >= COST_COUNT) { fprintf(stderr, "Invalid cost gradative\n");
+    if (type >= COST_COUNT) { fprintf(stderr, "Invalid cost gradient\n");
         return;
     }
     if (!tensor_shape_eq(in_out->shape, desired_out->shape)) {
-        fprintf(stderr, "Invalid input to cost gradative: shapes must align\n");
+        fprintf(stderr, "Invalid input to cost gradient: shapes must align\n");
         return;
     }
 

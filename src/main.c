@@ -46,41 +46,13 @@ int main(void) {
     data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
     data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
 
-    /*layer_desc layer_descs[] = {
-        {
-            .type = LAYER_INPUT,
-            .input.shape = (tensor_shape){ 784, 1, 1 }
-        },
-        {
-            .type = LAYER_DENSE,
-            .dense.size = 64
-        },
-        {
-            .type = LAYER_ACTIVATION,
-            .activation.type = ACTIVATION_LEAKY_RELU,
-        },
-        {
-            .type = LAYER_DROPOUT,
-            .dropout.keep_rate = 0.9f,
-        },
-        {
-            .type = LAYER_DENSE,
-            .dense.size = 10
-        },
-        {
-            .type = LAYER_ACTIVATION,
-            .activation.type = ACTIVATION_SOFTMAX,
-        },
-    };*/
-
-    //network* nn = network_create_new(perm_arena, sizeof(layer_descs) / sizeof(layer_desc), layer_descs, true);
-    network* nn = network_create_layout(perm_arena, STR8("networks/mnist_layout.tpl"), true);
+    network* nn = network_load_layout(perm_arena, STR8("networks/mnist_layout.tpl"), true);
     network_summary(nn);
 
-    //network_layout_save(nn, STR8("networks/mnist_layout.tpl"));
+    //network_save_layout(nn, STR8("networks/mnist_layout.tpl"));
 
     network_train_desc train_desc = {
-        .epochs = 4,
+        .epochs = 2,
         .batch_size = 100,
 
         .num_threads = 16,
@@ -89,13 +61,6 @@ int main(void) {
         .optim = (optimizer){
             .type = OPTIMIZER_ADAM,
             .learning_rate = 0.0002f,
-
-            //.sgd.momentum = 0.9f,
-
-            /*.rms_prop = (optimizer_rms_prop){ 
-                .beta = 0.999f,
-                .epsilon = 1e-8f
-            }*/
 
             .adam = (optimizer_adam){
                 .beta1 = 0.9f,
@@ -113,6 +78,8 @@ int main(void) {
     };
 
     network_train(nn, &train_desc);
+
+    network_save(nn, STR8("networks/mnist.tpn"));
 
     network_delete(nn);
 

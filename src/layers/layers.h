@@ -106,15 +106,20 @@ typedef struct {
 string8 layer_get_name(layer_type type);
 layer_type layer_from_name(string8 name);
 
-void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc);
-layer_desc layer_desc_load(string8 str);
-
 layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_shape);
 // cache can be NULL, only used for training
 void layer_feedforward(layer* l, tensor* in_out, layers_cache* cache); 
 void layer_backprop(layer* l, tensor* delta, layers_cache* cache);
 void layer_apply_changes(layer* l, const optimizer* optim);
 void layer_delete(layer* l);
+// Saves layer params, not anything that would be in the desc
+void layer_save(mg_arena* arena, tensor_list* list, layer* l, u32 index);
+// Loads layer params, not anything that would be in the desc
+// Layer needs to be created with the correct type
+void layer_load(layer* l, const tensor_list* list, u32 index);
+
+void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc);
+layer_desc layer_desc_load(string8 str);
 
 void layers_cache_push(layers_cache* cache, tensor* t);
 tensor* layers_cache_pop(layers_cache* cache);

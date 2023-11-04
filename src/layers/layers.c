@@ -33,6 +33,107 @@ layer_type layer_from_name(string8 name) {
     return LAYER_NULL;
 }
 
+static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
+    [LAYER_NULL] = {
+        _layer_null_create,
+        _layer_null_feedforward,
+        _layer_null_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+        _layer_null_save,
+        _layer_null_load,
+    },
+    [LAYER_INPUT] = {
+        _layer_input_create,
+        _layer_null_feedforward,
+        _layer_null_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+        _layer_null_save,
+        _layer_null_load,
+    },
+    [LAYER_DENSE] = {
+        _layer_dense_create,
+        _layer_dense_feedforward,
+        _layer_dense_backprop,
+        _layer_dense_apply_changes,
+        _layer_dense_delete,
+        _layer_dense_save,
+        _layer_dense_load,
+    },
+    [LAYER_ACTIVATION] = {
+        _layer_activation_create,
+        _layer_activation_feedforward,
+        _layer_activation_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+        _layer_null_save,
+        _layer_null_load,
+    },
+    [LAYER_DROPOUT] = {
+        _layer_dropout_create,
+        _layer_dropout_feedforward,
+        _layer_dropout_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+        _layer_null_save,
+        _layer_null_load,
+    }
+};
+
+#define _TYPE_CHECK(err_msg) do { \
+        if (l->type >= LAYER_COUNT) { \
+            fprintf(stderr, err_msg); \
+            return; \
+        } \
+    } while (0);
+
+layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_shape) {
+    if (desc->type >= LAYER_COUNT) {
+        fprintf(stderr, "Cannot create layer: invalid type\n");
+        return NULL;
+    }
+
+    layer* out = MGA_PUSH_ZERO_STRUCT(arena, layer);
+
+    out->type = desc->type;
+    out->training_mode = desc->training_mode;
+
+    _layer_funcs[desc->type].create(arena, out, desc, prev_shape);
+
+    return out;
+}
+void layer_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
+    _TYPE_CHECK("Cannot feedforward layer: invalid type\n");
+
+    _layer_funcs[l->type].feedforward(l, in_out, cache);
+}
+void layer_backprop(layer* l, tensor* delta, layers_cache* cache) {
+    _TYPE_CHECK("Cannot backprop layer: invalid type\n");
+
+    _layer_funcs[l->type].backprop(l, delta, cache);
+}
+void layer_apply_changes(layer* l, const optimizer* optim) {
+    _TYPE_CHECK("Cannot apply changes in layer: invalid type\n");
+
+    _layer_funcs[l->type].apply_changes(l, optim);
+}
+void layer_delete(layer* l) {
+    _TYPE_CHECK("Cannot delete layer: invalid type\n");
+
+    _layer_funcs[l->type].delete(l);
+}
+void layer_save(mg_arena* arena, tensor_list* list, layer* l, u32 index) {
+    _TYPE_CHECK("Cannot save layer: invalid type\n");
+
+    _layer_funcs[l->type].save(arena, list, l, index);
+}
+void layer_load(layer* l, const tensor_list* list, u32 index) {
+    _TYPE_CHECK("Cannot load layer: invalid type\n");
+
+    _layer_funcs[l->type].load(l, list, index);
+}
+
 static const char* _activ_names[ACTIVATION_COUNT] = {
     [ACTIVATION_NULL] = "null",
     [ACTIVATION_SIGMOID] = "sigmoid",
@@ -299,92 +400,6 @@ layer_desc layer_desc_load(string8 str) {
     return out;
 }
 
-static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
-    [LAYER_NULL] = {
-        _layer_null_create,
-        _layer_null_feedforward,
-        _layer_null_backprop,
-        _layer_null_apply_changes,
-        _layer_null_delete,
-    },
-    [LAYER_INPUT] = {
-        _layer_input_create,
-        _layer_null_feedforward,
-        _layer_null_backprop,
-        _layer_null_apply_changes,
-        _layer_null_delete,
-    },
-    [LAYER_DENSE] = {
-        _layer_dense_create,
-        _layer_dense_feedforward,
-        _layer_dense_backprop,
-        _layer_dense_apply_changes,
-        _layer_dense_delete,
-    },
-    [LAYER_ACTIVATION] = {
-        _layer_activation_create,
-        _layer_activation_feedforward,
-        _layer_activation_backprop,
-        _layer_null_apply_changes,
-        _layer_null_delete,
-    },
-    [LAYER_DROPOUT] = {
-        _layer_dropout_create,
-        _layer_dropout_feedforward,
-        _layer_dropout_backprop,
-        _layer_null_apply_changes,
-        _layer_null_delete,
-    }
-};
-
-layer* layer_create(mg_arena* arena, const layer_desc* desc, tensor_shape prev_shape) {
-    if (desc->type >= LAYER_COUNT) {
-        fprintf(stderr, "Cannot create layer: invalid type\n");
-        return NULL;
-    }
-
-    layer* out = MGA_PUSH_ZERO_STRUCT(arena, layer);
-
-    out->type = desc->type;
-    out->training_mode = desc->training_mode;
-
-    _layer_funcs[desc->type].create(arena, out, desc, prev_shape);
-
-    return out;
-}
-void layer_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
-    if (l->type >= LAYER_COUNT) {
-        fprintf(stderr, "Cannot feedforward layer: invalid type\n");
-        return;
-    }
-
-    _layer_funcs[l->type].feedforward(l, in_out, cache);
-}
-void layer_backprop(layer* l, tensor* delta, layers_cache* cache) {
-    if (l->type >= LAYER_COUNT) {
-        fprintf(stderr, "Cannot feedforward layer: invalid type\n");
-        return;
-    }
-
-    _layer_funcs[l->type].backprop(l, delta, cache);
-}
-void layer_apply_changes(layer* l, const optimizer* optim) {
-    if (l->type >= LAYER_COUNT) {
-        fprintf(stderr, "Cannot feedforward layer: invalid type\n");
-        return;
-    }
-
-    _layer_funcs[l->type].apply_changes(l, optim);
-}
-void layer_delete(layer* l) {
-    if (l->type >= LAYER_COUNT) {
-        fprintf(stderr, "Cannot delete layer: invalid type\n");
-        return;
-    }
-
-    _layer_funcs[l->type].delete(l);
-}
-
 void layers_cache_push(layers_cache* cache, tensor* t) {
     layers_cache_node* node = MGA_PUSH_ZERO_STRUCT(cache->arena, layers_cache_node);
     node->t = t;
@@ -421,6 +436,17 @@ void _layer_null_apply_changes(layer* l, const optimizer* optim) {
 }
 void _layer_null_delete(layer* l) {
     UNUSED(l);
+}
+void _layer_null_save(mg_arena* arena, tensor_list* list, layer* l, u32 index) {
+    UNUSED(arena);
+    UNUSED(list);
+    UNUSED(l);
+    UNUSED(index);
+}
+void _layer_null_load(layer* l, const tensor_list* list, u32 index) {
+    UNUSED(l);
+    UNUSED(list);
+    UNUSED(index);
 }
 
 void _layer_input_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {

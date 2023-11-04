@@ -28,7 +28,9 @@ tensor* tensor_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc) {
     
     u64 min_alloc = (u64)shape.width * shape.height * shape.depth;
     if (alloc < min_alloc) {
-        fprintf(stderr, "Cannot create tensor, alloc is too small");
+        fprintf(stderr, "Cannot create tensor, alloc is too small\n");
+
+        return NULL;
     }
 
     tensor* out = MGA_PUSH_STRUCT(arena, tensor);
@@ -669,7 +671,6 @@ void tensor_list_save(const tensor_list* list, string8 file_name) {
 
     mga_scratch_release(scratch);
 }
-
    
 tensor_list tensor_list_load(mg_arena* arena, string8 file_name) {
     mga_temp scratch = mga_scratch_get(&arena, 1);

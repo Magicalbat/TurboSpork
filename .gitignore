@@ -10,3 +10,4 @@ replit.nix
 .ccls-cache
 .ccls
 data
+**.tpn
