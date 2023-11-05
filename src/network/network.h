@@ -67,6 +67,9 @@ void network_summary(const network* nn);
 // Saves layer descs
 // *.tpl
 void network_save_layout(const network* nn, string8 file_name);
+
+string8 network_get_tpn_header(void);
+
 // Saves layer descs and layer params
 // *.tpn
 void network_save(const network* nn, string8 file_name);

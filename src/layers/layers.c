@@ -212,7 +212,7 @@ layer_desc layer_desc_load(string8 str) {
     string8 stripped_str = str8_remove_space(scratch.arena, str);
 
     u64 colon_index = 0;
-    if (!str8_index_of(stripped_str, (u8)':', &colon_index)) {
+    if (!str8_index_of_char(stripped_str, (u8)':', &colon_index)) {
         fprintf(stderr, "Cannot load layer desc: Invalid string\n");
 
         mga_scratch_release(scratch);
@@ -229,13 +229,13 @@ layer_desc layer_desc_load(string8 str) {
         // key=value;
 
         u64 eq_index = 0;
-        if (!str8_index_of(cur_str, (u8)'=', &eq_index)) {
+        if (!str8_index_of_char(cur_str, (u8)'=', &eq_index)) {
             fprintf(stderr, "Cannot load layer desc: Invalid field (no '=')\n");
             break;
         }
         
         u64 semi_index = 0;
-        if (!str8_index_of(cur_str, (u8)';', &semi_index)) {
+        if (!str8_index_of_char(cur_str, (u8)';', &semi_index)) {
             fprintf(stderr, "Cannot load layer desc: Invalid field (no ';')\n");
             break;
         }

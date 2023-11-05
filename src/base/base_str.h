@@ -60,7 +60,8 @@ b32 str8_equals(string8 a, string8 b);
 b32 str8_contains(string8 a, string8 b);
 b32 str8_contains_char(string8 str, u8 c);
 
-b32 str8_index_of(string8 str, u8 c, u64* index);
+b32 str8_index_of(string8 str, string8 sub, u64* index);
+b32 str8_index_of_char(string8 str, u8 c, u64* index);
 
 string8 str8_substr(string8 str, u64 start, u64 end);
 string8 str8_substr_size(string8 str, u64 start, u64 size);

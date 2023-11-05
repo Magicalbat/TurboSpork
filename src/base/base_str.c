@@ -69,7 +69,19 @@ b32 str8_contains_char(string8 str, u8 c) {
     return false;
 }
 
-b32 str8_index_of(string8 str, u8 c, u64* index) {
+b32 str8_index_of(string8 str, string8 sub, u64* index) {
+    for (u64 i = 0; i < str.size; i++) {
+        if (str8_equals(str8_substr(str, i, i + sub.size), sub)) {
+            *index = i;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+b32 str8_index_of_char(string8 str, u8 c, u64* index) {
     for (u64 i = 0; i < str.size; i++) {
         if (str.str[i] == c) {
             *index = i;

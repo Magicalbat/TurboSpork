@@ -99,6 +99,8 @@ tensor* tensor_list_get(const tensor_list* list, string8 name);
 string8 tensor_list_to_str(mg_arena* arena, const tensor_list* list);
 tensor_list tensor_list_from_str(mg_arena* arena, string8 str);
 
+string8 tensor_get_tpt_header(void);
+
 // *.tpt file
 void tensor_list_save(const tensor_list* list, string8 file_name);
 tensor_list tensor_list_load(mg_arena* arena, string8 file_name);

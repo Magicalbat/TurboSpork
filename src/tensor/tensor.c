@@ -537,10 +537,14 @@ File Format (*.tpt):
         - f32* data (of length width*height*depth)
 */
 
-static const string8 file_header = {
+static const string8 _tpt_header = {
     .size = 10,
     .str = (u8*)"TP_tensors"
 };
+
+string8 tensor_get_tpt_header(void) {
+    return _tpt_header;
+}
 
 #define _WRITE_DATA(size, data) do { \
         memcpy(str_buf_ptr, (data), (size)); \
@@ -551,7 +555,7 @@ string8 tensor_list_to_str(mg_arena* arena, const tensor_list* list) {
     u64 str_size = 0;
     u8* str_buf = NULL;
 
-    str_size += file_header.size;
+    str_size += _tpt_header.size;
     str_size += sizeof(u32); // for number of tensors
 
     for (tensor_node* node = list->first; node != NULL; node = node->next) {
@@ -572,7 +576,7 @@ string8 tensor_list_to_str(mg_arena* arena, const tensor_list* list) {
     }
     u8* str_buf_ptr = str_buf;
 
-    _WRITE_DATA(file_header.size, file_header.str);
+    _WRITE_DATA(_tpt_header.size, _tpt_header.str);
     _WRITE_DATA(sizeof(u32), &list->size);
 
     for (tensor_node* node = list->first; node != NULL; node = node->next) {
@@ -609,13 +613,13 @@ string8 tensor_list_to_str(mg_arena* arena, const tensor_list* list) {
     } while (0)
 
 tensor_list tensor_list_from_str(mg_arena* arena, string8 str) {
-    if (!str8_equals(file_header, str8_substr(str, 0, file_header.size))) {
+    if (!str8_equals(_tpt_header, str8_substr(str, 0, _tpt_header.size))) {
         fprintf(stderr, "Cannot read tensor string: tensor header not found\n");
         
         return (tensor_list){ 0 };
     }
 
-    u64 pos = file_header.size;
+    u64 pos = _tpt_header.size;
 
     tensor_list out = { 0 };
     
