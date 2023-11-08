@@ -46,12 +46,12 @@ int main(void) {
     data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
     data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
 
-    //network* nn = network_load_layout(perm_arena, STR8("networks/mnist_layout.tpl"), true);
-    network* nn = network_load(perm_arena, STR8("networks/mnist.tpn"), true);
+    network* nn = network_load_layout(perm_arena, STR8("networks/mnist_layout.tpl"), true);
+    //network* nn = network_load(perm_arena, STR8("networks/mnist.tpn"), true);
     network_summary(nn);
 
     network_train_desc train_desc = {
-        .epochs = 2,
+        .epochs = 8,
         .batch_size = 100,
 
         .num_threads = 16,
@@ -76,7 +76,15 @@ int main(void) {
         .test_outputs = data.test_labels
     };
 
+    os_time_init();
+
+    u64 start = os_now_microseconds();
+
     network_train(nn, &train_desc);
+
+    u64 end = os_now_microseconds();
+
+    printf("Train Time: %f\n", (f64)(end - start) / 1e6);
 
     //network_save(nn, STR8("networks/mnist.tpn"));
 

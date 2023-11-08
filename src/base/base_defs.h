@@ -30,6 +30,20 @@ static_assert(sizeof(f64) == 8, "f64 size");
 #   define PLATFORM_LINUX
 #endif
 
+#ifndef THREAD_VAR
+#    if defined(__clang__) || defined(__GNUC__)
+#        define THREAD_VAR __thread
+#    elif defined(_MSC_VER)
+#        define THREAD_VAR __declspec(thread)
+#    elif (__STDC_VERSION__ >= 201112L)
+#        define THREAD_VAR _Thread_local
+#    else
+#        error "Invalid compiler/version for thread var"
+#    endif
+#endif
+
+
+
 #define UNUSED(x) (void)(x)
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))

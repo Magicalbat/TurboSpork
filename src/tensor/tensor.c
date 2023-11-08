@@ -240,8 +240,10 @@ b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b) {
 
     for (u32 y = 0; y < shape.height; y++) {
         for (u32 i = 0; i < a_width; i++) {
+            // This does not change throughout the inner loop
+            f32 a_elem = a_data[(u64)i + (u64)y * a_width];
             for (u32 x = 0; x < shape.width; x++) {
-                out->data[(u64)x + (u64)y * shape.width] += a_data[(u64)i + (u64)y * a_width] * b_data[(u64)x + (u64)i * b_width];
+                out->data[(u64)x + (u64)y * shape.width] += a_elem * b_data[(u64)x + (u64)i * b_width];
             }
         }
     }
