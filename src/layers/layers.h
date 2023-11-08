@@ -13,6 +13,7 @@ typedef enum {
     LAYER_DENSE,
     LAYER_ACTIVATION,
     LAYER_DROPOUT,
+    LAYER_FLATTEN,
 
     LAYER_COUNT
 } layer_type;
@@ -77,6 +78,10 @@ typedef struct {
 } layer_dropout_backend;
 
 typedef struct {
+    tensor_shape prev_shape;
+} layer_flatten_backend;
+
+typedef struct {
     // Initialized in layer_create
     layer_type type;
     b32 training_mode;
@@ -88,6 +93,7 @@ typedef struct {
         layer_dense_backend dense_backend;
         layer_activation_backend activation_backend;
         layer_dropout_backend dropout_backend;
+        layer_flatten_backend flatten_backend;
     };
 } layer;
 

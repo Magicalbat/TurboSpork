@@ -12,6 +12,7 @@ static const char* _layer_names[LAYER_COUNT] = {
     [LAYER_DENSE] = "dense",
     [LAYER_ACTIVATION] = "activation",
     [LAYER_DROPOUT] = "dropout",
+    [LAYER_FLATTEN] = "flatten",
 };
 
 string8 layer_get_name(layer_type type) {
@@ -78,7 +79,17 @@ static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
         _layer_null_delete,
         _layer_null_save,
         _layer_null_load,
-    }
+    },
+    [LAYER_FLATTEN] = {
+        _layer_flatten_create,
+        _layer_flatten_feedforward,
+        _layer_flatten_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+        _layer_null_save,
+        _layer_null_load,
+
+    },
 };
 
 #define _TYPE_CHECK(err_msg) do { \

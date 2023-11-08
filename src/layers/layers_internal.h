@@ -51,5 +51,10 @@ void _layer_dropout_feedforward(layer* l, tensor* in_out, layers_cache* cache);
 void _layer_dropout_backprop(layer* l, tensor* delta, layers_cache* cache);
 // Uses null for the rest
 
+void _layer_flatten_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
+void _layer_flatten_feedforward(layer* l, tensor* in_out, layers_cache* cache);
+void _layer_flatten_backprop(layer* l, tensor* delta, layers_cache* cache);
+// Uses null for the rest
+
 #endif // LAYERS_INTERNAL_H
 

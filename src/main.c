@@ -16,7 +16,7 @@
 
 #define MNIST_DIGIT_WIDTH 28
 #define MNIST_DIGIT_HEIGHT 28
-void draw_mnist_digit(const tensor* digit);
+void draw_mnist_digit(f32* digit_data);
 
 typedef struct {
     tensor* train_imgs;
@@ -99,7 +99,7 @@ int main(void) {
     return 0;
 }
 
-void draw_mnist_digit(const tensor* digit) {
+void draw_mnist_digit(f32* digit_data) {
     mgp_init();
     mgp_set_title(MGP_STR8("MNIST Digit"));
     mgp_set_win_size(600, 600);
@@ -114,7 +114,7 @@ void draw_mnist_digit(const tensor* digit) {
         for (u32 y = 0; y < 28; y++) {
             u32 i = x + y * 28;
 
-            f32 c = digit->data[i];
+            f32 c = digit_data[i];
             colors[i] = (mgp_vec4f){ c, c, c, 1.0f };
 
             rects[i] = (mgp_rectf){
