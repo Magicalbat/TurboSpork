@@ -39,3 +39,31 @@ f32 prng_rand_f32(void) {
     return prng_rand_f32_r(&s_rng);
 }
 
+// Box-Muller Transform
+// https://en.wikipedia.org/wiki/Box–Muller_transform
+f32 prng_std_norm_r(prng* rng){
+    static const f32 epsilon = 1e-6;
+    static const f32 two_pi = 2.0 * 3.141592653f;
+
+    f32 u1 = epsilon;
+    f32 u2 = 0.0f;
+
+    do {
+        u1 = (prng_rand_f32_r(rng)) * 2.0f - 1.0f;
+    } while (u1 <= epsilon);
+    u2 = (prng_rand_f32_r(rng)) * 2.0f - 1.0f;
+
+    f32 mag = sqrtf(-2.0f * logf(u1));
+    f32 z0 = mag * cos(two_pi * u2);
+
+    // I am ignoring the second value here
+    // It might be worth trying to use it
+    //f32 z1 = mag * sin(two_pi * u2);
+
+    return z0;
+}
+
+f32 prng_std_norm(void) {
+    return prng_std_norm_r(&s_rng);
+}
+

@@ -150,6 +150,10 @@ os_file_stats os_file_get_stats(string8 path) {
     return stats;
 }
 
+void os_get_entropy(void* data, u64 size) {
+    getentropy(data, size);
+}
+
 typedef struct _os_thread_mutex {
     pthread_mutex_t mutex;
 } os_thread_mutex;
@@ -192,7 +196,10 @@ static void* linux_thread_start(void* arg) {
     os_thread_pool* tp = (os_thread_pool*)arg;
     os_thread_task task = { 0 };
 
-    //pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    // Init prng
+    u64 seeds[2] = { 0 };
+    os_get_entropy(seeds, sizeof(seeds));
+    prng_seed(seeds[0], seeds[1]);
 
     while (true) {
         pthread_mutex_lock(&tp->mutex);

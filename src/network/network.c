@@ -30,6 +30,8 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
 // Inits layers from stripped tpl string
 // See network_save_layout for more detail
 static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file, b32 training_mode) {
+    // TODO: Error checking for missing semicolons
+
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
     // Each string in list is a layer_desc save str

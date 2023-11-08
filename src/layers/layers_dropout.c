@@ -22,9 +22,8 @@ void _layer_dropout_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
         tensor* dropout_tensor = tensor_create(cache->arena, s);
 
         u64 size = (u64)s.width * s.height * s.depth;
-        i32 rand_cutoff = (f32)RAND_MAX * keep_rate;
         for (u64 i = 0; i < size; i++) {
-            dropout_tensor->data[i] = rand() > rand_cutoff ? 0.0f : 1.0f;
+            dropout_tensor->data[i] = prng_rand_f32() > keep_rate ? 0.0f : 1.0f;
         }
 
         // Applying tensor to input

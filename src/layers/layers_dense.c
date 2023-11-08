@@ -4,27 +4,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-// TODO: replace with better version (look into better rng)
-// https://en.wikipedia.org/wiki/Box–Muller_transform
-f32 _standard_normal() {
-    f32 epsilon = 1e-6;
-    f32 two_pi = 2.0 * 3.141592653f;
-
-    f32 u1 = epsilon;
-    f32 u2 = 0.0f;
-
-    do {
-        u1 = ((f32)rand() / (f32)RAND_MAX) * 2.0f - 1.0f;
-    } while (u1 <= epsilon);
-    u2 = ((f32)rand() / (f32)RAND_MAX) * 2.0f - 1.0f;
-
-    f32 mag = sqrtf(-2.0f * logf(u1));
-    f32 z0 = mag * cos(two_pi * u2);
-    //f32 z1 = mag * sin(two_pi * u2);
-
-    return z0;
-}
-
 void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
     u32 in_size = prev_shape.width;
     u32 out_size = desc->dense.size;
@@ -49,8 +28,7 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, te
     f32 weight_scale = 1.0f / sqrtf(out_size);
     u64 weight_size = (u64)weight_shape.width * weight_shape.height * weight_shape.depth;
     for (u64 i = 0; i < weight_size; i++) {
-        //dense->weight->data[i] = ((f32)rand() / (f32)RAND_MAX) * 2.0f - 1.0f;
-        dense->weight->data[i] = _standard_normal();
+        dense->weight->data[i] = prng_std_norm();
         dense->weight->data[i] *= weight_scale;
     }
 

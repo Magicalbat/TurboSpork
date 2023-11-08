@@ -20,4 +20,7 @@ u32 prng_rand(void);
 f32 prng_rand_f32_r(prng* rng);
 f32 prng_rand_f32(void);
 
+f32 prng_std_norm_r(prng* rng);
+f32 prng_std_norm(void);
+
 #endif // BASE_PRNG_H

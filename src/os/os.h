@@ -43,6 +43,8 @@ string8 os_file_read(mg_arena* arena, string8 path);
 b32 os_file_write(string8 path, string8_list str_list);
 os_file_stats os_file_get_stats(string8 path);
 
+void os_get_entropy(void* data, u64 size);
+
 os_thread_mutex* os_thread_mutex_create(mg_arena* arena);
 void os_thread_mutex_destroy(os_thread_mutex* mutex);
 void os_thread_mutex_lock(os_thread_mutex* mutex);

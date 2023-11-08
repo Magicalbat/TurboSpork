@@ -38,6 +38,10 @@ int main(void) {
     mga_scratch_set_desc(&desc);
     mg_arena* perm_arena = mga_create(&desc);
 
+    u64 seeds[2] = { 0 };
+    os_get_entropy(seeds, sizeof(seeds));
+    prng_seed(seeds[0], seeds[1]);
+
     dataset data = { 0 };
 
     tensor_list mnist = tensor_list_load(perm_arena, STR8("data/mnist.tpt"));
