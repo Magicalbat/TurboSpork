@@ -1,5 +1,7 @@
 #include "network.h"
 
+#include "layers/layers_internal.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <string.h>

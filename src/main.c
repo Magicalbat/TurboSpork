@@ -58,7 +58,7 @@ int main(void) {
         .epochs = 8,
         .batch_size = 100,
 
-        .num_threads = 16,
+        .num_threads = 8,
 
         .cost = COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (optimizer){
@@ -130,4 +130,3 @@ void draw_mnist_digit(f32* digit_data) {
     mga_scratch_release(scratch);
 
 }
-

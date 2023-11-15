@@ -33,6 +33,10 @@ project "TurboSpork"
 
     filter { "system:windows", "action:*gmake*", "configurations:debug" }
         linkoptions { "-g" }
+        
+    filter { "action:not vs*", "configurations:debug" }
+    	buildoptions { "-fsanitize=address" }
+    	linkoptions { "-fsanitize=address" }
 
     filter "configurations:debug"
         symbols "On"

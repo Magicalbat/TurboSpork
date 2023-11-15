@@ -3,6 +3,66 @@
 
 #include "layers.h"
 
+typedef struct {
+    tensor* weight;
+    tensor* weight_transposed;
+    tensor* bias;
+
+    // Training mode
+    param_change weight_change;
+    param_change bias_change;
+} layer_dense_backend;
+
+typedef struct {
+    layer_activation_type type;
+} layer_activation_backend;
+
+typedef struct {
+    f32 keep_rate;
+} layer_dropout_backend;
+
+typedef struct {
+    tensor_shape prev_shape;
+} layer_flatten_backend;
+
+typedef struct {
+    tensor_shape pool_size;
+
+    layer_pooling_type type;
+} layer_pooling_backend;
+
+typedef struct layer {
+    // Initialized in layer_create
+    layer_type type;
+    b32 training_mode;
+
+    // Should be set by layer
+    tensor_shape shape;
+
+    union {
+        layer_dense_backend dense_backend;
+        layer_activation_backend activation_backend;
+        layer_dropout_backend dropout_backend;
+        layer_flatten_backend flatten_backend;
+        layer_pooling_backend pooling_backend;
+    };
+} layer;
+
+typedef struct layers_cache_node {
+    tensor* t;
+    struct layers_cache_node* next;
+} layers_cache_node;
+
+typedef struct layers_cache {
+    mg_arena* arena;
+
+    layers_cache_node* first;
+    layers_cache_node* last;
+} layers_cache;
+
+void layers_cache_push(layers_cache* cache, tensor* t);
+tensor* layers_cache_pop(layers_cache* cache);
+
 typedef void (_layer_create_func)(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 typedef void (_layer_feedforward_func)(layer* l, tensor* in_out, layers_cache* cache);
 typedef void (_layer_backprop_func)(layer* l, tensor* delta, layers_cache* cache); typedef void (_layer_apply_changes_func)(layer* l, const optimizer* optim);
@@ -31,7 +91,6 @@ void _layer_null_save(mg_arena* arena, tensor_list* list, layer* l, u32 index);
 void _layer_null_load(layer* l, const tensor_list* list, u32 index);
 
 void _layer_input_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape); 
-// Uses null for the rest
 
 void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_dense_feedforward(layer* l, tensor* in_out, layers_cache* cache);
@@ -44,17 +103,18 @@ void _layer_dense_load(layer* l, const tensor_list* list, u32 index);
 void _layer_activation_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_activation_feedforward(layer* l, tensor* in_out, layers_cache* cache);
 void _layer_activation_backprop(layer* l, tensor* delta, layers_cache* cache);
-// Uses null for the rest
 
 void _layer_dropout_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_dropout_feedforward(layer* l, tensor* in_out, layers_cache* cache);
 void _layer_dropout_backprop(layer* l, tensor* delta, layers_cache* cache);
-// Uses null for the rest
 
 void _layer_flatten_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_flatten_feedforward(layer* l, tensor* in_out, layers_cache* cache);
 void _layer_flatten_backprop(layer* l, tensor* delta, layers_cache* cache);
-// Uses null for the rest
+
+void _layer_pooling_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
+void _layer_pooling_feedforward(layer* l, tensor* in_out, layers_cache* cache);
+void _layer_pooling_backprop(layer* l, tensor* delta, layers_cache* cache);
 
 #endif // LAYERS_INTERNAL_H
 

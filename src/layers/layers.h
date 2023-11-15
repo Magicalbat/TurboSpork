@@ -14,6 +14,7 @@ typedef enum {
     LAYER_ACTIVATION,
     LAYER_DROPOUT,
     LAYER_FLATTEN,
+    LAYER_POOLING,
 
     LAYER_COUNT
 } layer_type;
@@ -28,6 +29,15 @@ typedef enum {
 
     ACTIVATION_COUNT
 } layer_activation_type;
+
+typedef enum {
+    POOLING_NULL = 0,
+    POOLING_MAX,
+    POOLING_AVG,
+    POOLING_L2,
+
+    POOLING_COUNT
+} layer_pooling_type;
 
 typedef struct {
     tensor_shape shape;
@@ -48,6 +58,13 @@ typedef struct {
 } layer_dropout_desc;
 
 typedef struct {
+    // Only supports 2d right now
+    tensor_shape pool_size;
+
+    layer_pooling_type type;
+} layer_pooling_desc;
+
+typedef struct {
     layer_type type;
     b32 training_mode;
 
@@ -56,58 +73,13 @@ typedef struct {
         layer_dense_desc dense;
         layer_activation_desc activation;
         layer_dropout_desc dropout;
+        layer_pooling_desc pooling;
     };
 } layer_desc;
 
-typedef struct {
-    tensor* weight;
-    tensor* weight_transposed;
-    tensor* bias;
-
-    // Training mode
-    param_change weight_change;
-    param_change bias_change;
-} layer_dense_backend;
-
-typedef struct {
-    layer_activation_type type;
-} layer_activation_backend;
-
-typedef struct {
-    f32 keep_rate;
-} layer_dropout_backend;
-
-typedef struct {
-    tensor_shape prev_shape;
-} layer_flatten_backend;
-
-typedef struct {
-    // Initialized in layer_create
-    layer_type type;
-    b32 training_mode;
-
-    // Should be set by layer
-    tensor_shape shape;
-
-    union {
-        layer_dense_backend dense_backend;
-        layer_activation_backend activation_backend;
-        layer_dropout_backend dropout_backend;
-        layer_flatten_backend flatten_backend;
-    };
-} layer;
-
-typedef struct layers_cache_node {
-    tensor* t;
-    struct layers_cache_node* next;
-} layers_cache_node;
-
-typedef struct {
-    mg_arena* arena;
-
-    layers_cache_node* first;
-    layers_cache_node* last;
-} layers_cache;
+// Defined in layers_internal.h
+typedef struct layer layer;
+typedef struct layers_cache layers_cache;
 
 string8 layer_get_name(layer_type type);
 layer_type layer_from_name(string8 name);
@@ -126,9 +98,6 @@ void layer_load(layer* l, const tensor_list* list, u32 index);
 
 void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc);
 layer_desc layer_desc_load(string8 str);
-
-void layers_cache_push(layers_cache* cache, tensor* t);
-tensor* layers_cache_pop(layers_cache* cache);
 
 #endif // LAYERS_H
 
