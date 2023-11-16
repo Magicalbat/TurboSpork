@@ -31,6 +31,14 @@ project "TurboSpork"
             "m", "X11", "GL", "GLX", "pthread"
         }
 
+    filter "system:windows"
+        systemversion "latest"
+
+        links {
+            "gdi32", "user32", "opengl32", "Bcrypt"
+        }
+
+
     filter { "system:windows", "action:*gmake*", "configurations:debug" }
         linkoptions { "-g" }
         
@@ -49,11 +57,4 @@ project "TurboSpork"
         optimize "On"
 
         defines { "NDEBUG" }
-
-    filter "system:windows"
-        systemversion "latest"
-
-        links {
-            "gdi32", "user32", "opengl32"
-        }
 

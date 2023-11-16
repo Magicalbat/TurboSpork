@@ -11,6 +11,7 @@
 
 #include <Windows.h>
 #include <timeapi.h>
+#include <bcrypt.h>
 
 static u64 _ticks_per_sec = 1;
 
@@ -223,6 +224,10 @@ os_file_stats os_file_get_stats(string8 path) {
     return stats;
 }
 
+void os_get_entropy(void* data, u64 size) {
+    BCryptGenRandom(NULL, data, size, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+}
+
 typedef struct _os_thread_mutex {
     CRITICAL_SECTION cs;
 } os_thread_mutex;
@@ -315,6 +320,7 @@ os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_
 }
 void os_thread_pool_destroy(os_thread_pool* tp) {
     for (u32 i = 0; i < tp->num_threads; i++) {
+        TerminateThread(tp->threads[i], 0);
         CloseHandle(tp->threads[i]);
     }
 
