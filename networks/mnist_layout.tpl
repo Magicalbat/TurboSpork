@@ -2,8 +2,8 @@ input:
     shape = (28, 28, 1);
 
 pooling:
-    type = avg;
-    pool_size = (2, 2, 1);
+    type = average;
+    pool_size = (4, 4, 1);
 
 flatten:
 

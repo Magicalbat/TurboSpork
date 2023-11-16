@@ -110,15 +110,15 @@ void draw_mnist_digit(f32* digit_data) {
     mgp_vec4f* colors = MGA_PUSH_ARRAY(scratch.arena, mgp_vec4f, size);
     mgp_rectf* rects = MGA_PUSH_ARRAY(scratch.arena, mgp_rectf, size);
 
-    for (u32 x = 0; x < 28; x++) {
-        for (u32 y = 0; y < 28; y++) {
-            u32 i = x + y * 28;
+    for (u32 x = 0; x < MNIST_DIGIT_WIDTH; x++) {
+        for (u32 y = 0; y < MNIST_DIGIT_HEIGHT; y++) {
+            u32 i = x + y * MNIST_DIGIT_WIDTH;
 
             f32 c = digit_data[i];
             colors[i] = (mgp_vec4f){ c, c, c, 1.0f };
 
             rects[i] = (mgp_rectf){
-                x, 27 - y, 1, 1
+                x, MNIST_DIGIT_HEIGHT - 1 - y, 1, 1
             };
         }
     }
@@ -128,5 +128,4 @@ void draw_mnist_digit(f32* digit_data) {
     mgp_plot_show();
 
     mga_scratch_release(scratch);
-
 }

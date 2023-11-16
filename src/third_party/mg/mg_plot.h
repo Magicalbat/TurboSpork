@@ -593,8 +593,6 @@ void mgp_lines_ex(mgp_u32 num_points, mgp_f32* xs, mgp_f32* ys, mgp_f32 width, m
     mga_scratch_release(scratch);
 }
 void mgp_rects_ex(mgp_u32 num_rects, mgp_rectf* rects, mgp_vec4f color, mgp_vec4f* colors, mgp_string8 label) {
-    mga_temp scratch = mga_scratch_get(NULL, 0);
-
     mgp_draw_cmd cmd = {
         .type = MGP_DRAW_RECTS,
         .size = num_rects,
@@ -607,12 +605,8 @@ void mgp_rects_ex(mgp_u32 num_rects, mgp_rectf* rects, mgp_vec4f color, mgp_vec4
     };
 
     mgp_cmd_push(&cmd);
-
-    mga_scratch_release(scratch);
 }
 void mgp_quads_ex(mgp_u32 num_quads, mgp_quadf* quads, mgp_vec4f color, mgp_vec4f* colors, mgp_string8 label) {
-    mga_temp scratch = mga_scratch_get(NULL, 0);
-
     mgp_draw_cmd cmd = {
         .type = MGP_DRAW_QUADS,
         .size = num_quads,
@@ -625,8 +619,6 @@ void mgp_quads_ex(mgp_u32 num_quads, mgp_quadf* quads, mgp_vec4f color, mgp_vec4
     };
 
     mgp_cmd_push(&cmd);
-
-    mga_scratch_release(scratch);
 }
 
 typedef mgp_f32 mat4f[16];

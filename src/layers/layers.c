@@ -468,6 +468,10 @@ layer_desc layer_desc_load(string8 str) {
                             break;
                         }
                     }
+
+                    if (out.activation.type == ACTIVATION_NULL) {
+                        fprintf(stderr, "Invalid activation type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                    }
                 }
             } break;
             case LAYER_DROPOUT: {
@@ -492,6 +496,10 @@ layer_desc layer_desc_load(string8 str) {
 
                             break;
                         }
+                    }
+
+                    if (out.pooling.type == ACTIVATION_NULL) {
+                        fprintf(stderr, "Invalid pooling type \"%.*s\"\n", (int)value.size, (char*)value.str);
                     }
                 } else if (str8_equals(key, STR8("pool_size"))) {
                     _parse_res res = _parse_tensor_shape(&out.pooling.pool_size, value);

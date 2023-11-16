@@ -137,8 +137,6 @@ void _pool_max(const tensor* in, tensor* out, tensor_shape pool_size, tensor* de
                 for (u32 y = 0; y < pool_size.height; y++) {
                     u64 index = (i_x + x) + (i_y + y) * in->shape.width;
 
-                    //printf("i_x: %llu, x: %u, i_y: %llu, y: %u, width: %u, index: %llu\n", i_x, x, i_y, y, in->shape.width, index);
-
                     if (in->data[index] > max_num) {
                         max_num = in->data[index];
                         max_index = index;
