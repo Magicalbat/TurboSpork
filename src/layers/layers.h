@@ -34,7 +34,6 @@ typedef enum {
     POOLING_NULL = 0,
     POOLING_MAX,
     POOLING_AVG,
-    POOLING_L2,
 
     POOLING_COUNT
 } layer_pooling_type;

@@ -35,9 +35,8 @@ int main(void) {
         .desired_block_size = MGA_MiB(1),
         .error_callback = mga_on_error
     };
-    mga_scratch_set_desc(&desc);
     mg_arena* perm_arena = mga_create(&desc);
-
+    mga_scratch_set_desc(&desc);
     u64 seeds[2] = { 0 };
     os_get_entropy(seeds, sizeof(seeds));
     prng_seed(seeds[0], seeds[1]);
@@ -55,7 +54,7 @@ int main(void) {
     network_summary(nn);
 
     network_train_desc train_desc = {
-        .epochs = 8,
+        .epochs = 16,
         .batch_size = 100,
 
         .num_threads = 8,

@@ -169,7 +169,6 @@ static const char* _pooling_names[POOLING_COUNT] = {
     [POOLING_NULL] = "null",
     [POOLING_AVG] = "average",
     [POOLING_MAX] = "max",
-    [POOLING_L2] = "l2"
 };
 
 /*

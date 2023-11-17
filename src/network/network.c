@@ -195,18 +195,24 @@ u32 _num_digits (u32 n) {
 
 typedef struct {
     network* nn;
-    tensor* in_out;
-    tensor* output;
+    u64 max_layer_size;
+    tensor input_view;
+    tensor output_view;
     cost_type cost;
 } _network_backprop_args;
+
 void _network_backprop_thread(void* args) {
     _network_backprop_args* bargs = (_network_backprop_args*)args;
 
     network* nn = bargs->nn;
-    tensor* in_out = bargs->in_out;
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
+
     layers_cache cache = { .arena = scratch.arena };
+
+    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, bargs->max_layer_size);
+    tensor_copy_ip(in_out, &bargs->input_view);
+    tensor* output = tensor_copy(scratch.arena, &bargs->output_view, false);
 
     for (u32 i = 0; i < nn->num_layers; i++) {
         layer_feedforward(nn->layers[i], in_out, &cache);
@@ -214,7 +220,7 @@ void _network_backprop_thread(void* args) {
 
     // Renaming for clarity
     tensor* delta = in_out;
-    cost_grad(bargs->cost, delta, bargs->output);
+    cost_grad(bargs->cost, delta, output);
 
     for (i64 i = nn->num_layers - 1; i >= 0; i--) {
         layer_backprop(nn->layers[i], delta, &cache);
@@ -227,6 +233,8 @@ void _network_backprop_thread(void* args) {
 void network_train(network* nn, const network_train_desc* desc) {
     optimizer optim = desc->optim;
     optim._batch_size = desc->batch_size;
+
+    u64 max_layer_size = _network_max_layer_size(nn);
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
@@ -282,20 +290,18 @@ void network_train(network* nn, const network_train_desc* desc) {
                 tensor_2d_view(&input_view, desc->train_inputs, index);
                 tensor_2d_view(&output_view, desc->train_outputs, index);
 
-                u64 max_layer_size = _network_max_layer_size(nn);
-
-                tensor* in_out = tensor_create_alloc(batch_temp.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
-                tensor_copy_ip(in_out, &input_view);
-                tensor* output = tensor_copy(batch_temp.arena, &output_view, false);
+                //tensor* in_out = tensor_create_alloc(batch_temp.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
+                //tensor_copy_ip(in_out, &input_view);
+                //tensor* output = tensor_copy(batch_temp.arena, &output_view, false);
 
                 backprop_args[i] = (_network_backprop_args){ 
                     .nn = nn,
-                    .in_out = in_out,
-                    .output = output,
+                    .max_layer_size = max_layer_size,
+                    .input_view = input_view,
+                    .output_view = output_view,
                     .cost = desc->cost,
                 };
 
-                // Stopping here?
                 os_thread_pool_add_task(
                     tpool,
                     (os_thread_task){
@@ -303,6 +309,24 @@ void network_train(network* nn, const network_train_desc* desc) {
                         .arg = &backprop_args[i]
                     }
                 );
+
+                /*mga_temp scratch = mga_scratch_get(NULL, 0);
+                layers_cache cache = { .arena = scratch.arena };
+
+                for (u32 i = 0; i < nn->num_layers; i++) {
+                    layer_feedforward(nn->layers[i], in_out, &cache);
+                }
+
+                // Renaming for clarity
+                tensor* delta = in_out;
+                cost_grad(desc->cost, delta, output);
+
+                for (i64 i = nn->num_layers - 1; i >= 0; i--) {
+                    layer_backprop(nn->layers[i], delta, &cache);
+                }
+
+                mga_scratch_release(scratch);*/
+
             }
 
             os_thread_pool_wait(tpool);
@@ -317,7 +341,7 @@ void network_train(network* nn, const network_train_desc* desc) {
         printf("\n");
         memset(bar_str_data, ' ', _BAR_SIZE);
 
-        f32 accuracy = -1.0f;
+        f32 accuracy = 0.0f;
 
         if (desc->accuracy_test) {
             string8 load_anim = STR8("-\\|/");

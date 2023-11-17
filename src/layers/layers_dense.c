@@ -35,6 +35,7 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, te
     tensor_copy_ip(dense->weight_transposed, dense->weight);
     tensor_transpose(dense->weight_transposed);
 }
+#include <stdio.h>
 void _layer_dense_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     layer_dense_backend* dense = &l->dense_backend;
 

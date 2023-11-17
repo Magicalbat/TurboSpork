@@ -9,13 +9,11 @@ typedef void (_pooling_func)(const tensor* in, tensor* out, tensor_shape pool_si
 void _pool_null(const tensor* in, tensor* out, tensor_shape pool_size, tensor* delta);
 void _pool_max(const tensor* in, tensor* out, tensor_shape pool_size, tensor* delta);
 void _pool_avg(const tensor* in, tensor* out, tensor_shape pool_size, tensor* delta);
-void _pool_l2(const tensor* in, tensor* out, tensor_shape pool_size, tensor* delta);
 
 _pooling_func* _pooling_funcs[POOLING_COUNT] = {
     [POOLING_NULL] = _pool_null,
     [POOLING_MAX] = _pool_max,
     [POOLING_AVG] = _pool_avg,
-    [POOLING_L2] = _pool_l2,
 };
 
 void _layer_pooling_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
@@ -186,5 +184,4 @@ void _pool_avg(const tensor* in, tensor* out, tensor_shape pool_size, tensor* de
         }
     }
 }
-void _pool_l2(const tensor* in, tensor* out, tensor_shape pool_size, tensor* delta) {}
 

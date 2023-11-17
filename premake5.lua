@@ -38,7 +38,6 @@ project "TurboSpork"
             "gdi32", "user32", "opengl32", "Bcrypt"
         }
 
-
     filter { "system:windows", "action:*gmake*", "configurations:debug" }
         linkoptions { "-g" }
         

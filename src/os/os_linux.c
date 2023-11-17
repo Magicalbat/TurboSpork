@@ -287,9 +287,10 @@ void os_thread_pool_destroy(os_thread_pool* tp) {
 void os_thread_pool_add_task(os_thread_pool* tp, os_thread_task task) {
     pthread_mutex_lock(&tp->mutex);
 
-    if ((u64)tp->num_tasks + 1 >= (u64)tp->max_tasks) {
+    if ((u64)tp->num_tasks + 1 > (u64)tp->max_tasks) {
         pthread_mutex_unlock(&tp->mutex);
         fprintf(stderr, "Thread pool exceeded max tasks\n");
+
         return;
     }
 
@@ -304,7 +305,7 @@ void os_thread_pool_wait(os_thread_pool* tp) {
 
     while (true) {
         //if (tp->num_active != 0 || tp->num_tasks != 0) {
-        if ((!tp->stop && tp->num_active != 0) || (tp->stop && tp->num_threads != 0)) {
+        if ((!tp->stop && (tp->num_active != 0 || tp->num_tasks != 0)) || (tp->stop && tp->num_threads != 0)) {
             pthread_cond_wait(&tp->active_cond_var, &tp->mutex);
         } else {
             break;
