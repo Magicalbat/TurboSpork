@@ -290,10 +290,6 @@ void network_train(network* nn, const network_train_desc* desc) {
                 tensor_2d_view(&input_view, desc->train_inputs, index);
                 tensor_2d_view(&output_view, desc->train_outputs, index);
 
-                //tensor* in_out = tensor_create_alloc(batch_temp.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
-                //tensor_copy_ip(in_out, &input_view);
-                //tensor* output = tensor_copy(batch_temp.arena, &output_view, false);
-
                 backprop_args[i] = (_network_backprop_args){ 
                     .nn = nn,
                     .max_layer_size = max_layer_size,
@@ -309,24 +305,6 @@ void network_train(network* nn, const network_train_desc* desc) {
                         .arg = &backprop_args[i]
                     }
                 );
-
-                /*mga_temp scratch = mga_scratch_get(NULL, 0);
-                layers_cache cache = { .arena = scratch.arena };
-
-                for (u32 i = 0; i < nn->num_layers; i++) {
-                    layer_feedforward(nn->layers[i], in_out, &cache);
-                }
-
-                // Renaming for clarity
-                tensor* delta = in_out;
-                cost_grad(desc->cost, delta, output);
-
-                for (i64 i = nn->num_layers - 1; i >= 0; i--) {
-                    layer_backprop(nn->layers[i], delta, &cache);
-                }
-
-                mga_scratch_release(scratch);*/
-
             }
 
             os_thread_pool_wait(tpool);
@@ -376,6 +354,16 @@ void network_train(network* nn, const network_train_desc* desc) {
             };
 
             desc->epoch_callback(&info);
+        }
+
+        if (desc->save_interval != 0 && ((epoch + 1) % desc->save_interval) == 0) {
+            mga_temp save_temp = mga_temp_begin(scratch.arena);
+
+            string8 path = str8_pushf(save_temp.arena, "%.*s%.4u.tpn", (int)desc->save_path.size, desc->save_path.str, epoch + 1);
+
+            network_save(nn, path);
+
+            mga_temp_end(save_temp);
         }
     }
 

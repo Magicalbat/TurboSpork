@@ -71,6 +71,9 @@ int main(void) {
             }
         },
 
+        .save_interval = 0,
+        //.save_path = STR8("training_nets/network_"),
+
         .train_inputs = data.train_imgs,
         .train_outputs = data.train_labels,
 

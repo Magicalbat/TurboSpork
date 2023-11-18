@@ -39,6 +39,13 @@ typedef struct {
     // Gives information to function after each epoch
     network_epoch_callback* epoch_callback;
 
+    // Epoch interval to save network 
+    // When (epoch + 1) % save_interval == 0
+    // Interval of zero means no saving
+    u32 save_interval;
+    // Output will be "{save_path}{epoch_num}.tpn"
+    string8 save_path;
+
     tensor* train_inputs;
     tensor* train_outputs;
 
