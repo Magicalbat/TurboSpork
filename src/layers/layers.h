@@ -14,10 +14,26 @@ typedef enum {
     LAYER_ACTIVATION,
     LAYER_DROPOUT,
     LAYER_FLATTEN,
-    LAYER_POOLING,
+    LAYER_POOLING_2D,
+    LAYER_CONV_2D,
 
     LAYER_COUNT
 } layer_type;
+
+typedef enum {
+    PARAM_INIT_NULL = 0,
+
+    // Fills param with zeors
+    PARAM_INIT_ZEROS,
+    // Fills param with zeors
+    PARAM_INIT_ONES,
+    // Fills param with (prng_std_norm() / sqrt(out_size))
+    PARAM_INIT_STD_NORM,
+
+    // TODO: glorot init
+
+    PARAM_INIT_COUNT
+} param_init_type;
 
 typedef enum {
     ACTIVATION_NULL = 0,
@@ -45,7 +61,10 @@ typedef struct {
 typedef struct {
     u32 size;
 
-    // TODO: weight initialization options
+    // Default of PARAM_INIT_ZEROS
+    param_init_type bias_init_type;
+    // Default of PARAM_INIT_STD_NORM
+    param_init_type weight_init_type;
 } layer_dense_desc;
 
 typedef struct {
@@ -57,11 +76,16 @@ typedef struct {
 } layer_dropout_desc;
 
 typedef struct {
-    // Only supports 2d right now
     tensor_shape pool_size;
 
     layer_pooling_type type;
-} layer_pooling_desc;
+} layer_pooling_2d_desc;
+
+typedef struct {
+    u32 num_filters;
+
+    tensor_shape kernel_size;
+} layer_conv_2d_desc;
 
 typedef struct {
     layer_type type;
@@ -72,7 +96,7 @@ typedef struct {
         layer_dense_desc dense;
         layer_activation_desc activation;
         layer_dropout_desc dropout;
-        layer_pooling_desc pooling;
+        layer_pooling_2d_desc pooling_2d;
     };
 } layer_desc;
 

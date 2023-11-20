@@ -25,12 +25,8 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, te
         param_change_create(arena, &dense->weight_change, weight_shape);
     }
 
-    f32 weight_scale = 1.0f / sqrtf(out_size);
-    u64 weight_size = (u64)weight_shape.width * weight_shape.height * weight_shape.depth;
-    for (u64 i = 0; i < weight_size; i++) {
-        dense->weight->data[i] = prng_std_norm();
-        dense->weight->data[i] *= weight_scale;
-    }
+    param_init(dense->bias, desc->dense.bias_init_type, PARAM_INIT_ZEROS, in_size, out_size);
+    param_init(dense->weight, desc->dense.weight_init_type, PARAM_INIT_STD_NORM, in_size, out_size);
 
     tensor_copy_ip(dense->weight_transposed, dense->weight);
     tensor_transpose(dense->weight_transposed);

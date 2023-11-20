@@ -29,7 +29,7 @@ typedef struct {
     tensor_shape pool_size;
 
     layer_pooling_type type;
-} layer_pooling_backend;
+} layer_pooling_2d_backend;
 
 typedef struct layer {
     // Initialized in layer_create
@@ -44,10 +44,13 @@ typedef struct layer {
         layer_activation_backend activation_backend;
         layer_dropout_backend dropout_backend;
         layer_flatten_backend flatten_backend;
-        layer_pooling_backend pooling_backend;
+        layer_pooling_2d_backend pooling_2d_backend;
     };
 } layer;
 
+void param_init(tensor* param, param_init_type input_type, param_init_type default_type, u32 in_size, u32 out_size);
+
+// TODO: consistent underscoring for private stuff
 typedef struct layers_cache_node {
     tensor* t;
     struct layers_cache_node* next;
@@ -112,9 +115,9 @@ void _layer_flatten_create(mg_arena* arena, layer* out, const layer_desc* desc, 
 void _layer_flatten_feedforward(layer* l, tensor* in_out, layers_cache* cache);
 void _layer_flatten_backprop(layer* l, tensor* delta, layers_cache* cache);
 
-void _layer_pooling_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
-void _layer_pooling_feedforward(layer* l, tensor* in_out, layers_cache* cache);
-void _layer_pooling_backprop(layer* l, tensor* delta, layers_cache* cache);
+void _layer_pooling_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
+void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache);
+void _layer_pooling_2d_backprop(layer* l, tensor* delta, layers_cache* cache);
 
 #endif // LAYERS_INTERNAL_H
 

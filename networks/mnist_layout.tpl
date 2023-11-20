@@ -1,9 +1,9 @@
 input:
     shape = (28, 28, 1);
 
-pooling:
-    type = average;
-    pool_size = (4, 4, 1);
+pooling_2d:
+    type = max;
+    pool_size = (2, 2, 1);
 
 flatten:
 

@@ -16,19 +16,19 @@ _pooling_func* _pooling_funcs[POOLING_COUNT] = {
     [POOLING_AVG] = _pool_avg,
 };
 
-void _layer_pooling_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
+void _layer_pooling_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
     UNUSED(arena);
 
-    layer_pooling_backend* pooling = &out->pooling_backend;
+    layer_pooling_2d_backend* pooling = &out->pooling_2d_backend;
 
-    if (desc->pooling.type >= POOLING_COUNT) {
+    if (desc->pooling_2d.type >= POOLING_COUNT) {
         fprintf(stderr, "Invalid type for pooling layer\n");
 
         return;
     }
 
-    pooling->type = desc->pooling.type;
-    pooling->pool_size = desc->pooling.pool_size;
+    pooling->type = desc->pooling_2d.type;
+    pooling->pool_size = desc->pooling_2d.pool_size;
 
     if (
         prev_shape.width % pooling->pool_size.width != 0 ||
@@ -49,8 +49,8 @@ void _layer_pooling_create(mg_arena* arena, layer* out, const layer_desc* desc, 
     out->shape = out_shape;
 }
 // TODO: Type check here and in activation?
-void _layer_pooling_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
-    layer_pooling_backend* pooling = &l->pooling_backend;
+void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
+    layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
 
     tensor* delta = NULL;
 
@@ -71,8 +71,8 @@ void _layer_pooling_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
         layers_cache_push(cache, delta);
     }
 }
-void _layer_pooling_backprop(layer* l, tensor* delta, layers_cache* cache) {
-    layer_pooling_backend* pooling = &l->pooling_backend;
+void _layer_pooling_2d_backprop(layer* l, tensor* delta, layers_cache* cache) {
+    layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
 
     // Expanding delta to input size
     {

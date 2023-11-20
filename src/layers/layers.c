@@ -2,6 +2,7 @@
 #include "layers_internal.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +14,7 @@ static const char* _layer_names[LAYER_COUNT] = {
     [LAYER_ACTIVATION] = "activation",
     [LAYER_DROPOUT] = "dropout",
     [LAYER_FLATTEN] = "flatten",
-    [LAYER_POOLING] = "pooling"
+    [LAYER_POOLING_2D] = "pooling_2d"
 };
 
 string8 layer_get_name(layer_type type) {
@@ -91,10 +92,10 @@ static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
         _layer_null_load,
 
     },
-    [LAYER_POOLING] = {
-        _layer_pooling_create,
-        _layer_pooling_feedforward,
-        _layer_pooling_backprop,
+    [LAYER_POOLING_2D] = {
+        _layer_pooling_2d_create,
+        _layer_pooling_2d_feedforward,
+        _layer_pooling_2d_backprop,
         _layer_null_apply_changes,
         _layer_null_delete,
         _layer_null_save,
@@ -228,16 +229,16 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
 
             str8_list_push(arena, list, rate_str);
         } break;
-        case LAYER_POOLING: {
-            if (desc->pooling.type >= POOLING_COUNT) {
+        case LAYER_POOLING_2D: {
+            if (desc->pooling_2d.type >= POOLING_COUNT) {
                 fprintf(stderr, "Cannot save desc: invalid pooling type\n");
 
                 break;
             }
 
-            string8 type_str = str8_pushf(arena, "    type = %s;\n", _pooling_names[desc->pooling.type]);
+            string8 type_str = str8_pushf(arena, "    type = %s;\n", _pooling_names[desc->pooling_2d.type]);
 
-            tensor_shape s = desc->pooling.pool_size;
+            tensor_shape s = desc->pooling_2d.pool_size;
             string8 pool_size_str = str8_pushf(arena, "    pool_size = (%u, %u, %u);\n", s.width, s.height, s.depth);
 
             str8_list_push(arena, list, type_str);
@@ -253,6 +254,8 @@ typedef struct {
     char* err_msg;
 } _parse_res;
 
+_parse_res _parse_enum(u32* out, string8 value, const char* enum_names[]) {
+}
 _parse_res _parse_tensor_shape(tensor_shape* out, string8 value) {
     // Parsing (w, h, d)
 
@@ -484,24 +487,24 @@ layer_desc layer_desc_load(string8 str) {
                     }
                 }
             } break;
-            case LAYER_POOLING: {
+            case LAYER_POOLING_2D: {
                 if (str8_equals(key, STR8("type"))) {
                     // Type is an enum
                     // Strings of each enum are in `_pooling_names`
 
                     for (u32 i = 0; i < POOLING_COUNT; i++) {
                         if (str8_equals(value, str8_from_cstr((u8*)_pooling_names[i]))) {
-                            out.pooling.type = i;
+                            out.pooling_2d.type = i;
 
                             break;
                         }
                     }
 
-                    if (out.pooling.type == ACTIVATION_NULL) {
+                    if (out.pooling_2d.type == ACTIVATION_NULL) {
                         fprintf(stderr, "Invalid pooling type \"%.*s\"\n", (int)value.size, (char*)value.str);
                     }
                 } else if (str8_equals(key, STR8("pool_size"))) {
-                    _parse_res res = _parse_tensor_shape(&out.pooling.pool_size, value);
+                    _parse_res res = _parse_tensor_shape(&out.pooling_2d.pool_size, value);
 
                     if (res.error) {
                         fprintf(stderr, "%s\n", res.err_msg);
@@ -517,6 +520,33 @@ layer_desc layer_desc_load(string8 str) {
     mga_scratch_release(scratch);
 
     return out;
+}
+
+void param_init(tensor* param, param_init_type input_type, param_init_type default_type, u32 in_size, u32 out_size) {
+    UNUSED(in_size);
+
+    param_init_type type = default_type;
+    if (input_type != PARAM_INIT_NULL) {
+        type = input_type;
+    }
+
+    switch (type) {
+        case PARAM_INIT_ZEROS: {
+            tensor_fill(param, 0.0f);
+        } break;
+        case PARAM_INIT_ONES: {
+            tensor_fill(param, 1.0f);
+        } break;
+        case PARAM_INIT_STD_NORM: {
+            f32 scale = 1.0f / sqrtf(out_size);
+            u64 size = (u64)param->shape.width * param->shape.height * param->shape.depth;
+            for (u64 i = 0; i < size; i++) {
+                param->data[i] = prng_std_norm();
+                param->data[i] *= scale;
+            }
+        } break;
+        default: break;
+    }
 }
 
 void layers_cache_push(layers_cache* cache, tensor* t) {
