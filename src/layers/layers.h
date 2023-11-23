@@ -62,9 +62,9 @@ typedef struct {
     u32 size;
 
     // Default of PARAM_INIT_ZEROS
-    param_init_type bias_init_type;
+    param_init_type bias_init;
     // Default of PARAM_INIT_STD_NORM
-    param_init_type weight_init_type;
+    param_init_type weight_init;
 } layer_dense_desc;
 
 typedef struct {
@@ -101,7 +101,7 @@ typedef struct {
     u32 stride_y;
 
     // Default of PARAM_INIT_STD_NORM
-    param_init_type kernel_init;
+    param_init_type kernels_init;
     // Default of PARAM_INIT_ZEROS
     param_init_type biases_init;
 } layer_conv_2d_desc;

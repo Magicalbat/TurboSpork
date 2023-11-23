@@ -108,11 +108,11 @@ int main(void) {
         }
     };
 
-    network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
+    network* nn = network_load_layout(perm_arena, STR8("networks/test.tpl"), true);
+    //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
     network_save_layout(nn, STR8("networks/test.tpl"));
 
 
-    //network* nn = network_load(perm_arena, STR8("networks/mnist.tpn"), true);
     network_summary(nn);
 
     network_train_desc train_desc = {

@@ -173,8 +173,8 @@ static const layer_desc _default_descs[LAYER_COUNT] = {
     [LAYER_DENSE] = {
         .dense = (layer_dense_desc){
             .size = 1,
-            .bias_init_type = PARAM_INIT_ZEROS,
-            .weight_init_type = PARAM_INIT_STD_NORM
+            .bias_init = PARAM_INIT_ZEROS,
+            .weight_init = PARAM_INIT_STD_NORM
         }
     },
     [LAYER_ACTIVATION] = {
@@ -194,7 +194,7 @@ static const layer_desc _default_descs[LAYER_COUNT] = {
             .kernel_size = { 1, 1, 1 },
             .stride_x = 1,
             .stride_y = 1,
-            .kernel_init = PARAM_INIT_STD_NORM,
+            .kernels_init = PARAM_INIT_STD_NORM,
             .biases_init = PARAM_INIT_ZEROS
         }
     },
@@ -230,8 +230,8 @@ layer_desc layer_desc_apply_default(const layer_desc* desc) {
         } break;
         case LAYER_DENSE: {
             _PARAM_DEFAULT(out.dense.size, def->dense.size);
-            _PARAM_DEFAULT(out.dense.bias_init_type, def->dense.bias_init_type);
-            _PARAM_DEFAULT(out.dense.weight_init_type, def->dense.weight_init_type);
+            _PARAM_DEFAULT(out.dense.bias_init, def->dense.bias_init);
+            _PARAM_DEFAULT(out.dense.weight_init, def->dense.weight_init);
         } break;
         case LAYER_ACTIVATION: {
             _PARAM_DEFAULT(out.activation.type, def->activation.type);
@@ -262,7 +262,7 @@ layer_desc layer_desc_apply_default(const layer_desc* desc) {
             _PARAM_DEFAULT(out_c->padding, def_c->padding);
             _PARAM_DEFAULT(out_c->stride_x, def_c->stride_x);
             _PARAM_DEFAULT(out_c->stride_y, def_c->stride_y);
-            _PARAM_DEFAULT(out_c->kernel_init, def_c->kernel_init);
+            _PARAM_DEFAULT(out_c->kernels_init, def_c->kernels_init);
             _PARAM_DEFAULT(out_c->biases_init, def_c->biases_init);
 
         } break;
@@ -333,17 +333,16 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
         case LAYER_DENSE: {
             string8 size_str = str8_pushf(arena, "    size = %u;\n", desc->dense.size);
 
-            if (desc->dense.bias_init_type >= PARAM_INIT_COUNT || desc->dense.weight_init_type >= PARAM_INIT_COUNT) {
+            if (desc->dense.bias_init >= PARAM_INIT_COUNT || desc->dense.weight_init >= PARAM_INIT_COUNT) {
                 fprintf(stderr, "Cannot save desc: invalid init type in dense\n");
-
                 break;
             }
 
             string8 bias_init_str = str8_pushf(
-                arena, "    bias_init_type = %s;\n", _param_init_names[desc->dense.bias_init_type]
+                arena, "    bias_init = %s;\n", _param_init_names[desc->dense.bias_init]
             );
             string8 weight_init_str = str8_pushf(
-                arena, "    weight_init_type = %s;\n", _param_init_names[desc->dense.weight_init_type]
+                arena, "    weight_init = %s;\n", _param_init_names[desc->dense.weight_init]
             );
 
             str8_list_push(arena, list, size_str);
@@ -381,6 +380,34 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
             str8_list_push(arena, list, type_str);
             str8_list_push(arena, list, pool_size_str);
         } break;
+        case LAYER_CONV_2D: {
+            const layer_conv_2d_desc* cdesc = &desc->conv_2d;
+
+            if (cdesc->kernels_init >= PARAM_INIT_COUNT || cdesc->biases_init >= PARAM_INIT_COUNT) {
+                fprintf(stderr, "Cannot save desc: invalid init type in conv_2d\n");
+                break;
+            }
+
+            string8 conv_2d_str = str8_pushf(
+                arena,
+                "   num_filters = %u;\n"
+                "   kernel_size = (%u %u %u);\n"
+                "   padding = %s;\n"
+                "   stride_x = %u;\n"
+                "   stride_y = %u;\n"
+                "   kernels_init = %s;\n"
+                "   bias_init = %s;\n",
+
+                cdesc->num_filters,
+                cdesc->kernel_size.width, cdesc->kernel_size.height, cdesc->kernel_size.depth, 
+                cdesc->padding ? "true" : "false",
+                cdesc->stride_x, cdesc->stride_y,
+                _param_init_names[cdesc->kernels_init],
+                _param_init_names[cdesc->biases_init]
+            );
+
+            str8_list_push(arena, list, conv_2d_str);
+        }
 
         default: break;
     }
@@ -398,6 +425,20 @@ _parse_res _parse_enum(u32* out, string8 value, const char* enum_names[], u32 nu
 
             break;
         }
+    }
+
+    return (_parse_res){ .error = false };
+}
+_parse_res _parse_b32(b32* out, string8 value) {
+    if (str8_equals(value, STR8("true"))) {
+        *out = true;
+    } else if (str8_equals(value, STR8("false"))) {
+        *out = false;
+    } else {
+        return (_parse_res) {
+            .error = true,
+            .err_msg = "Cannot load layer desc: invalid string for bool"
+        };
     }
 
     return (_parse_res){ .error = false };
@@ -464,7 +505,7 @@ _parse_res _parse_tensor_shape(tensor_shape* out, string8 value) {
 
     return (_parse_res){ .error = false };
 }
-_parse_res _parse_u64(u64* out, string8 value) {
+_parse_res _parse_u32(u32* out, string8 value) {
     // Checking if the string is made of valid characters
     b32 is_num = true;
 
@@ -488,7 +529,7 @@ _parse_res _parse_u64(u64* out, string8 value) {
     u8* num_cstr = str8_to_cstr(scratch.arena, value);
     char* end_ptr = NULL;
 
-    u64 num = strtoll((char*)num_cstr, &end_ptr, 10);
+    u32 num = strtol((char*)num_cstr, &end_ptr, 10);
 
     *out = num;
 
@@ -528,6 +569,11 @@ _parse_res _parse_f32(f32* out, string8 value) {
 
     return (_parse_res){ .error = false };
 }
+
+#define _PARSE_RES_ERR_CHECK(res) if (res.error) { \
+        fprintf(stderr, "%s\n", res.err_msg); \
+        break; \
+    }
 
 layer_desc layer_desc_load(string8 str) {
     layer_desc out = { };
@@ -582,25 +628,29 @@ layer_desc layer_desc_load(string8 str) {
                 if (str8_equals(key, STR8("shape"))) {
                     _parse_res res = _parse_tensor_shape(&out.input.shape, value);
 
-                    if (res.error) {
-                        fprintf(stderr, "%s\n", res.err_msg);
-
-                        break;
-                    }
+                    _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case LAYER_DENSE: {
                 if (str8_equals(key, STR8("size"))) {
-                    u64 size = 0;
+                    _parse_res res = _parse_u32(&out.dense.size, value);
 
-                    _parse_res res = _parse_u64(&size, value);
+                    _PARSE_RES_ERR_CHECK(res);
+                } else if (str8_equals(key, STR8("bias_init"))) {
+                    out.dense.bias_init = PARAM_INIT_NULL;
 
-                    out.dense.size = (u32)size;
+                    _parse_res res = _parse_enum(&out.dense.bias_init, value, _param_init_names, PARAM_INIT_COUNT);
 
-                    if (res.error) {
-                        fprintf(stderr, "%s\n", res.err_msg);
+                    if (res.error || out.dense.bias_init == PARAM_INIT_NULL) {
+                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                    }
+                } else if (str8_equals(key, STR8("weight_init"))) {
+                    out.dense.weight_init = PARAM_INIT_NULL;
 
-                        break;
+                    _parse_res res = _parse_enum(&out.dense.weight_init, value, _param_init_names, PARAM_INIT_COUNT);
+
+                    if (res.error || out.dense.weight_init == PARAM_INIT_NULL) {
+                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
                     }
                 }
             } break;
@@ -619,11 +669,7 @@ layer_desc layer_desc_load(string8 str) {
                 if (str8_equals(key, STR8("keep_rate"))) {
                     _parse_res res = _parse_f32(&out.dropout.keep_rate, value);
 
-                    if (res.error) {
-                        fprintf(stderr, "%s\n", res.err_msg);
-
-                        break;
-                    }
+                    _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case LAYER_POOLING_2D: {
@@ -638,13 +684,48 @@ layer_desc layer_desc_load(string8 str) {
                 } else if (str8_equals(key, STR8("pool_size"))) {
                     _parse_res res = _parse_tensor_shape(&out.pooling_2d.pool_size, value);
 
-                    if (res.error) {
-                        fprintf(stderr, "%s\n", res.err_msg);
-
-                        break;
-                    }
+                    _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
+            case LAYER_CONV_2D: {
+                if (str8_equals(key, STR8("num_filters"))) {
+                    _parse_res res = _parse_u32(&out.conv_2d.num_filters, value);
+
+                    _PARSE_RES_ERR_CHECK(res);
+                } else if (str8_equals(key, STR8("kernel_size"))) {
+                    _parse_res res = _parse_tensor_shape(&out.conv_2d.kernel_size, value);
+
+                    _PARSE_RES_ERR_CHECK(res);
+                } else if (str8_equals(key, STR8("padding"))) {
+                    _parse_res res = _parse_b32(&out.conv_2d.padding, value);
+
+                    _PARSE_RES_ERR_CHECK(res);
+                } else if (str8_equals(key, STR8("stride_x"))) {
+                    _parse_res res = _parse_u32(&out.conv_2d.stride_x, value);
+
+                    _PARSE_RES_ERR_CHECK(res);
+                } else if (str8_equals(key, STR8("stride_y"))) {
+                    _parse_res res = _parse_u32(&out.conv_2d.stride_x, value);
+
+                    _PARSE_RES_ERR_CHECK(res);
+                } else if (str8_equals(key, STR8("kernels_init"))) {
+                    out.conv_2d.kernels_init = PARAM_INIT_NULL;
+
+                    _parse_res res = _parse_enum(&out.conv_2d.kernels_init, value, _param_init_names, PARAM_INIT_COUNT);
+
+                    if (res.error || out.dense.bias_init == PARAM_INIT_NULL) {
+                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                    }
+                } else if (str8_equals(key, STR8("biases_init"))) {
+                    out.conv_2d.biases_init = PARAM_INIT_NULL;
+
+                    _parse_res res = _parse_enum(&out.conv_2d.biases_init, value, _param_init_names, PARAM_INIT_COUNT);
+
+                    if (res.error || out.dense.bias_init == PARAM_INIT_NULL) {
+                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                    }
+                }
+            }
             default: break;
         }
     }

@@ -37,7 +37,7 @@ void _layer_conv_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, 
     conv->biases = tensor_create(arena, out->shape);
 
     // TODO: figure out in and out sizes for the param init
-    param_init(conv->kernels, cdesc->kernel_init, 0, 1);
+    param_init(conv->kernels, cdesc->kernels_init, 0, 1);
     param_init(conv->biases, cdesc->biases_init, 0, 1);
 
     param_change_create(arena, &conv->kernels_change, kernels_shape);
