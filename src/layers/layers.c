@@ -14,7 +14,8 @@ static const char* _layer_names[LAYER_COUNT] = {
     [LAYER_ACTIVATION] = "activation",
     [LAYER_DROPOUT] = "dropout",
     [LAYER_FLATTEN] = "flatten",
-    [LAYER_POOLING_2D] = "pooling_2d"
+    [LAYER_POOLING_2D] = "pooling_2d",
+    [LAYER_CONV_2D] = "conv_2d",
 };
 
 string8 layer_get_name(layer_type type) {
@@ -101,6 +102,15 @@ static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
         _layer_null_save,
         _layer_null_load,
 
+    },
+    [LAYER_CONV_2D] = {
+        _layer_conv_2d_create,
+        _layer_conv_2d_feedforward,
+        _layer_conv_2d_backprop,
+        _layer_conv_2d_apply_changes,
+        _layer_conv_2d_delete,
+        _layer_conv_2d_save,
+        _layer_conv_2d_load,
     }
 };
 
@@ -157,6 +167,118 @@ void layer_load(layer* l, const tensor_list* list, u32 index) {
     _layer_funcs[l->type].load(l, list, index);
 }
 
+static const layer_desc _default_descs[LAYER_COUNT] = {
+    [LAYER_NULL] = { },
+    [LAYER_INPUT] = { .input.shape = { 1, 1, 1 } },
+    [LAYER_DENSE] = {
+        .dense = (layer_dense_desc){
+            .size = 1,
+            .bias_init_type = PARAM_INIT_ZEROS,
+            .weight_init_type = PARAM_INIT_STD_NORM
+        }
+    },
+    [LAYER_ACTIVATION] = {
+        .activation.type = ACTIVATION_RELU
+    },
+    [LAYER_DROPOUT] = { },
+    [LAYER_FLATTEN] = { },
+    [LAYER_POOLING_2D] = {
+        .pooling_2d = (layer_pooling_2d_desc){
+            .pool_size = { 1, 1, 1},
+            .type = POOLING_MAX
+        }
+    },
+    [LAYER_CONV_2D] = {
+        .conv_2d = (layer_conv_2d_desc) {
+            .num_filters = 1,
+            .kernel_size = { 1, 1, 1 },
+            .stride_x = 1,
+            .stride_y = 1,
+            .kernel_init = PARAM_INIT_STD_NORM,
+            .biases_init = PARAM_INIT_ZEROS
+        }
+    },
+};
+
+layer_desc layer_desc_default(layer_type type) {
+    if (type >= LAYER_COUNT) {
+        fprintf(stderr, "Cannot get default layer desc: invalid layer type\n");
+
+        return (layer_desc){ 0 };
+    }
+
+    return _default_descs[type];
+}
+#define _PARAM_DEFAULT(p, d) (p = p == 0 ? d : p)
+layer_desc layer_desc_apply_default(const layer_desc* desc) {
+    if (desc->type >= LAYER_COUNT) {
+        fprintf(stderr, "Cannot apply defaults to layer desc: invalid layer type\n");
+
+        return (layer_desc){ 0 };
+    }
+
+    const layer_desc* def = &_default_descs[desc->type];
+
+    layer_desc out = { 0 };
+    memcpy(&out, desc, sizeof(layer_desc));
+
+    switch (desc->type) {
+        case LAYER_INPUT: {
+            _PARAM_DEFAULT(out.input.shape.width, def->input.shape.width);
+            _PARAM_DEFAULT(out.input.shape.height, def->input.shape.height);
+            _PARAM_DEFAULT(out.input.shape.depth, def->input.shape.depth);
+        } break;
+        case LAYER_DENSE: {
+            _PARAM_DEFAULT(out.dense.size, def->dense.size);
+            _PARAM_DEFAULT(out.dense.bias_init_type, def->dense.bias_init_type);
+            _PARAM_DEFAULT(out.dense.weight_init_type, def->dense.weight_init_type);
+        } break;
+        case LAYER_ACTIVATION: {
+            _PARAM_DEFAULT(out.activation.type, def->activation.type);
+        } break;
+        case LAYER_DROPOUT: {
+            // Nothing yet
+        } break;
+        case LAYER_POOLING_2D: {
+            layer_pooling_2d_desc* out_p = &out.pooling_2d;
+            const layer_pooling_2d_desc* def_p = &def->pooling_2d;
+
+            _PARAM_DEFAULT(out_p->pool_size.width, def_p->pool_size.width);
+            _PARAM_DEFAULT(out_p->pool_size.height, def_p->pool_size.height);
+            _PARAM_DEFAULT(out_p->pool_size.depth, def_p->pool_size.depth);
+
+            _PARAM_DEFAULT(out_p->type, def_p->type);
+        } break;
+        case LAYER_CONV_2D: {
+            layer_conv_2d_desc* out_c = &out.conv_2d;
+            const layer_conv_2d_desc* def_c = &def->conv_2d;
+
+            _PARAM_DEFAULT(out_c->num_filters, def_c->num_filters);
+
+            _PARAM_DEFAULT(out_c->kernel_size.width, def_c->kernel_size.width);
+            _PARAM_DEFAULT(out_c->kernel_size.height, def_c->kernel_size.height);
+            _PARAM_DEFAULT(out_c->kernel_size.depth, def_c->kernel_size.depth);
+
+            _PARAM_DEFAULT(out_c->padding, def_c->padding);
+            _PARAM_DEFAULT(out_c->stride_x, def_c->stride_x);
+            _PARAM_DEFAULT(out_c->stride_y, def_c->stride_y);
+            _PARAM_DEFAULT(out_c->kernel_init, def_c->kernel_init);
+            _PARAM_DEFAULT(out_c->biases_init, def_c->biases_init);
+
+        } break;
+        default: break;
+    }
+
+    return out;
+}
+
+static const char* _param_init_names[PARAM_INIT_COUNT] = {
+    [PARAM_INIT_NULL] = "null",
+    [PARAM_INIT_ZEROS] = "zeros",
+    [PARAM_INIT_ONES] = "ones",
+    [PARAM_INIT_STD_NORM] = "std_norm",
+};
+
 static const char* _activ_names[ACTIVATION_COUNT] = {
     [ACTIVATION_NULL] = "null",
     [ACTIVATION_SIGMOID] = "sigmoid",
@@ -211,7 +333,22 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
         case LAYER_DENSE: {
             string8 size_str = str8_pushf(arena, "    size = %u;\n", desc->dense.size);
 
+            if (desc->dense.bias_init_type >= PARAM_INIT_COUNT || desc->dense.weight_init_type >= PARAM_INIT_COUNT) {
+                fprintf(stderr, "Cannot save desc: invalid init type in dense\n");
+
+                break;
+            }
+
+            string8 bias_init_str = str8_pushf(
+                arena, "    bias_init_type = %s;\n", _param_init_names[desc->dense.bias_init_type]
+            );
+            string8 weight_init_str = str8_pushf(
+                arena, "    weight_init_type = %s;\n", _param_init_names[desc->dense.weight_init_type]
+            );
+
             str8_list_push(arena, list, size_str);
+            str8_list_push(arena, list, bias_init_str);
+            str8_list_push(arena, list, weight_init_str);
         } break;
         case LAYER_ACTIVATION: {
             if (desc->activation.type >= ACTIVATION_COUNT) {
@@ -243,7 +380,7 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
 
             str8_list_push(arena, list, type_str);
             str8_list_push(arena, list, pool_size_str);
-        }
+        } break;
 
         default: break;
     }
@@ -254,7 +391,16 @@ typedef struct {
     char* err_msg;
 } _parse_res;
 
-_parse_res _parse_enum(u32* out, string8 value, const char* enum_names[]) {
+_parse_res _parse_enum(u32* out, string8 value, const char* enum_names[], u32 num_enums) {
+    for (u32 i = 0; i < num_enums; i++) {
+        if (str8_equals(value, str8_from_cstr((u8*)enum_names[i]))) {
+            *out = i;
+
+            break;
+        }
+    }
+
+    return (_parse_res){ .error = false };
 }
 _parse_res _parse_tensor_shape(tensor_shape* out, string8 value) {
     // Parsing (w, h, d)
@@ -460,18 +606,11 @@ layer_desc layer_desc_load(string8 str) {
             } break;
             case LAYER_ACTIVATION: {
                 if (str8_equals(key, STR8("type"))) {
-                    // Type is an enum
-                    // Strings of each enum are in `_activ_names`
+                    out.activation.type = ACTIVATION_NULL;
 
-                    for (u32 i = 0; i < ACTIVATION_COUNT; i++) {
-                        if (str8_equals(value, str8_from_cstr((u8*)_activ_names[i]))) {
-                            out.activation.type = i;
+                    _parse_res res = _parse_enum(&out.activation.type, value, _activ_names, ACTIVATION_COUNT);
 
-                            break;
-                        }
-                    }
-
-                    if (out.activation.type == ACTIVATION_NULL) {
+                    if (res.error || out.activation.type == ACTIVATION_NULL) {
                         fprintf(stderr, "Invalid activation type \"%.*s\"\n", (int)value.size, (char*)value.str);
                     }
                 }
@@ -489,18 +628,11 @@ layer_desc layer_desc_load(string8 str) {
             } break;
             case LAYER_POOLING_2D: {
                 if (str8_equals(key, STR8("type"))) {
-                    // Type is an enum
-                    // Strings of each enum are in `_pooling_names`
+                    out.pooling_2d.type = POOLING_NULL;
 
-                    for (u32 i = 0; i < POOLING_COUNT; i++) {
-                        if (str8_equals(value, str8_from_cstr((u8*)_pooling_names[i]))) {
-                            out.pooling_2d.type = i;
+                    _parse_res res = _parse_enum(&out.pooling_2d.type, value, _pooling_names, POOLING_COUNT);
 
-                            break;
-                        }
-                    }
-
-                    if (out.pooling_2d.type == ACTIVATION_NULL) {
+                    if (res.error || out.pooling_2d.type == POOLING_NULL) {
                         fprintf(stderr, "Invalid pooling type \"%.*s\"\n", (int)value.size, (char*)value.str);
                     }
                 } else if (str8_equals(key, STR8("pool_size"))) {
@@ -522,15 +654,10 @@ layer_desc layer_desc_load(string8 str) {
     return out;
 }
 
-void param_init(tensor* param, param_init_type input_type, param_init_type default_type, u32 in_size, u32 out_size) {
+void param_init(tensor* param, param_init_type input_type, u32 in_size, u32 out_size) {
     UNUSED(in_size);
 
-    param_init_type type = default_type;
-    if (input_type != PARAM_INIT_NULL) {
-        type = input_type;
-    }
-
-    switch (type) {
+    switch (input_type) {
         case PARAM_INIT_ZEROS: {
             tensor_fill(param, 0.0f);
         } break;

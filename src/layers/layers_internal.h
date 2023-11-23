@@ -31,6 +31,24 @@ typedef struct {
     layer_pooling_type type;
 } layer_pooling_2d_backend;
 
+typedef struct {
+    tensor_shape kernel_size;
+
+    // Shape is (kernel_size.w * kernel_size.h, in_filters, out_filters)
+    tensor* kernels;
+    // Shape is out_shape
+    tensor* biases; 
+
+    u32 stride_x;
+    u32 stride_y;
+
+    tensor_shape padded_shape;
+
+    // Training mode
+    param_change kernels_change;
+    param_change biases_change;
+} layer_conv_2d_backend;
+
 typedef struct layer {
     // Initialized in layer_create
     layer_type type;
@@ -45,10 +63,11 @@ typedef struct layer {
         layer_dropout_backend dropout_backend;
         layer_flatten_backend flatten_backend;
         layer_pooling_2d_backend pooling_2d_backend;
+        layer_conv_2d_backend conv_2d_backend;
     };
 } layer;
 
-void param_init(tensor* param, param_init_type input_type, param_init_type default_type, u32 in_size, u32 out_size);
+void param_init(tensor* param, param_init_type input_type, u32 in_size, u32 out_size);
 
 // TODO: consistent underscoring for private stuff
 typedef struct layers_cache_node {
@@ -118,6 +137,14 @@ void _layer_flatten_backprop(layer* l, tensor* delta, layers_cache* cache);
 void _layer_pooling_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache);
 void _layer_pooling_2d_backprop(layer* l, tensor* delta, layers_cache* cache);
+
+void _layer_conv_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
+void _layer_conv_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache);
+void _layer_conv_2d_backprop(layer* l, tensor* delta, layers_cache* cache);
+void _layer_conv_2d_apply_changes(layer* l, const optimizer* optim);
+void _layer_conv_2d_delete(layer* l);
+void _layer_conv_2d_save(mg_arena* arena, tensor_list* list, layer* l, u32 index);
+void _layer_conv_2d_load(layer* l, const tensor_list* list, u32 index);
 
 #endif // LAYERS_INTERNAL_H
 

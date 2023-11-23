@@ -14,12 +14,11 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
     nn->num_layers = num_layers;
 
     nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, layer_desc, nn->num_layers);
-    memcpy(nn->layer_descs, layer_descs, sizeof(layer_desc) * nn->num_layers);
-
     nn->layers = MGA_PUSH_ZERO_ARRAY(arena, layer*, nn->num_layers);
 
     tensor_shape prev_shape = { 0 };
     for (u32 i = 0; i < nn->num_layers; i++) {
+        nn->layer_descs[i] = layer_desc_apply_default(&layer_descs[i]);
         nn->layer_descs[i].training_mode = training_mode;
 
         nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
@@ -83,7 +82,8 @@ static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file
     string8_node* n = desc_str_list.first;
     tensor_shape prev_shape = { 0 };
     for (u32 i = 0; i < nn->num_layers; i++, n = n->next) {
-        nn->layer_descs[i] = layer_desc_load(n->str);
+        layer_desc desc = layer_desc_load(n->str);
+        nn->layer_descs[i] = layer_desc_apply_default(&desc);
         nn->layer_descs[i].training_mode = training_mode;
 
         nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);

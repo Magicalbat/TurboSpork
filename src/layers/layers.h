@@ -68,6 +68,7 @@ typedef struct {
 } layer_dense_desc;
 
 typedef struct {
+    // Default of ACTIVATION_RELU
     layer_activation_type type;
 } layer_activation_desc;
 
@@ -78,13 +79,31 @@ typedef struct {
 typedef struct {
     tensor_shape pool_size;
 
+    // Default of POOLING_MAX
     layer_pooling_type type;
 } layer_pooling_2d_desc;
 
 typedef struct {
     u32 num_filters;
 
+    // Only 2d
+    // Defaults to (1, 1)
     tensor_shape kernel_size;
+
+    // Adds padding to input
+    // If strides are 1, and padding is true,
+    // then the output size is the same as the input size
+    b32 padding;
+
+    // Strides for filter
+    // Defaults to 1
+    u32 stride_x;
+    u32 stride_y;
+
+    // Default of PARAM_INIT_STD_NORM
+    param_init_type kernel_init;
+    // Default of PARAM_INIT_ZEROS
+    param_init_type biases_init;
 } layer_conv_2d_desc;
 
 typedef struct {
@@ -97,6 +116,7 @@ typedef struct {
         layer_activation_desc activation;
         layer_dropout_desc dropout;
         layer_pooling_2d_desc pooling_2d;
+        layer_conv_2d_desc conv_2d;
     };
 } layer_desc;
 
@@ -118,6 +138,9 @@ void layer_save(mg_arena* arena, tensor_list* list, layer* l, u32 index);
 // Loads layer params, not anything that would be in the desc
 // Layer needs to be created with the correct type
 void layer_load(layer* l, const tensor_list* list, u32 index);
+
+layer_desc layer_desc_default(layer_type type);
+layer_desc layer_desc_apply_default(const layer_desc* desc);
 
 void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc);
 layer_desc layer_desc_load(string8 str);
