@@ -18,9 +18,8 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, te
     dense->bias = tensor_create(arena, bias_shape);
     dense->weight = tensor_create(arena, weight_shape);
     dense->weight_transposed = tensor_create(arena, weight_shape);
+
     if (out->training_mode) {
-        dense->bias_change = (param_change){ 0 };
-        dense->weight_change = (param_change){ 0 };
         param_change_create(arena, &dense->bias_change, bias_shape);
         param_change_create(arena, &dense->weight_change, weight_shape);
     }
@@ -31,7 +30,6 @@ void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, te
     tensor_copy_ip(dense->weight_transposed, dense->weight);
     tensor_transpose(dense->weight_transposed);
 }
-#include <stdio.h>
 void _layer_dense_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     layer_dense_backend* dense = &l->dense_backend;
 
@@ -63,7 +61,6 @@ void _layer_dense_backprop(layer* l, tensor* delta, layers_cache* cache) {
 
     // Delta is updated by weight
     // delta = dot(delta, transpose(weight))
-    
     tensor_dot_ip(delta, delta, dense->weight_transposed);
 }
 void _layer_dense_apply_changes(layer* l, const optimizer* optim) {

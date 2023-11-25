@@ -1,7 +1,6 @@
 #include "layers.h"
 #include "layers_internal.h"
 
-#include <stdio.h>
 void _layer_conv_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
     const layer_conv_2d_desc* cdesc = &desc->conv_2d;
     layer_conv_2d_backend* conv = &out->conv_2d_backend;
@@ -36,25 +35,30 @@ void _layer_conv_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, 
     param_init(conv->kernels, cdesc->kernels_init, in_size, out_size);
     param_init(conv->biases, cdesc->biases_init, in_size, out_size);
 
-    param_change_create(arena, &conv->kernels_change, kernels_shape);
-    param_change_create(arena, &conv->biases_change, out->shape);
+    if (desc->training_mode) { 
+        param_change_create(arena, &conv->kernels_change, kernels_shape);
+        param_change_create(arena, &conv->biases_change, out->shape);
+    }
 }
 void _layer_conv_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     mga_temp scratch = { 0 };
+    mg_arena* input_arena = NULL;
     if (cache != NULL) {
         scratch = mga_scratch_get(&cache->arena, 1);
+        input_arena = cache->arena;
     } else {
         scratch = mga_scratch_get(NULL, 0);
+        input_arena = scratch.arena;
     }
 
     tensor* input = NULL;
     if (tensor_shape_eq(in_out->shape, conv->padded_shape)){
-        input = tensor_copy(scratch.arena, in_out, false);
+        input = tensor_copy(input_arena, in_out, false);
     } else {
         // Create padded shape
-        input = tensor_create(scratch.arena, conv->padded_shape);
+        input = tensor_create(input_arena, conv->padded_shape);
 
         u32 x_off = (conv->padded_shape.width - in_out->shape.width) / 2;
         u32 y_off = (conv->padded_shape.height - in_out->shape.height) / 2;
@@ -73,6 +77,10 @@ void _layer_conv_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
                 }
             }
         }
+    }
+
+    if (cache != NULL) {
+        layers_cache_push(cache, input);
     }
 
     // Renaming for clarity
@@ -110,7 +118,25 @@ void _layer_conv_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
 
     mga_scratch_release(scratch);
 }
-void _layer_conv_2d_backprop(layer* l, tensor* delta, layers_cache* cache) {}
+void _layer_conv_2d_backprop(layer* l, tensor* delta, layers_cache* cache) {
+    layer_conv_2d_backend* conv = &l->conv_2d_backend;
+
+    // Biases change is just delta
+    tensor_add_ip(conv->biases_change.change, conv->biases_change.change, delta);
+
+    // Calculating kernels change
+    tensor* prev_input = layers_cache_pop(cache);
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    tensor* kernels_change = tensor_create(scratch.arena, conv->kernels->shape);
+
+
+
+    tensor_add_ip(conv->kernels_change.change, conv->kernels_change.change, kernels_change);
+
+    mga_scratch_release(scratch);
+}
 void _layer_conv_2d_apply_changes(layer* l, const optimizer* optim) {}
 void _layer_conv_2d_delete(layer* l) {
     layer_conv_2d_backend* conv = &l->conv_2d_backend;

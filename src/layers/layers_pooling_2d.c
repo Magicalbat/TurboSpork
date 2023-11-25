@@ -34,7 +34,7 @@ void _layer_pooling_2d_create(mg_arena* arena, layer* out, const layer_desc* des
     tensor_shape out_shape = {
         prev_shape.width / pooling->pool_size.width,
         prev_shape.height / pooling->pool_size.height,
-        prev_shape.depth / pooling->pool_size.depth,
+        prev_shape.depth,
     };
 
     out->shape = out_shape;
@@ -54,7 +54,22 @@ void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache
     tensor* in_copy = tensor_copy(scratch.arena, in_out, false);
     in_out->shape = l->shape;
 
-    _pooling_funcs[pooling->type](in_copy, in_out, pooling->pool_size, delta);
+    tensor in_copy_view = { 0 };
+    tensor out_view = { 0 };
+    tensor delta_view = { 0 };
+
+    for (u32 z = 0; z < l->shape.depth; z++) {
+        tensor_2d_view(&in_copy_view, in_copy, z);
+        tensor_2d_view(&out_view, in_out, z);
+
+        tensor* delta_ptr = NULL;
+
+        if (cache != NULL) {
+            tensor_2d_view(&delta_view, delta, z);
+        }
+
+        _pooling_funcs[pooling->type](&in_copy_view, &out_view, pooling->pool_size, delta_ptr);
+    }
 
     mga_scratch_release(scratch);
 
@@ -80,24 +95,29 @@ void _layer_pooling_2d_backprop(layer* l, tensor* delta, layers_cache* cache) {
 
         delta->shape = pooling->input_shape;
 
-        for (u64 i_y = 0; i_y < delta_copy->shape.height; i_y++) {
-            for (u64 i_x = 0; i_x < delta_copy->shape.width; i_x++) {
-                // Starting delta coords
-                u64 d_x = i_x * pooling->pool_size.width;
-                u64 d_y = i_y * pooling->pool_size.height;
+        for (u64 z = 0; z < delta->shape.depth; z++) {
+            for (u64 i_y = 0; i_y < delta_copy->shape.height; i_y++) {
+                for (u64 i_x = 0; i_x < delta_copy->shape.width; i_x++) {
+                    // Starting delta coords
+                    u64 d_x = i_x * pooling->pool_size.width;
+                    u64 d_y = i_y * pooling->pool_size.height;
 
-                f32 orig_value = delta_copy->data[i_x + i_y * delta_copy->shape.width];
+                    u64 orig_delta_index = i_x + i_y * delta_copy->shape.width +
+                        z * delta_copy->shape.width * delta_copy->shape.height;
+                    f32 orig_delta_value = delta_copy->data[orig_delta_index];
 
-                u32 p_w = pooling->pool_size.width;
-                u32 p_h = pooling->pool_size.height;
+                    u32 p_w = pooling->pool_size.width;
+                    u32 p_h = pooling->pool_size.height;
 
-                _CLIP_POOL_SIZE(p_w, p_h, i_x, i_y, delta->shape);
+                    _CLIP_POOL_SIZE(p_w, p_h, i_x, i_y, delta->shape);
 
-                for (u32 x = 0; x < p_w; x++) {
-                    for (u32 y = 0; y < p_h; y++) {
-                        u64 index = (d_x + x) + (d_y + y) * delta->shape.width;
+                    u64 z_off = z * delta->shape.width * delta->shape.height;
+                    for (u32 x = 0; x < p_w; x++) {
+                        for (u32 y = 0; y < p_h; y++) {
+                            u64 index = (d_x + x) + (d_y + y) * delta->shape.width + z_off;
 
-                        delta->data[index] = orig_value;
+                            delta->data[index] = orig_delta_value;
+                        }
                     }
                 }
             }

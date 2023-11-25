@@ -141,6 +141,7 @@ int main(void) {
         .test_outputs = data.test_labels
     };
 
+#if 1
     tensor in_view = { 0 };
     tensor_2d_view(&in_view, data.train_imgs, 0);
     tensor* in_out = tensor_copy(perm_arena, &in_view, false);
@@ -151,6 +152,7 @@ int main(void) {
         printf("%f ", in_out->data[i]);
     }
     printf("\n");
+#endif
 
     os_time_init();
 
