@@ -27,19 +27,9 @@ void _layer_pooling_2d_create(mg_arena* arena, layer* out, const layer_desc* des
         return;
     }
 
-    pooling->type = desc->pooling_2d.type;
+    pooling->input_shape = prev_shape;
     pooling->pool_size = desc->pooling_2d.pool_size;
-
-    // TODO: Allow for other shapes
-    if (
-        prev_shape.width % pooling->pool_size.width != 0 ||
-        prev_shape.height % pooling->pool_size.height != 0 ||
-        prev_shape.depth % pooling->pool_size.depth != 0
-    ) {
-        fprintf(stderr, "Invalid input shape to pooling: must be divisible by pool_size\n");
-
-        return;
-    }
+    pooling->type = desc->pooling_2d.type;
 
     tensor_shape out_shape = {
         prev_shape.width / pooling->pool_size.width,
@@ -72,17 +62,23 @@ void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache
         layers_cache_push(cache, delta);
     }
 }
+
+// Prevents indexing input out of bounds
+#define _CLIP_POOL_SIZE(p_w, p_h, i_x, i_y, in_shape) do {\
+        if (i_x + p_w > in_shape.width) { p_w = i_x + p_w - in_shape.width; } \
+        if (i_y + p_h > in_shape.height) { p_h = i_y + p_h - in_shape.height; } \
+    } while (0)
+
 void _layer_pooling_2d_backprop(layer* l, tensor* delta, layers_cache* cache) {
     layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
 
-    // Expanding delta to input size
+    // Expanding delta to input shape
     {
         mga_temp scratch = mga_scratch_get(NULL, 0);
 
         tensor* delta_copy = tensor_copy(scratch.arena, delta, false);
 
-        delta->shape.width *= pooling->pool_size.width;
-        delta->shape.height *= pooling->pool_size.height;
+        delta->shape = pooling->input_shape;
 
         for (u64 i_y = 0; i_y < delta_copy->shape.height; i_y++) {
             for (u64 i_x = 0; i_x < delta_copy->shape.width; i_x++) {
@@ -92,8 +88,13 @@ void _layer_pooling_2d_backprop(layer* l, tensor* delta, layers_cache* cache) {
 
                 f32 orig_value = delta_copy->data[i_x + i_y * delta_copy->shape.width];
 
-                for (u32 x = 0; x < pooling->pool_size.width; x++) {
-                    for (u32 y = 0; y < pooling->pool_size.height; y++) {
+                u32 p_w = pooling->pool_size.width;
+                u32 p_h = pooling->pool_size.height;
+
+                _CLIP_POOL_SIZE(p_w, p_h, i_x, i_y, delta->shape);
+
+                for (u32 x = 0; x < p_w; x++) {
+                    for (u32 y = 0; y < p_h; y++) {
                         u64 index = (d_x + x) + (d_y + y) * delta->shape.width;
 
                         delta->data[index] = orig_value;
@@ -116,6 +117,7 @@ void _pool_null(const tensor* in, tensor* out, tensor_shape pool_size, tensor* d
     UNUSED(pool_size);
     UNUSED(delta);
 }
+
 void _pool_max(const tensor* in, tensor* out, tensor_shape pool_size, tensor* delta) {
     if (delta != NULL) {
         tensor_fill(delta, 0.0f);
@@ -128,12 +130,17 @@ void _pool_max(const tensor* in, tensor* out, tensor_shape pool_size, tensor* de
             u64 i_x = o_x * pool_size.width;
             u64 i_y = o_y * pool_size.height;
 
+            u32 p_w = pool_size.width;
+            u32 p_h = pool_size.height;
+
+            _CLIP_POOL_SIZE(p_w, p_h, i_x, i_y, in->shape);
+
             // Max num in pool
             f32 max_num = -FLT_MAX;
             u64 max_index = 0;
-
-            for (u32 x = 0; x < pool_size.width; x++) {
-                for (u32 y = 0; y < pool_size.height; y++) {
+            
+            for (u32 x = 0; x < p_w; x++) {
+                for (u32 y = 0; y < p_h; y++) {
                     u64 index = (i_x + x) + (i_y + y) * in->shape.width;
 
                     if (in->data[index] > max_num) {
@@ -159,10 +166,15 @@ void _pool_avg(const tensor* in, tensor* out, tensor_shape pool_size, tensor* de
             u64 i_x = o_x * pool_size.width;
             u64 i_y = o_y * pool_size.height;
 
+            u32 p_w = pool_size.width;
+            u32 p_h = pool_size.height;
+
+            _CLIP_POOL_SIZE(p_w, p_h, i_x, i_y, in->shape);
+
             f32 sum = 0.0f;
 
-            for (u32 x = 0; x < pool_size.width; x++) {
-                for (u32 y = 0; y < pool_size.height; y++) {
+            for (u32 x = 0; x < p_w; x++) {
+                for (u32 y = 0; y < p_h; y++) {
                     u64 index = (i_x + x) + (i_y + y) * in->shape.width;
 
                     sum += in->data[index];
@@ -175,8 +187,8 @@ void _pool_avg(const tensor* in, tensor* out, tensor_shape pool_size, tensor* de
                 continue;
             }
 
-            for (u32 x = 0; x < pool_size.width; x++) {
-                for (u32 y = 0; y < pool_size.height; y++) {
+            for (u32 x = 0; x < p_w; x++) {
+                for (u32 y = 0; y < p_h; y++) {
                     u64 index = (i_x + x) + (i_y + y) * in->shape.width;
 
                     delta->data[index] = 1.0f / (pool_size.width * pool_size.height);

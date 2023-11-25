@@ -26,8 +26,9 @@ typedef struct {
 } layer_flatten_backend;
 
 typedef struct {
-    tensor_shape pool_size;
+    tensor_shape input_shape;
 
+    tensor_shape pool_size;
     layer_pooling_type type;
 } layer_pooling_2d_backend;
 
