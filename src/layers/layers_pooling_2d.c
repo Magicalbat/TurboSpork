@@ -30,6 +30,7 @@ void _layer_pooling_2d_create(mg_arena* arena, layer* out, const layer_desc* des
     pooling->type = desc->pooling_2d.type;
     pooling->pool_size = desc->pooling_2d.pool_size;
 
+    // TODO: Allow for other shapes
     if (
         prev_shape.width % pooling->pool_size.width != 0 ||
         prev_shape.height % pooling->pool_size.height != 0 ||

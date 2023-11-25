@@ -247,8 +247,6 @@ void network_train(network* nn, const network_train_desc* desc) {
 
     u8 batch_str_data[10] = { 0 };
 
-    // TODO: detect windows cmd?
-
     // Hides cursor
     //printf("\e[?25l");
 
@@ -368,7 +366,7 @@ void network_train(network* nn, const network_train_desc* desc) {
     }
 
     // Unhides cursor
-    printf("\e[?25h");
+    //printf("\e[?25h");
 
     os_thread_pool_destroy(tpool);
 

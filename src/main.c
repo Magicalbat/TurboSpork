@@ -141,6 +141,17 @@ int main(void) {
         .test_outputs = data.test_labels
     };
 
+    tensor in_view = { 0 };
+    tensor_2d_view(&in_view, data.train_imgs, 0);
+    tensor* in_out = tensor_copy(perm_arena, &in_view, false);
+
+    network_feedforward(nn, in_out, in_out);
+
+    for (u32 i = 0; i < 10; i++) {
+        printf("%f ", in_out->data[i]);
+    }
+    printf("\n");
+
     os_time_init();
 
     u64 start = os_now_microseconds();

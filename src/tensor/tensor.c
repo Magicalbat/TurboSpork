@@ -269,6 +269,12 @@ tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b) {
 tensor_shape tensor_conv_shape(tensor_shape in_shape, tensor_shape kernel_shape, u32 stride_x, u32 stride_y) {
     tensor_shape out_shape = { 0, 0, 1 };
 
+    if (stride_x == 0 || stride_y == 0) {
+        fprintf(stderr, "Cannot create conv shape: strides cannot be zero\n");
+
+        return out_shape;
+    }
+
     out_shape.width = (in_shape.width - kernel_shape.width + 1) / stride_x;
     out_shape.height = (in_shape.height - kernel_shape.height + 1) / stride_y;
 
@@ -302,10 +308,8 @@ b32 tensor_conv_ip(tensor* out, const tensor* input, const tensor* kernel, u32 s
     // Input pos: i_x, i_y
     // Output pos: o_x, o_y
     // Kernel pos: k_x, k_y
-    u32 i_y = 0;
-    for (u32 o_y = 0; o_y < out->shape.height; o_y++, i_y += stride_y) {
-        u32 i_x = 0;
-        for (u32 o_x = 0; o_x < out->shape.width; o_x++, i_x += stride_x) {
+    for (u32 o_y = 0, i_y = 0; o_y < out->shape.height; o_y++, i_y += stride_y) {
+        for (u32 o_x = 0, i_x = 0; o_x < out->shape.width; o_x++, i_x += stride_x) {
             u64 out_pos = (u64)o_x + (u64)o_y * out->shape.width;
 
             out->data[out_pos] = 0.0f;

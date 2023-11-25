@@ -42,12 +42,18 @@ void _layer_conv_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, 
 void _layer_conv_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
-    mga_temp scratch = mga_scratch_get(&cache->arena, 1);
+    mga_temp scratch = { 0 };
+    if (cache != NULL) {
+        scratch = mga_scratch_get(&cache->arena, 1);
+    } else {
+        scratch = mga_scratch_get(NULL, 0);
+    }
 
-    tensor* input = in_out;
-    if (!tensor_shape_eq(in_out->shape, conv->padded_shape)){
+    tensor* input = NULL;
+    if (tensor_shape_eq(in_out->shape, conv->padded_shape)){
+        input = tensor_copy(scratch.arena, in_out, false);
+    } else {
         // Create padded shape
-
         input = tensor_create(scratch.arena, conv->padded_shape);
 
         u32 x_off = (conv->padded_shape.width - in_out->shape.width) / 2;
@@ -68,6 +74,39 @@ void _layer_conv_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
             }
         }
     }
+
+    // Renaming for clarity
+    tensor* output = in_out;
+
+    output->shape = l->shape;
+    tensor_fill(output, 0.0f);
+
+    tensor input_view = { 0 };
+    tensor output_view = { 0 };
+
+    // Stores individual kernel of each iteration
+    tensor kernel_view = { .shape = conv->kernel_size };
+    tensor_shape kernels_shape = conv->kernels->shape;
+
+    // Used for storing a conv output before adding to output
+    tensor* out_temp = tensor_create(scratch.arena, (tensor_shape){ output->shape.width, output->shape.height, 1 });
+
+    for (u32 o_w = 0; o_w < output->shape.depth; o_w++) {
+        tensor_2d_view(&output_view, output, o_w);
+
+        for (u32 i_w = 0; i_w < input->shape.depth; i_w++) {
+            tensor_2d_view(&input_view, input, i_w);
+
+            u64 kernel_index = (u64)i_w * kernels_shape.width + (u64)o_w * kernels_shape.width * kernels_shape.height;
+            kernel_view.data = &conv->kernels->data[kernel_index];
+
+            tensor_conv_ip(out_temp, &input_view, &kernel_view, conv->stride_x, conv->stride_y);
+
+            tensor_add_ip(&output_view, &output_view, out_temp);
+        }
+    }
+
+    tensor_add_ip(output, output, conv->biases);
 
     mga_scratch_release(scratch);
 }
