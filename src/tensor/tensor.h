@@ -74,6 +74,14 @@ void tensor_2d_view(tensor* out, const tensor* tensor, u32 z);
 b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b);
 tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b);
 
+// Helper function for computing the output shape of a convolution
+tensor_shape tensor_conv_shape(tensor_shape in_shape, tensor_shape kernel_shape, u32 stride_x, u32 stride_y);
+
+// Performs a convolution
+// Only works for 2d tensors
+b32 tensor_conv_ip(tensor* out, const tensor* input, const tensor* kernel, u32 stride_x, u32 stride_y);
+tensor* tensor_conv(mg_arena* arena, const tensor* input, const tensor* kernel, u32 stride_x, u32 stride_y);
+
 // Only works for 2d or less
 void tensor_transpose(tensor* t);
 

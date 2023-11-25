@@ -391,7 +391,7 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
             string8 conv_2d_str = str8_pushf(
                 arena,
                 "   num_filters = %u;\n"
-                "   kernel_size = (%u %u %u);\n"
+                "   kernel_size = (%u, %u, %u);\n"
                 "   padding = %s;\n"
                 "   stride_x = %u;\n"
                 "   stride_y = %u;\n"
@@ -735,7 +735,7 @@ layer_desc layer_desc_load(string8 str) {
     return out;
 }
 
-void param_init(tensor* param, param_init_type input_type, u32 in_size, u32 out_size) {
+void param_init(tensor* param, param_init_type input_type, u64 in_size, u64 out_size) {
     UNUSED(in_size);
 
     switch (input_type) {

@@ -14,9 +14,7 @@
 #include "mg/mg_arena.h"
 #include "mg/mg_plot.h"
 
-#define MNIST_DIGIT_WIDTH 28
-#define MNIST_DIGIT_HEIGHT 28
-void draw_mnist_digit(f32* digit_data);
+void draw_mnist_digit(f32* digit_data, u32 width, u32 height);
 
 typedef struct {
     tensor* train_imgs;
@@ -108,10 +106,9 @@ int main(void) {
         }
     };
 
-    network* nn = network_load_layout(perm_arena, STR8("networks/test.tpl"), true);
+    network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
     //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
-    network_save_layout(nn, STR8("networks/test.tpl"));
-
+    //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
 
     network_summary(nn);
 
@@ -163,26 +160,29 @@ int main(void) {
     return 0;
 }
 
-void draw_mnist_digit(f32* digit_data) {
+void draw_mnist_digit(f32* digit_data, u32 width, u32 height) {
     mgp_init();
     mgp_set_title(MGP_STR8("MNIST Digit"));
     mgp_set_win_size(600, 600);
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    u32 size = MNIST_DIGIT_WIDTH * MNIST_DIGIT_HEIGHT;
+    u32 size = width * height;
     mgp_vec4f* colors = MGA_PUSH_ARRAY(scratch.arena, mgp_vec4f, size);
     mgp_rectf* rects = MGA_PUSH_ARRAY(scratch.arena, mgp_rectf, size);
 
-    for (u32 x = 0; x < MNIST_DIGIT_WIDTH; x++) {
-        for (u32 y = 0; y < MNIST_DIGIT_HEIGHT; y++) {
-            u32 i = x + y * MNIST_DIGIT_WIDTH;
+    for (u32 x = 0; x < width; x++) {
+        for (u32 y = 0; y < height; y++) {
+            u32 i = x + y * width;
 
             f32 c = digit_data[i];
-            colors[i] = (mgp_vec4f){ c, c, c, 1.0f };
+            if (c > 0.0)
+                colors[i] = (mgp_vec4f){ c, 0, 0, 1.0f };
+            else
+                colors[i] = (mgp_vec4f){ 0, -c, 0, 1.0f };
 
             rects[i] = (mgp_rectf){
-                x, MNIST_DIGIT_HEIGHT - 1 - y, 1, 1
+                x, height - 1 - y, 1, 1
             };
         }
     }

@@ -266,6 +266,75 @@ tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b) {
     return out;
 }
 
+tensor_shape tensor_conv_shape(tensor_shape in_shape, tensor_shape kernel_shape, u32 stride_x, u32 stride_y) {
+    tensor_shape out_shape = { 0, 0, 1 };
+
+    out_shape.width = (in_shape.width - kernel_shape.width + 1) / stride_x;
+    out_shape.height = (in_shape.height - kernel_shape.height + 1) / stride_y;
+
+    return out_shape;
+}
+b32 tensor_conv_ip(tensor* out, const tensor* input, const tensor* kernel, u32 stride_x, u32 stride_y) {
+    tensor_shape out_shape = tensor_conv_shape(input->shape, kernel->shape, stride_x, stride_y);
+
+    u64 out_alloc = (u64)out_shape.width * out_shape.height * out_shape.depth;
+
+    if (out->alloc < out_alloc) {
+        #if TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot add tensor: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    // Checking for shared data
+    if (out->data == input->data) {
+        input = tensor_copy(scratch.arena, input, false);
+    }
+    if (out->data == kernel->data) {
+        kernel = tensor_copy(scratch.arena, kernel, false);
+    }
+
+    out->shape = out_shape;
+
+    // Input pos: i_x, i_y
+    // Output pos: o_x, o_y
+    // Kernel pos: k_x, k_y
+    u32 i_y = 0;
+    for (u32 o_y = 0; o_y < out->shape.height; o_y++, i_y += stride_y) {
+        u32 i_x = 0;
+        for (u32 o_x = 0; o_x < out->shape.width; o_x++, i_x += stride_x) {
+            u64 out_pos = (u64)o_x + (u64)o_y * out->shape.width;
+
+            out->data[out_pos] = 0.0f;
+
+            for (u32 k_y = 0; k_y < kernel->shape.height; k_y++) {
+                for (u32 k_x = 0; k_x < kernel->shape.width; k_x++) {
+                    u64 in_pos = (u64)(i_x + k_x) + (u64)(i_y + k_y) * input->shape.width;
+                    u64 kernel_pos = (u64)k_x + (u64)k_y * kernel->shape.width;
+
+                    out->data[out_pos] += input->data[in_pos] * kernel->data[kernel_pos];
+                }
+            }
+        }
+    }
+
+    mga_scratch_release(scratch);
+
+    return true;
+}
+tensor* tensor_conv(mg_arena* arena, const tensor* input, const tensor* kernel, u32 stride_x, u32 stride_y) {
+    tensor_shape out_shape = tensor_conv_shape(input->shape, kernel->shape, stride_x, stride_y);
+
+    tensor* out = tensor_create(arena, out_shape);
+
+    tensor_conv_ip(out, input, kernel, stride_x, stride_y);
+
+    return out;
+}
+
 void tensor_transpose(tensor* t) {
     if (t->shape.depth != 1) {
         fprintf(stderr, "Cannot transpose tensor with depth");

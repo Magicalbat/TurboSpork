@@ -67,7 +67,7 @@ typedef struct layer {
     };
 } layer;
 
-void param_init(tensor* param, param_init_type input_type, u32 in_size, u32 out_size);
+void param_init(tensor* param, param_init_type input_type, u64 in_size, u64 out_size);
 
 // TODO: consistent underscoring for private stuff
 typedef struct layers_cache_node {
