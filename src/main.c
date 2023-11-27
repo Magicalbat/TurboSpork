@@ -48,64 +48,7 @@ int main(void) {
     data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
     data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
 
-    //network* nn = network_load_layout(perm_arena, STR8("networks/mnist_layout.tpl"), true);
-
-    layer_desc descs[] = {
-        {
-            .type = LAYER_INPUT,
-            .input.shape = { 28, 28, 1 },
-        },
-        {
-            .type = LAYER_CONV_2D,
-            .conv_2d = (layer_conv_2d_desc){
-                .num_filters = 16,
-                .kernel_size = { 3, 3, 1 },
-                .padding = true,
-            }
-        },
-        {
-            .type = LAYER_ACTIVATION,
-            .activation.type = ACTIVATION_RELU,
-        },
-        {
-            .type = LAYER_POOLING_2D,
-            .pooling_2d = (layer_pooling_2d_desc){
-                .pool_size = { 2, 2, 1 },
-                .type = POOLING_MAX
-            }
-        },
-        {
-            .type = LAYER_CONV_2D,
-            .conv_2d = (layer_conv_2d_desc){
-                .num_filters = 32,
-                .kernel_size = { 3, 3, 1 },
-                .padding = true,
-            }
-        },
-        {
-            .type = LAYER_ACTIVATION,
-            .activation.type = ACTIVATION_RELU,
-        },
-        {
-            .type = LAYER_POOLING_2D,
-            .pooling_2d = (layer_pooling_2d_desc){
-                .pool_size = { 2, 2, 1 },
-                .type = POOLING_MAX
-            }
-        },
-        {
-            .type = LAYER_FLATTEN
-        },
-        {
-            .type = LAYER_DENSE,
-            .dense.size = 10
-        },
-        {
-            .type = LAYER_ACTIVATION,
-            .activation.type = ACTIVATION_SOFTMAX
-        }
-    };
-
+    //network* nn = network_load_layout(perm_arena, STR8("networks/mnist_feedforward.tpl"), true);
     network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
     //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
     //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
@@ -121,7 +64,7 @@ int main(void) {
         .cost = COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (optimizer){
             .type = OPTIMIZER_ADAM,
-            .learning_rate = 0.0002f,
+            .learning_rate = 0.0005f,
 
             .adam = (optimizer_adam){
                 .beta1 = 0.9f,
@@ -158,7 +101,7 @@ int main(void) {
 
     u64 start = os_now_microseconds();
 
-    //network_train(nn, &train_desc);
+    network_train(nn, &train_desc);
 
     u64 end = os_now_microseconds();
 

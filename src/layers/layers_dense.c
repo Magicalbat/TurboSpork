@@ -45,7 +45,7 @@ void _layer_dense_backprop(layer* l, tensor* delta, layers_cache* cache) {
     layer_dense_backend* dense = &l->dense_backend;
 
     // Bias change is just delta
-    tensor_add_ip(dense->bias_change.change, dense->bias_change.change, delta);
+    param_change_add(&dense->bias_change, delta);
 
     // Weight change is previous input dotted with delta
     // weight_change += dot(prev_input, delta)
@@ -55,7 +55,7 @@ void _layer_dense_backprop(layer* l, tensor* delta, layers_cache* cache) {
 
     tensor_transpose(prev_input);
     tensor* cur_weight_change = tensor_dot(scratch.arena, prev_input, delta);
-    tensor_add_ip(dense->weight_change.change, dense->weight_change.change, cur_weight_change);
+    param_change_add(&dense->weight_change, cur_weight_change);
 
     mga_scratch_release(scratch);
 
@@ -71,9 +71,6 @@ void _layer_dense_apply_changes(layer* l, const optimizer* optim) {
 
     tensor_copy_ip(dense->weight_transposed, dense->weight);
     tensor_transpose(dense->weight_transposed);
-
-    tensor_fill(dense->weight_change.change, 0.0f);
-    tensor_fill(dense->bias_change.change, 0.0f);
 }
 void _layer_dense_delete(layer* l) {
     layer_dense_backend* dense = &l->dense_backend;

@@ -10,6 +10,13 @@ void param_change_create(mg_arena* arena, param_change* out, tensor_shape shape)
     out->_V = tensor_create(arena, shape);
     out->_S = tensor_create(arena, shape);
 }
+void param_change_add(param_change* change, tensor* addend) {
+    os_thread_mutex_lock(change->mutex);
+
+    tensor_add_ip(change->change, change->change, addend);
+
+    os_thread_mutex_unlock(change->mutex);
+}
 void param_change_delete(param_change* change) {
     os_thread_mutex_destroy(change->mutex);
 }
@@ -37,6 +44,7 @@ void param_change_update(const optimizer* optim, tensor* param, param_change* ch
     os_thread_mutex_lock(change->mutex);
 
     _update_funcs[optim->type](optim, param, change);
+    tensor_fill(change->change, 0.0f);
 
     os_thread_mutex_unlock(change->mutex);
 }

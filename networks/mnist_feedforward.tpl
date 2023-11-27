@@ -1,10 +1,6 @@
 input:
     shape = (28, 28, 1);
 
-pooling_2d:
-    type = average;
-    pool_size = (2, 2, 1);
-
 flatten:
 
 dense:

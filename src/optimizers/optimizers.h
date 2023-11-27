@@ -87,7 +87,9 @@ typedef struct {
 } param_change;
 
 void param_change_create(mg_arena* arena, param_change* out, tensor_shape shape);
-// param_change_update may affect change->change
+// Adds addend to change->change
+void param_change_add(param_change* change, tensor* addend);
+// Updates param, and fills change->change with zeros
 void param_change_update(const optimizer* optim, tensor* param, param_change* change);
 void param_change_delete(param_change* change);
 

@@ -245,7 +245,7 @@ void network_train(network* nn, const network_train_desc* desc) {
     u8 bar_str_data[_BAR_SIZE + 1] = { 0 };
     memset(bar_str_data, ' ', _BAR_SIZE);
 
-    u8 batch_str_data[10] = { 0 };
+    u8 batch_str_data[11] = { 0 };
 
     // Hides cursor
     //printf("\e[?25l");
@@ -262,7 +262,8 @@ void network_train(network* nn, const network_train_desc* desc) {
                 // This is so the batch number always takes up the same amount of space
                 u32 batch_digits = _num_digits(batch + 1);
                 memset(batch_str_data, ' ', 9);
-                snprintf((char*)(batch_str_data + (num_batches_digits - batch_digits)), 10, "%u", batch + 1);
+                u32 offset = num_batches_digits - batch_digits;
+                snprintf((char*)(batch_str_data + offset), 11 - offset, "%u", batch + 1);
                 printf("%.*s / %u  ", (int)num_batches_digits, batch_str_data, num_batches);
 
                 f32 bar_length = (f32)_BAR_SIZE * ((f32)(batch + 1) / num_batches);
@@ -275,6 +276,8 @@ void network_train(network* nn, const network_train_desc* desc) {
                 printf("[%s]", bar_str_data);
 
                 printf("\r");
+
+                fflush(stdout);
             }
 
             mga_temp batch_temp = mga_temp_begin(scratch.arena);
