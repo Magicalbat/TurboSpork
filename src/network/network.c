@@ -235,7 +235,6 @@ void network_train(network* nn, const network_train_desc* desc) {
     optim._batch_size = desc->batch_size;
 
     u64 max_layer_size = _network_max_layer_size(nn);
-
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     // +1 is just for insurance
@@ -320,6 +319,16 @@ void network_train(network* nn, const network_train_desc* desc) {
         printf("\n");
         memset(bar_str_data, ' ', _BAR_SIZE);
 
+        if (desc->save_interval != 0 && ((epoch + 1) % desc->save_interval) == 0) {
+            mga_temp save_temp = mga_temp_begin(scratch.arena);
+
+            string8 path = str8_pushf(save_temp.arena, "%.*s%.4u.tpn", (int)desc->save_path.size, desc->save_path.str, epoch + 1);
+
+            network_save(nn, path);
+
+            mga_temp_end(save_temp);
+        }
+
         f32 accuracy = 0.0f;
 
         if (desc->accuracy_test) {
@@ -329,8 +338,17 @@ void network_train(network* nn, const network_train_desc* desc) {
             tensor* out = tensor_create(scratch.arena, (tensor_shape){ 10, 1, 1 });
             tensor view = { 0 };
 
+            os_time_init();
+            u64 anim_start_time = os_now_microseconds();
+            u32 anim_frame = 0;
             for (u32 i = 0; i < desc->test_inputs->shape.depth; i++) {
-                printf("Test Accuracy: %c\r", load_anim.str[(i / 1000) % load_anim.size]);
+                u64 cur_time = os_now_microseconds();
+                if (cur_time - anim_start_time > 100000) {
+                    anim_start_time = cur_time;
+                    anim_frame++;
+                }
+                printf("Test Accuracy: %c\r", load_anim.str[anim_frame % load_anim.size]);
+                fflush(stdout);
 
                 tensor_2d_view(&view, desc->test_inputs, i);
 
@@ -355,16 +373,6 @@ void network_train(network* nn, const network_train_desc* desc) {
             };
 
             desc->epoch_callback(&info);
-        }
-
-        if (desc->save_interval != 0 && ((epoch + 1) % desc->save_interval) == 0) {
-            mga_temp save_temp = mga_temp_begin(scratch.arena);
-
-            string8 path = str8_pushf(save_temp.arena, "%.*s%.4u.tpn", (int)desc->save_path.size, desc->save_path.str, epoch + 1);
-
-            network_save(nn, path);
-
-            mga_temp_end(save_temp);
         }
     }
 

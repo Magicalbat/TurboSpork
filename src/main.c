@@ -48,7 +48,80 @@ int main(void) {
     data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
     data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
 
-    //network* nn = network_load_layout(perm_arena, STR8("networks/mnist_feedforward.tpl"), true);
+    dataset* cur_data = &data;
+
+#if 0
+    dataset stripped_data = { 0 };
+    cur_data = &stripped_data;
+
+    // Creating stripped train
+    {
+        tensor label_view = { 0 };
+        u32 num_zero_one = 0;
+        for (u32 i = 0; i < data.train_imgs->shape.depth; i++) {
+            tensor_2d_view(&label_view, data.train_labels, i);
+
+            u32 argmax = tensor_argmax(&label_view).x;
+            
+            if (argmax == 0 || argmax == 1) {
+                num_zero_one++;
+            }
+        }
+
+        stripped_data.train_imgs = tensor_create(perm_arena, (tensor_shape){ 28, 28, num_zero_one });
+        stripped_data.train_labels = tensor_create(perm_arena, (tensor_shape){ 10, 1, num_zero_one });
+
+        u32 index = 0;
+        tensor img_view = { 0 };
+        for (u32 i = 0; i < data.train_imgs->shape.depth; i++) {
+            tensor_2d_view(&img_view, data.train_imgs, i);
+            tensor_2d_view(&label_view, data.train_labels, i);
+
+            u32 argmax = tensor_argmax(&label_view).x;
+            
+            if (argmax == 0 || argmax == 1) {
+                memcpy(stripped_data.train_imgs->data + 28 * 28 * index, img_view.data, sizeof(f32) * 28 * 28);
+                memcpy(stripped_data.train_labels->data + 10 * index, label_view.data, sizeof(f32) * 10);
+
+                index++;
+            }
+        }
+    }
+    // Creating stripped test
+    {
+        tensor label_view = { 0 };
+        u32 num_zero_one = 0;
+        for (u32 i = 0; i < data.test_imgs->shape.depth; i++) {
+            tensor_2d_view(&label_view, data.test_labels, i);
+
+            u32 argmax = tensor_argmax(&label_view).x;
+
+            if (argmax == 0 || argmax == 1) {
+                num_zero_one++;
+            }
+        }
+
+        stripped_data.test_imgs = tensor_create(perm_arena, (tensor_shape){ 28, 28, num_zero_one });
+        stripped_data.test_labels = tensor_create(perm_arena, (tensor_shape){ 10, 1, num_zero_one });
+
+        u32 index = 0;
+        tensor img_view = { 0 };
+        for (u32 i = 0; i < data.test_imgs->shape.depth; i++) {
+            tensor_2d_view(&img_view, data.test_imgs, i);
+            tensor_2d_view(&label_view, data.test_labels, i);
+
+            u32 argmax = tensor_argmax(&label_view).x;
+
+            if (argmax == 0 || argmax == 1) {
+                memcpy(stripped_data.test_imgs->data + 28 * 28 * index, img_view.data, sizeof(f32) * 28 * 28);
+                memcpy(stripped_data.test_labels->data + 10 * index, label_view.data, sizeof(f32) * 10);
+
+                index++;
+            }
+        }
+    }
+#endif
+
     network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
     //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
     //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
@@ -56,7 +129,7 @@ int main(void) {
     network_summary(nn);
 
     network_train_desc train_desc = {
-        .epochs = 16,
+        .epochs = 4,
         .batch_size = 100,
 
         .num_threads = 8,
@@ -64,7 +137,7 @@ int main(void) {
         .cost = COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (optimizer){
             .type = OPTIMIZER_ADAM,
-            .learning_rate = 0.0005f,
+            .learning_rate = 0.01f,
 
             .adam = (optimizer_adam){
                 .beta1 = 0.9f,
@@ -73,18 +146,18 @@ int main(void) {
             }
         },
 
-        .save_interval = 0,
+        //.save_interval = 1,
         //.save_path = STR8("training_nets/network_"),
 
-        .train_inputs = data.train_imgs,
-        .train_outputs = data.train_labels,
+        .train_inputs = cur_data->train_imgs,
+        .train_outputs = cur_data->train_labels,
 
         .accuracy_test = true,
-        .test_inputs = data.test_imgs,
-        .test_outputs = data.test_labels
+        .test_inputs = cur_data->test_imgs,
+        .test_outputs = cur_data->test_labels
     };
 
-#if 1
+#if 0
     tensor in_view = { 0 };
     tensor_2d_view(&in_view, data.train_imgs, 0);
     tensor* in_out = tensor_copy(perm_arena, &in_view, false);

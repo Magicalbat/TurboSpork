@@ -43,6 +43,7 @@ typedef struct {
     u32 stride_x;
     u32 stride_y;
 
+    tensor_shape input_shape;
     tensor_shape padded_shape;
 
     // Training mode

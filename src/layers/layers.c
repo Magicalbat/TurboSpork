@@ -638,16 +638,20 @@ layer_desc layer_desc_load(string8 str) {
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (str8_equals(key, STR8("bias_init"))) {
                     out.dense.bias_init = PARAM_INIT_NULL;
+                    u32 bias_init = 0;
 
-                    _parse_res res = _parse_enum(&out.dense.bias_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    _parse_res res = _parse_enum(&bias_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    out.dense.bias_init = bias_init;
 
                     if (res.error || out.dense.bias_init == PARAM_INIT_NULL) {
                         fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
                     }
                 } else if (str8_equals(key, STR8("weight_init"))) {
                     out.dense.weight_init = PARAM_INIT_NULL;
+                    u32 weight_init = 0;
 
-                    _parse_res res = _parse_enum(&out.dense.weight_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    _parse_res res = _parse_enum(&weight_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    out.dense.weight_init = weight_init;
 
                     if (res.error || out.dense.weight_init == PARAM_INIT_NULL) {
                         fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
@@ -657,8 +661,10 @@ layer_desc layer_desc_load(string8 str) {
             case LAYER_ACTIVATION: {
                 if (str8_equals(key, STR8("type"))) {
                     out.activation.type = ACTIVATION_NULL;
+                    u32 activ_type = 0;
 
-                    _parse_res res = _parse_enum(&out.activation.type, value, _activ_names, ACTIVATION_COUNT);
+                    _parse_res res = _parse_enum(&activ_type, value, _activ_names, ACTIVATION_COUNT);
+                    out.activation.type = activ_type;
 
                     if (res.error || out.activation.type == ACTIVATION_NULL) {
                         fprintf(stderr, "Invalid activation type \"%.*s\"\n", (int)value.size, (char*)value.str);
@@ -675,8 +681,10 @@ layer_desc layer_desc_load(string8 str) {
             case LAYER_POOLING_2D: {
                 if (str8_equals(key, STR8("type"))) {
                     out.pooling_2d.type = POOLING_NULL;
+                    u32 pool_type = 0;
 
-                    _parse_res res = _parse_enum(&out.pooling_2d.type, value, _pooling_names, POOLING_COUNT);
+                    _parse_res res = _parse_enum(&pool_type, value, _pooling_names, POOLING_COUNT);
+                    out.pooling_2d.type = pool_type;
 
                     if (res.error || out.pooling_2d.type == POOLING_NULL) {
                         fprintf(stderr, "Invalid pooling type \"%.*s\"\n", (int)value.size, (char*)value.str);
@@ -710,16 +718,20 @@ layer_desc layer_desc_load(string8 str) {
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (str8_equals(key, STR8("kernels_init"))) {
                     out.conv_2d.kernels_init = PARAM_INIT_NULL;
+                    u32 kernels_init = 0;
 
-                    _parse_res res = _parse_enum(&out.conv_2d.kernels_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    _parse_res res = _parse_enum(&kernels_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    out.conv_2d.kernels_init = kernels_init;
 
                     if (res.error || out.dense.bias_init == PARAM_INIT_NULL) {
                         fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
                     }
                 } else if (str8_equals(key, STR8("biases_init"))) {
                     out.conv_2d.biases_init = PARAM_INIT_NULL;
+                    u32 biases_init = 0;
 
-                    _parse_res res = _parse_enum(&out.conv_2d.biases_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    _parse_res res = _parse_enum(&biases_init, value, _param_init_names, PARAM_INIT_COUNT);
+                    out.conv_2d.biases_init = biases_init;
 
                     if (res.error || out.dense.bias_init == PARAM_INIT_NULL) {
                         fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
