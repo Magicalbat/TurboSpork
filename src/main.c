@@ -137,12 +137,12 @@ int main(void) {
         .cost = COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (optimizer){
             .type = OPTIMIZER_ADAM,
-            .learning_rate = 0.01f,
+            .learning_rate = 0.02f,
 
             .adam = (optimizer_adam){
                 .beta1 = 0.9f,
                 .beta2 = 0.999f,
-                .epsilon = 1e-8f
+                .epsilon = 1e-7f
             }
         },
 

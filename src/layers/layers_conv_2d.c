@@ -31,8 +31,8 @@ void _layer_conv_2d_create(mg_arena* arena, layer* out, const layer_desc* desc, 
     conv->kernels = tensor_create(arena, kernels_shape);
     conv->biases = tensor_create(arena, out->shape);
 
-    u64 in_size = (u64)prev_shape.width * prev_shape.height;// * prev_shape.depth;
-    u64 out_size = (u64)out->shape.width * out->shape.height;// * out->shape.depth;
+    u64 in_size = (u64)prev_shape.width * prev_shape.height * prev_shape.depth;
+    u64 out_size = (u64)out->shape.width * out->shape.height * out->shape.depth;
     param_init(conv->kernels, cdesc->kernels_init, in_size, out_size);
     param_init(conv->biases, cdesc->biases_init, in_size, out_size);
 

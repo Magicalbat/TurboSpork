@@ -3,7 +3,6 @@ input:
 
 conv_2d:
    num_filters = 16;
-   padding = true;
    kernel_size = (3, 3, 1);
 
 activation:
@@ -15,7 +14,6 @@ pooling_2d:
 
 conv_2d:
    num_filters = 32;
-   padding = true;
    kernel_size = (3, 3, 1);
 
 activation:
