@@ -7,7 +7,7 @@ dense:
     size = 64;
 
 activation:
-    type = leaky_relu;
+    type = relu;
 
 dense:
     size = 10;

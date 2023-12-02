@@ -174,7 +174,7 @@ static const layer_desc _default_descs[LAYER_COUNT] = {
         .dense = (layer_dense_desc){
             .size = 1,
             .bias_init = PARAM_INIT_ZEROS,
-            .weight_init = PARAM_INIT_XAVIER
+            .weight_init = PARAM_INIT_XAVIER_UNIFORM
         }
     },
     [LAYER_ACTIVATION] = {
@@ -194,7 +194,7 @@ static const layer_desc _default_descs[LAYER_COUNT] = {
             .kernel_size = { 1, 1, 1 },
             .stride_x = 1,
             .stride_y = 1,
-            .kernels_init = PARAM_INIT_XAVIER,
+            .kernels_init = PARAM_INIT_HE_NORMAL,
             .biases_init = PARAM_INIT_ZEROS
         }
     },
@@ -276,7 +276,10 @@ static const char* _param_init_names[PARAM_INIT_COUNT] = {
     [PARAM_INIT_NULL] = "null",
     [PARAM_INIT_ZEROS] = "zeros",
     [PARAM_INIT_ONES] = "ones",
-    [PARAM_INIT_XAVIER] = "xavier",
+    [PARAM_INIT_XAVIER_UNIFORM] = "xavier_uniform",
+    [PARAM_INIT_XAVIER_NORMAL] = "xavier_normal",
+    [PARAM_INIT_HE_UNIFORM] = "he_uniform",
+    [PARAM_INIT_HE_NORMAL] = "he_normal",
 };
 
 static const char* _activ_names[ACTIVATION_COUNT] = {
@@ -747,9 +750,23 @@ layer_desc layer_desc_load(string8 str) {
     return out;
 }
 
-void param_init(tensor* param, param_init_type input_type, u64 in_size, u64 out_size) {
-    UNUSED(out_size);
+void _param_init_uniform(tensor* param, f32 lower, f32 upper) {
+    u64 size = (u64)param->shape.width * param->shape.height * param->shape.depth;
+    for (u64 i = 0; i < size; i++) {
+        param->data[i] = prng_rand_f32();
+        param->data[i] = param->data[i] * (upper - lower) - lower;
+    }
+}
 
+void _param_init_normal(tensor* param, f32 mean, f32 std_dev) {
+    u64 size = (u64)param->shape.width * param->shape.height * param->shape.depth;
+    for (u64 i = 0; i < size; i++) {
+        param->data[i] = prng_std_norm();
+        param->data[i] = mean + param->data[i] * std_dev;
+    }
+}
+
+void param_init(tensor* param, param_init_type input_type, u64 in_size, u64 out_size) {
     switch (input_type) {
         case PARAM_INIT_ZEROS: {
             tensor_fill(param, 0.0f);
@@ -757,14 +774,22 @@ void param_init(tensor* param, param_init_type input_type, u64 in_size, u64 out_
         case PARAM_INIT_ONES: {
             tensor_fill(param, 1.0f);
         } break;
-        case PARAM_INIT_XAVIER: {
-            f32 scale = 1.0f / sqrtf(in_size);
-            u64 size = (u64)param->shape.width * param->shape.height * param->shape.depth;
-            for (u64 i = 0; i < size; i++) {
-                param->data[i] = prng_std_norm();
-                param->data[i] *= scale;
-            }
+        case PARAM_INIT_XAVIER_UNIFORM: {
+            f32 upper = sqrtf(6.0f / (f32)(in_size + out_size));
+            _param_init_uniform(param, -upper, upper);
         } break;
+        case PARAM_INIT_XAVIER_NORMAL: {
+            f32 std_dev = sqrtf(2.0f / (f32)(in_size + out_size));
+            _param_init_normal(param, 0.0f, std_dev);
+        } break;
+        case PARAM_INIT_HE_UNIFORM: {
+            f32 upper = sqrtf(6.0f / (f32)in_size);
+            _param_init_uniform(param, -upper, upper);
+        }
+        case PARAM_INIT_HE_NORMAL: {
+            f32 std_dev = sqrtf(2.0f / (f32)in_size);
+            _param_init_normal(param, 0.0f, std_dev);
+        }
         default: break;
     }
 }

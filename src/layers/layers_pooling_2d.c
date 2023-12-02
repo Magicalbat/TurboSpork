@@ -39,6 +39,7 @@ void _layer_pooling_2d_create(mg_arena* arena, layer* out, const layer_desc* des
 
     out->shape = out_shape;
 }
+
 // TODO: Type check here and in activation?
 void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
     layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
@@ -66,6 +67,7 @@ void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache
 
         if (cache != NULL) {
             tensor_2d_view(&delta_view, delta, z);
+            delta_ptr = &delta_view;
         }
 
         _pooling_funcs[pooling->type](&in_copy_view, &out_view, pooling->pool_size, delta_ptr);
@@ -83,6 +85,7 @@ void _layer_pooling_2d_feedforward(layer* l, tensor* in_out, layers_cache* cache
         if (i_x + p_w > in_shape.width) { p_w = i_x + p_w - in_shape.width; } \
         if (i_y + p_h > in_shape.height) { p_h = i_y + p_h - in_shape.height; } \
     } while (0)
+
 
 void _layer_pooling_2d_backprop(layer* l, tensor* delta, layers_cache* cache) {
     layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
@@ -139,10 +142,6 @@ void _pool_null(const tensor* in, tensor* out, tensor_shape pool_size, tensor* d
 }
 
 void _pool_max(const tensor* in, tensor* out, tensor_shape pool_size, tensor* delta) {
-    if (delta != NULL) {
-        tensor_fill(delta, 0.0f);
-    }
-
     // Looping through output coords
     for (u64 o_y = 0; o_y < out->shape.height; o_y++) {
         for (u64 o_x = 0; o_x < out->shape.width; o_x++) {

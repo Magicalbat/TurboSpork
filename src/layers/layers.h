@@ -28,7 +28,15 @@ typedef enum {
     // Fills param with zeors
     PARAM_INIT_ONES,
 
-    PARAM_INIT_XAVIER,
+    // Xavier Glorot uniform
+    PARAM_INIT_XAVIER_UNIFORM,
+    // Xavier Glorot normal
+    PARAM_INIT_XAVIER_NORMAL,
+
+    // He/Kaiming uniform
+    PARAM_INIT_HE_UNIFORM,
+    // He/Kaiming normal
+    PARAM_INIT_HE_NORMAL,
 
     // TODO: glorot init
 
@@ -63,7 +71,7 @@ typedef struct {
 
     // Default of PARAM_INIT_ZEROS
     param_init_type bias_init;
-    // Default of PARAM_INIT_XAVIER
+    // Default of PARAM_INIT_XAVIER_UNIFORM
     param_init_type weight_init;
 } layer_dense_desc;
 
@@ -100,7 +108,7 @@ typedef struct {
     u32 stride_x;
     u32 stride_y;
 
-    // Default of PARAM_INIT_XAVIER
+    // Default of PARAM_INIT_HE_NORMAL
     param_init_type kernels_init;
     // Default of PARAM_INIT_ZEROS
     param_init_type biases_init;

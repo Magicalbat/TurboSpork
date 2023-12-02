@@ -50,78 +50,6 @@ int main(void) {
 
     dataset* cur_data = &data;
 
-#if 0
-    dataset stripped_data = { 0 };
-    cur_data = &stripped_data;
-
-    // Creating stripped train
-    {
-        tensor label_view = { 0 };
-        u32 num_zero_one = 0;
-        for (u32 i = 0; i < data.train_imgs->shape.depth; i++) {
-            tensor_2d_view(&label_view, data.train_labels, i);
-
-            u32 argmax = tensor_argmax(&label_view).x;
-            
-            if (argmax == 0 || argmax == 1) {
-                num_zero_one++;
-            }
-        }
-
-        stripped_data.train_imgs = tensor_create(perm_arena, (tensor_shape){ 28, 28, num_zero_one });
-        stripped_data.train_labels = tensor_create(perm_arena, (tensor_shape){ 10, 1, num_zero_one });
-
-        u32 index = 0;
-        tensor img_view = { 0 };
-        for (u32 i = 0; i < data.train_imgs->shape.depth; i++) {
-            tensor_2d_view(&img_view, data.train_imgs, i);
-            tensor_2d_view(&label_view, data.train_labels, i);
-
-            u32 argmax = tensor_argmax(&label_view).x;
-            
-            if (argmax == 0 || argmax == 1) {
-                memcpy(stripped_data.train_imgs->data + 28 * 28 * index, img_view.data, sizeof(f32) * 28 * 28);
-                memcpy(stripped_data.train_labels->data + 10 * index, label_view.data, sizeof(f32) * 10);
-
-                index++;
-            }
-        }
-    }
-    // Creating stripped test
-    {
-        tensor label_view = { 0 };
-        u32 num_zero_one = 0;
-        for (u32 i = 0; i < data.test_imgs->shape.depth; i++) {
-            tensor_2d_view(&label_view, data.test_labels, i);
-
-            u32 argmax = tensor_argmax(&label_view).x;
-
-            if (argmax == 0 || argmax == 1) {
-                num_zero_one++;
-            }
-        }
-
-        stripped_data.test_imgs = tensor_create(perm_arena, (tensor_shape){ 28, 28, num_zero_one });
-        stripped_data.test_labels = tensor_create(perm_arena, (tensor_shape){ 10, 1, num_zero_one });
-
-        u32 index = 0;
-        tensor img_view = { 0 };
-        for (u32 i = 0; i < data.test_imgs->shape.depth; i++) {
-            tensor_2d_view(&img_view, data.test_imgs, i);
-            tensor_2d_view(&label_view, data.test_labels, i);
-
-            u32 argmax = tensor_argmax(&label_view).x;
-
-            if (argmax == 0 || argmax == 1) {
-                memcpy(stripped_data.test_imgs->data + 28 * 28 * index, img_view.data, sizeof(f32) * 28 * 28);
-                memcpy(stripped_data.test_labels->data + 10 * index, label_view.data, sizeof(f32) * 10);
-
-                index++;
-            }
-        }
-    }
-#endif
-
     network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
     //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
     //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
@@ -129,7 +57,7 @@ int main(void) {
     network_summary(nn);
 
     network_train_desc train_desc = {
-        .epochs = 4,
+        .epochs = 8,
         .batch_size = 100,
 
         .num_threads = 8,
@@ -137,7 +65,7 @@ int main(void) {
         .cost = COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (optimizer){
             .type = OPTIMIZER_ADAM,
-            .learning_rate = 0.02f,
+            .learning_rate = 0.001f,
 
             .adam = (optimizer_adam){
                 .beta1 = 0.9f,
