@@ -215,8 +215,10 @@ void _layer_conv_2d_apply_changes(layer* l, const optimizer* optim) {
 void _layer_conv_2d_delete(layer* l) {
     layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
-    param_change_delete(&conv->kernels_change);
-    param_change_delete(&conv->biases_change);
+    if (l->training_mode) {
+        param_change_delete(&conv->kernels_change);
+        param_change_delete(&conv->biases_change);
+    }
 }
 void _layer_conv_2d_save(mg_arena* arena, tensor_list* list, layer* l, u32 index) {
     layer_conv_2d_backend* conv = &l->conv_2d_backend;

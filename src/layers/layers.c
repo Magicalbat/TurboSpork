@@ -10,6 +10,7 @@
 static const char* _layer_names[LAYER_COUNT] = {
     [LAYER_NULL] = "null",
     [LAYER_INPUT] = "input",
+    [LAYER_RESHAPE] = "reshape",
     [LAYER_DENSE] = "dense",
     [LAYER_ACTIVATION] = "activation",
     [LAYER_DROPOUT] = "dropout",
@@ -49,8 +50,17 @@ static _layer_func_defs _layer_funcs[LAYER_COUNT] = {
     },
     [LAYER_INPUT] = {
         _layer_input_create,
-        _layer_null_feedforward,
+        _layer_input_feedforward,
         _layer_null_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+        _layer_null_save,
+        _layer_null_load,
+    },
+    [LAYER_RESHAPE] = {
+        _layer_reshape_create,
+        _layer_reshape_feedforward,
+        _layer_reshape_backprop,
         _layer_null_apply_changes,
         _layer_null_delete,
         _layer_null_save,
@@ -169,10 +179,10 @@ void layer_load(layer* l, const tensor_list* list, u32 index) {
 
 static const layer_desc _default_descs[LAYER_COUNT] = {
     [LAYER_NULL] = { },
-    [LAYER_INPUT] = { .input.shape = { 1, 1, 1 } },
+    [LAYER_INPUT] = { },
+    [LAYER_RESHAPE] = { },
     [LAYER_DENSE] = {
         .dense = (layer_dense_desc){
-            .size = 1,
             .bias_init = PARAM_INIT_ZEROS,
             .weight_init = PARAM_INIT_XAVIER_UNIFORM
         }
@@ -184,14 +194,11 @@ static const layer_desc _default_descs[LAYER_COUNT] = {
     [LAYER_FLATTEN] = { },
     [LAYER_POOLING_2D] = {
         .pooling_2d = (layer_pooling_2d_desc){
-            .pool_size = { 1, 1, 1},
             .type = POOLING_MAX
         }
     },
     [LAYER_CONV_2D] = {
         .conv_2d = (layer_conv_2d_desc) {
-            .num_filters = 1,
-            .kernel_size = { 1, 1, 1 },
             .stride_x = 1,
             .stride_y = 1,
             .kernels_init = PARAM_INIT_HE_NORMAL,
@@ -223,29 +230,16 @@ layer_desc layer_desc_apply_default(const layer_desc* desc) {
     memcpy(&out, desc, sizeof(layer_desc));
 
     switch (desc->type) {
-        case LAYER_INPUT: {
-            _PARAM_DEFAULT(out.input.shape.width, def->input.shape.width);
-            _PARAM_DEFAULT(out.input.shape.height, def->input.shape.height);
-            _PARAM_DEFAULT(out.input.shape.depth, def->input.shape.depth);
-        } break;
         case LAYER_DENSE: {
-            _PARAM_DEFAULT(out.dense.size, def->dense.size);
             _PARAM_DEFAULT(out.dense.bias_init, def->dense.bias_init);
             _PARAM_DEFAULT(out.dense.weight_init, def->dense.weight_init);
         } break;
         case LAYER_ACTIVATION: {
             _PARAM_DEFAULT(out.activation.type, def->activation.type);
         } break;
-        case LAYER_DROPOUT: {
-            // Nothing yet
-        } break;
         case LAYER_POOLING_2D: {
             layer_pooling_2d_desc* out_p = &out.pooling_2d;
             const layer_pooling_2d_desc* def_p = &def->pooling_2d;
-
-            _PARAM_DEFAULT(out_p->pool_size.width, def_p->pool_size.width);
-            _PARAM_DEFAULT(out_p->pool_size.height, def_p->pool_size.height);
-            _PARAM_DEFAULT(out_p->pool_size.depth, def_p->pool_size.depth);
 
             _PARAM_DEFAULT(out_p->type, def_p->type);
         } break;
@@ -253,15 +247,9 @@ layer_desc layer_desc_apply_default(const layer_desc* desc) {
             layer_conv_2d_desc* out_c = &out.conv_2d;
             const layer_conv_2d_desc* def_c = &def->conv_2d;
 
-            _PARAM_DEFAULT(out_c->num_filters, def_c->num_filters);
-
-            _PARAM_DEFAULT(out_c->kernel_size.width, def_c->kernel_size.width);
-            _PARAM_DEFAULT(out_c->kernel_size.height, def_c->kernel_size.height);
-            _PARAM_DEFAULT(out_c->kernel_size.depth, def_c->kernel_size.depth);
-
-            _PARAM_DEFAULT(out_c->padding, def_c->padding);
             _PARAM_DEFAULT(out_c->stride_x, def_c->stride_x);
             _PARAM_DEFAULT(out_c->stride_y, def_c->stride_y);
+
             _PARAM_DEFAULT(out_c->kernels_init, def_c->kernels_init);
             _PARAM_DEFAULT(out_c->biases_init, def_c->biases_init);
 
@@ -333,6 +321,12 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
 
             str8_list_push(arena, list, shape_str);
         } break;
+        case LAYER_RESHAPE: {
+            tensor_shape s = desc->reshape.shape;
+            string8 shape_str = str8_pushf(arena, "    shape = (%u, %u, %u);\n", s.width, s.height, s.depth);
+
+            str8_list_push(arena, list, shape_str);
+        } break;
         case LAYER_DENSE: {
             string8 size_str = str8_pushf(arena, "    size = %u;\n", desc->dense.size);
 
@@ -378,7 +372,7 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
             string8 type_str = str8_pushf(arena, "    type = %s;\n", _pooling_names[desc->pooling_2d.type]);
 
             tensor_shape s = desc->pooling_2d.pool_size;
-            string8 pool_size_str = str8_pushf(arena, "    pool_size = (%u, %u, %u);\n", s.width, s.height, s.depth);
+            string8 pool_size_str = str8_pushf(arena, "    pool_size = (%u, %u);\n", s.width, s.height);
 
             str8_list_push(arena, list, type_str);
             str8_list_push(arena, list, pool_size_str);
@@ -394,7 +388,7 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
             string8 conv_2d_str = str8_pushf(
                 arena,
                 "   num_filters = %u;\n"
-                "   kernel_size = (%u, %u, %u);\n"
+                "   kernel_size = (%u, %u);\n"
                 "   padding = %s;\n"
                 "   stride_x = %u;\n"
                 "   stride_y = %u;\n"
@@ -402,7 +396,7 @@ void layer_desc_save(mg_arena* arena, string8_list* list, const layer_desc* desc
                 "   bias_init = %s;\n",
 
                 cdesc->num_filters,
-                cdesc->kernel_size.width, cdesc->kernel_size.height, cdesc->kernel_size.depth, 
+                cdesc->kernel_size.width, cdesc->kernel_size.height, 
                 cdesc->padding ? "true" : "false",
                 cdesc->stride_x, cdesc->stride_y,
                 _param_init_names[cdesc->kernels_init],
@@ -447,7 +441,7 @@ _parse_res _parse_b32(b32* out, string8 value) {
     return (_parse_res){ .error = false };
 }
 _parse_res _parse_tensor_shape(tensor_shape* out, string8 value) {
-    // Parsing (w, h, d)
+    // Parsing (w, h) or (w, h, d)
 
     // Comma indices
     u64 comma_1 = 0;
@@ -472,7 +466,7 @@ _parse_res _parse_tensor_shape(tensor_shape* out, string8 value) {
         }
     }
 
-    if (comma_1 == 0 || comma_2 == 0) {
+    if (comma_1 == 0) {
         valid = false;
     }
 
@@ -481,6 +475,12 @@ _parse_res _parse_tensor_shape(tensor_shape* out, string8 value) {
             .error = true,
             .err_msg = "Cannot load layer desc: Invalid tensor shape format, must be format \"(w,h,d)\""
         };
+    }
+
+    b32 is_2d = false;
+    if (comma_2 == 0) {
+        is_2d = true;
+        comma_2 = value.size - 1;
     }
 
     // Getting w, h, and d strings
@@ -500,7 +500,13 @@ _parse_res _parse_tensor_shape(tensor_shape* out, string8 value) {
 
     shape.width = strtol((char*)num1_cstr, &end_ptr, 10);
     shape.height = strtol((char*)num2_cstr, &end_ptr, 10);
-    shape.depth = strtol((char*)num3_cstr, &end_ptr, 10);
+
+    if (is_2d) {
+        shape.depth = 1;
+    } else {
+
+        shape.depth = strtol((char*)num3_cstr, &end_ptr, 10);
+    }
 
     *out = shape;
 
@@ -630,6 +636,13 @@ layer_desc layer_desc_load(string8 str) {
             case LAYER_INPUT: {
                 if (str8_equals(key, STR8("shape"))) {
                     _parse_res res = _parse_tensor_shape(&out.input.shape, value);
+
+                    _PARSE_RES_ERR_CHECK(res);
+                }
+            } break;
+            case LAYER_RESHAPE: {
+                if (str8_equals(key, STR8("shape"))) {
+                    _parse_res res = _parse_tensor_shape(&out.reshape.shape, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
@@ -806,50 +819,5 @@ tensor* layers_cache_pop(layers_cache* cache) {
     SLL_POP_FRONT(cache->first, cache->last);
 
     return out;
-}
-
-void _layer_null_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
-    UNUSED(arena);
-    UNUSED(desc);
-
-    out->shape = prev_shape;
-}
-void _layer_null_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
-    UNUSED(l);
-    UNUSED(in_out);
-    UNUSED(cache);
-}
-void _layer_null_backprop(layer* l, tensor* delta, layers_cache* cache) {
-    UNUSED(l);
-    UNUSED(delta);
-    UNUSED(cache);
-}
-void _layer_null_apply_changes(layer* l, const optimizer* optim) {
-    UNUSED(l);
-    UNUSED(optim);
-}
-void _layer_null_delete(layer* l) {
-    UNUSED(l);
-}
-void _layer_null_save(mg_arena* arena, tensor_list* list, layer* l, u32 index) {
-    UNUSED(arena);
-    UNUSED(list);
-    UNUSED(l);
-    UNUSED(index);
-}
-void _layer_null_load(layer* l, const tensor_list* list, u32 index) {
-    UNUSED(l);
-    UNUSED(list);
-    UNUSED(index);
-}
-
-void _layer_input_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
-    UNUSED(arena);
-    UNUSED(prev_shape);
-
-    out->shape = desc->input.shape;
-
-    // Input layer never needs to be in training mode
-    out->training_mode = false;
 }
 

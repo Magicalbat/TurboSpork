@@ -25,6 +25,7 @@ u32 _network_max_layer_size(network* nn) {
 network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
 
+    nn->training_mode = training_mode;
     nn->num_layers = num_layers;
 
     nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, layer_desc, nn->num_layers);
@@ -115,6 +116,8 @@ static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file
 network* network_load_layout(mg_arena* arena, string8 file_name, b32 training_mode) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
 
+    nn->training_mode = training_mode;
+
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
     string8 raw_file = os_file_read(scratch.arena, file_name);
@@ -136,6 +139,8 @@ static const string8 _tpn_header = {
 // Creates network from network file (*.tpn)
 network* network_load(mg_arena* arena, string8 file_name, b32 training_mode) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
+
+    nn->training_mode = training_mode;
 
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
@@ -280,6 +285,12 @@ void _network_test_thread(void* args) {
 
 #define _BAR_SIZE 20
 void network_train(network* nn, const network_train_desc* desc) {
+    if (!nn->training_mode) {
+        fprintf(stderr, "Cannot train network that is not in training mode\n");
+
+        return;
+    }
+
     optimizer optim = desc->optim;
     optim._batch_size = desc->batch_size;
 

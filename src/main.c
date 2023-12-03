@@ -54,7 +54,7 @@ int main(void) {
     //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
 
     network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
-    //network* nn = network_load(perm_arena, STR8("training_nets/network_0016.tpn"), true);
+    //network* nn = network_load(perm_arena, STR8("training_nets/network_0001.tpn"), false);
 
     network_summary(nn);
 

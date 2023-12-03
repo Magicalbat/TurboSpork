@@ -3,25 +3,25 @@ input:
 
 conv_2d:
    num_filters = 16;
-   kernel_size = (3, 3, 1);
+   kernel_size = (3, 3);
 
 activation:
     type = relu;
 
 pooling_2d:
     type = max;
-    pool_size = (2, 2, 1);
+    pool_size = (2, 2);
 
 conv_2d:
    num_filters = 32;
-   kernel_size = (3, 3, 1);
+   kernel_size = (3, 3);
 
 activation:
     type = relu;
 
 pooling_2d:
     type = max;
-    pool_size = (2, 2, 1);
+    pool_size = (2, 2);
 
 flatten:
 

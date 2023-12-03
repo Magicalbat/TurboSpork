@@ -10,6 +10,8 @@
 #include "optimizers/optimizers.h"
 
 typedef struct {
+    b32 training_mode;
+
     u32 num_layers;
     layer** layers;
 

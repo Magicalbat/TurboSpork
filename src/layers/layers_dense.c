@@ -75,8 +75,10 @@ void _layer_dense_apply_changes(layer* l, const optimizer* optim) {
 void _layer_dense_delete(layer* l) {
     layer_dense_backend* dense = &l->dense_backend;
 
-    param_change_delete(&dense->weight_change);
-    param_change_delete(&dense->bias_change);
+    if (l->training_mode) {
+        param_change_delete(&dense->weight_change);
+        param_change_delete(&dense->bias_change);
+    }
 }
 void _layer_dense_save(mg_arena* arena, tensor_list* list, layer* l, u32 index) {
     layer_dense_backend* dense = &l->dense_backend;

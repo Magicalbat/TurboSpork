@@ -10,6 +10,7 @@
 typedef enum {
     LAYER_NULL = 0,
     LAYER_INPUT,
+    LAYER_RESHAPE,
     LAYER_DENSE,
     LAYER_ACTIVATION,
     LAYER_DROPOUT,
@@ -38,8 +39,6 @@ typedef enum {
     // He/Kaiming normal
     PARAM_INIT_HE_NORMAL,
 
-    // TODO: glorot init
-
     PARAM_INIT_COUNT
 } param_init_type;
 
@@ -65,6 +64,10 @@ typedef enum {
 typedef struct {
     tensor_shape shape;
 } layer_input_desc;
+
+typedef struct {
+    tensor_shape shape;
+} layer_reshape_desc;
 
 typedef struct {
     u32 size;
@@ -95,7 +98,6 @@ typedef struct {
     u32 num_filters;
 
     // Only 2d
-    // Defaults to (1, 1)
     tensor_shape kernel_size;
 
     // Adds padding to input
@@ -120,6 +122,7 @@ typedef struct {
 
     union {
         layer_input_desc input;
+        layer_reshape_desc reshape;
         layer_dense_desc dense;
         layer_activation_desc activation;
         layer_dropout_desc dropout;

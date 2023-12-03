@@ -4,6 +4,10 @@
 #include "layers.h"
 
 typedef struct {
+    tensor_shape prev_shape;
+} layer_reshape_backend;
+
+typedef struct {
     tensor* weight;
     tensor* weight_transposed;
     tensor* bias;
@@ -56,10 +60,11 @@ typedef struct layer {
     layer_type type;
     b32 training_mode;
 
-    // Should be set by layer
+    // Should be set by layer in create function
     tensor_shape shape;
 
     union {
+        layer_reshape_backend reshape_backend;
         layer_dense_backend dense_backend;
         layer_activation_backend activation_backend;
         layer_dropout_backend dropout_backend;
@@ -104,7 +109,7 @@ typedef struct {
     _layer_load_func* load;
 } _layer_func_defs;
 
-// These functions are implemented in layers.c or a specific layers_*.c file
+// These functions are implemented in specific layers_*.c files
 
 void _layer_null_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_null_feedforward(layer* l, tensor* in_out, layers_cache* cache);
@@ -115,6 +120,11 @@ void _layer_null_save(mg_arena* arena, tensor_list* list, layer* l, u32 index);
 void _layer_null_load(layer* l, const tensor_list* list, u32 index);
 
 void _layer_input_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape); 
+void _layer_input_feedforward(layer* l, tensor* in_out, layers_cache* cache);
+
+void _layer_reshape_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
+void _layer_reshape_feedforward(layer* l, tensor* in_out, layers_cache* cache);
+void _layer_reshape_backprop(layer* l, tensor* delta, layers_cache* cache);
 
 void _layer_dense_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape);
 void _layer_dense_feedforward(layer* l, tensor* in_out, layers_cache* cache);
