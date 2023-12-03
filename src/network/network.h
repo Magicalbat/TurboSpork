@@ -11,11 +11,14 @@
 
 typedef struct {
     u32 num_layers;
+    layer** layers;
 
     // For saving
     layer_desc* layer_descs;
 
-    layer** layers;
+    // Used for forward and backward passes
+    // Allows for single allocation of input/output variable
+    u64 max_layer_size;
 } network;
 
 typedef struct {

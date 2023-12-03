@@ -4,9 +4,23 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-static u64 _network_max_layer_size(const network* nn);
+u32 _network_max_layer_size(network* nn) {
+    u64 max_layer_size = 0;
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        tensor_shape s = nn->layers[i]->shape;
+
+        u64 size = (u64)s.width * s.height * s.depth;
+
+        if (size > max_layer_size) {
+            max_layer_size = size;
+        }
+    }
+
+    return max_layer_size;
+}
 
 network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
     network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
@@ -24,6 +38,8 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
         nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
         prev_shape = nn->layers[i]->shape;
     }
+
+    nn->max_layer_size = _network_max_layer_size(nn); 
 
     return nn;
 }
@@ -89,6 +105,8 @@ static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file
         nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
         prev_shape = nn->layers[i]->shape;
     }
+
+    nn->max_layer_size = _network_max_layer_size(nn); 
 
     mga_scratch_release(scratch);
 }
@@ -164,9 +182,7 @@ void network_delete(network* nn) {
 void network_feedforward(const network* nn, tensor* out, const tensor* input) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    u64 max_layer_size = _network_max_layer_size(nn);
-
-    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, max_layer_size);
+    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
     tensor_copy_ip(in_out, input);
 
     for (u32 i = 0; i < nn->num_layers; i++) {
@@ -195,7 +211,6 @@ u32 _num_digits (u32 n) {
 
 typedef struct {
     network* nn;
-    u64 max_layer_size;
     tensor input_view;
     tensor output_view;
     cost_type cost;
@@ -210,7 +225,7 @@ void _network_backprop_thread(void* args) {
 
     layers_cache cache = { .arena = scratch.arena };
 
-    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, bargs->max_layer_size);
+    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
     tensor_copy_ip(in_out, &bargs->input_view);
     tensor* output = tensor_copy(scratch.arena, &bargs->output_view, false);
 
@@ -229,31 +244,81 @@ void _network_backprop_thread(void* args) {
     mga_scratch_release(scratch);
 }
 
+typedef struct {
+    u32* num_correct;
+    os_thread_mutex* num_correct_mutex;
+
+    network* nn;
+
+    tensor input_view;
+    tensor_index output_argmax;
+} _network_test_args;
+void _network_test_thread(void* args) {
+    _network_test_args* targs = (_network_test_args*)args;
+
+    network* nn = targs->nn;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
+    tensor_copy_ip(in_out, &targs->input_view);
+
+    for (u32 i = 0; i < nn->num_layers; i++) {
+        layer_feedforward(nn->layers[i], in_out, NULL);
+    }
+
+    if (tensor_index_eq(tensor_argmax(in_out), targs->output_argmax)) {
+        os_thread_mutex_lock(targs->num_correct_mutex);
+
+        *targs->num_correct += 1;
+
+        os_thread_mutex_unlock(targs->num_correct_mutex);
+    }
+    
+    mga_scratch_release(scratch);
+}
+
 #define _BAR_SIZE 20
 void network_train(network* nn, const network_train_desc* desc) {
     optimizer optim = desc->optim;
     optim._batch_size = desc->batch_size;
 
-    u64 max_layer_size = _network_max_layer_size(nn);
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     // +1 is just for insurance
     os_thread_pool* tpool = os_thread_pool_create(scratch.arena, MAX(1, desc->num_threads), desc->batch_size + 1);
+
     _network_backprop_args* backprop_args = MGA_PUSH_ZERO_ARRAY(scratch.arena, _network_backprop_args, desc->batch_size);
+
+    // Accuracy testing stuff
+    _network_test_args* test_args = NULL;
+    u32 num_correct = 0;
+    os_thread_mutex* num_correct_mutex = NULL;
+    if (desc->accuracy_test) {
+        test_args = MGA_PUSH_ZERO_ARRAY(scratch.arena, _network_test_args, desc->batch_size);
+        num_correct_mutex = os_thread_mutex_create(scratch.arena);
+    }
 
     u8 bar_str_data[_BAR_SIZE + 1] = { 0 };
     memset(bar_str_data, ' ', _BAR_SIZE);
 
     u8 batch_str_data[11] = { 0 };
 
-    // Hides cursor
-    //printf("\e[?25l");
+    // This will add one if there is a remainder
+    // Allows for batch sizes that are not perfectly divisible
+    div_t num_batches_div = div(desc->train_inputs->shape.depth, desc->batch_size);
+    u32 num_batches = num_batches_div.quot + (num_batches_div.rem != 0);
+    u32 last_batch_size = desc->train_inputs->shape.depth - (desc->batch_size * (num_batches - 1));
+
+    u32 num_batches_digits = _num_digits(num_batches);
+
+    // Same calculations for test batches
+    div_t num_test_batches_div = div(desc->test_inputs->shape.depth, desc->batch_size);
+    u32 num_test_batches = num_test_batches_div.quot + (num_test_batches_div.rem != 0);
+    u32 last_test_batch_size = desc->test_inputs->shape.depth - (desc->batch_size * (num_test_batches - 1));
 
     for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
         printf("Epoch: %u / %u\n", epoch + 1, desc->epochs);
-
-        u32 num_batches = desc->train_inputs->shape.depth / desc->batch_size;
-        u32 num_batches_digits = _num_digits(num_batches);
 
         for (u32 batch = 0; batch < num_batches; batch++) {
             // Progress in stdout
@@ -282,7 +347,8 @@ void network_train(network* nn, const network_train_desc* desc) {
             mga_temp batch_temp = mga_temp_begin(scratch.arena);
 
             // Training batch
-            for (u32 i = 0; i < desc->batch_size; i++) {
+            u32 batch_size = (batch == num_batches - 1) ? last_batch_size : desc->batch_size;
+            for (u32 i = 0; i < batch_size; i++) {
                 u64 index = (u64)i + (u64)batch * desc->batch_size;
 
                 tensor input_view = { 0 };
@@ -292,7 +358,6 @@ void network_train(network* nn, const network_train_desc* desc) {
 
                 backprop_args[i] = (_network_backprop_args){ 
                     .nn = nn,
-                    .max_layer_size = max_layer_size,
                     .input_view = input_view,
                     .output_view = output_view,
                     .cost = desc->cost,
@@ -330,34 +395,60 @@ void network_train(network* nn, const network_train_desc* desc) {
         }
 
         f32 accuracy = 0.0f;
-
         if (desc->accuracy_test) {
-            string8 load_anim = STR8("-\\|/");
-
-            u32 num_correct = 0;
-            tensor* out = tensor_create(scratch.arena, (tensor_shape){ 10, 1, 1 });
-            tensor view = { 0 };
+            num_correct = 0;
 
             os_time_init();
+            string8 load_anim = STR8("-\\|/");
             u64 anim_start_time = os_now_microseconds();
             u32 anim_frame = 0;
-            for (u32 i = 0; i < desc->test_inputs->shape.depth; i++) {
+
+            // Accuracy test is also done in batches for multithreading
+            for (u32 batch = 0; batch < num_test_batches; batch++) {
                 u64 cur_time = os_now_microseconds();
                 if (cur_time - anim_start_time > 100000) {
                     anim_start_time = cur_time;
                     anim_frame++;
+
+                    printf("Test Accuracy: %c\r", load_anim.str[anim_frame % load_anim.size]);
+                    fflush(stdout);
                 }
-                printf("Test Accuracy: %c\r", load_anim.str[anim_frame % load_anim.size]);
-                fflush(stdout);
 
-                tensor_2d_view(&view, desc->test_inputs, i);
+                mga_temp batch_temp = mga_temp_begin(scratch.arena);
 
-                network_feedforward(nn, out, &view);
+                // Test batch
+                u32 batch_size = batch == num_test_batches - 1 ? last_test_batch_size : desc->batch_size;
+                for (u32 i = 0; i < batch_size; i++) {
+                    u64 index = (u64)i + (u64)batch * desc->batch_size;
 
-                tensor_2d_view(&view, desc->test_outputs, i);
-                if (tensor_argmax(out).x == tensor_argmax(&view).x) {
-                    num_correct += 1;
+                    tensor input_view = { 0 };
+                    tensor output_view = { 0 };
+                    tensor_2d_view(&input_view, desc->test_inputs, index);
+                    tensor_2d_view(&output_view, desc->test_outputs, index);
+
+                    tensor_index output_argmax = tensor_argmax(&output_view);
+
+                    test_args[i] = (_network_test_args){ 
+                        .num_correct = &num_correct,
+                        .num_correct_mutex = num_correct_mutex,
+
+                        .nn = nn,
+                        .input_view = input_view,
+                        .output_argmax = output_argmax
+                    };
+
+                    os_thread_pool_add_task(
+                        tpool,
+                        (os_thread_task){
+                            .func = _network_test_thread,
+                            .arg = &test_args[i]
+                        }
+                    );
                 }
+
+                os_thread_pool_wait(tpool);
+
+                mga_temp_end(batch_temp);
             }
 
             accuracy = (f32)num_correct / desc->test_inputs->shape.depth;
@@ -376,29 +467,14 @@ void network_train(network* nn, const network_train_desc* desc) {
         }
     }
 
-    // Unhides cursor
-    //printf("\e[?25h");
-
     os_thread_pool_destroy(tpool);
+
+    if (desc->accuracy_test) {
+        os_thread_mutex_destroy(num_correct_mutex);
+    }
 
     mga_scratch_release(scratch);
 }
-
-static u64 _network_max_layer_size(const network* nn) {
-    u64 max_layer_size = 0;
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        tensor_shape s = nn->layers[i]->shape;
-
-        u64 size = (u64)s.width * s.height * s.depth;
-
-        if (size > max_layer_size) {
-            max_layer_size = size;
-        }
-    }
-
-    return max_layer_size;
-} 
-
 
 /*
 Sample Summary:

@@ -6,6 +6,9 @@
 #include <string.h>
 #include <math.h>
 
+b32 tensor_index_eq(tensor_index a, tensor_index b) {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
 b32 tensor_shape_eq(tensor_shape a, tensor_shape b) {
     return a.width == b.width && a.height == b.height && a.depth == b.depth;
 }

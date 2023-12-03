@@ -51,6 +51,7 @@ NOTE:
     ((u64)(x) + (u64)(y) * tensor->shape.width + (u64)(z) * tensor->shape.width * tensor->shape.height)
 #define tensor_AT(tensor, x, y, z) tensor->data[tensor_INDEX(tensor, x, y, z)]
 
+b32 tensor_index_eq(tensor_index a, tensor_index b);
 b32 tensor_shape_eq(tensor_shape a, tensor_shape b);
 
 tensor* tensor_create(mg_arena* arena, tensor_shape shape);

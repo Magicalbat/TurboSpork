@@ -50,9 +50,11 @@ int main(void) {
 
     dataset* cur_data = &data;
 
-    network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
     //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
     //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
+
+    network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
+    //network* nn = network_load(perm_arena, STR8("training_nets/network_0016.tpn"), true);
 
     network_summary(nn);
 
@@ -84,19 +86,6 @@ int main(void) {
         .test_inputs = cur_data->test_imgs,
         .test_outputs = cur_data->test_labels
     };
-
-#if 0
-    tensor in_view = { 0 };
-    tensor_2d_view(&in_view, data.train_imgs, 0);
-    tensor* in_out = tensor_copy(perm_arena, &in_view, false);
-
-    network_feedforward(nn, in_out, in_out);
-
-    for (u32 i = 0; i < 10; i++) {
-        printf("%f ", in_out->data[i]);
-    }
-    printf("\n");
-#endif
 
     os_time_init();
 
