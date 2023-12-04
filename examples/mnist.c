@@ -1,15 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "base/base.h"
-#include "os/os.h"
+#include "examples.h"
 
-#include "layers/layers.h"
-#include "costs/costs.h"
-#include "optimizers/optimizers.h"
-#include "network/network.h"
-
-#include "tensor/tensor.h"
+#include "turbospork.h"
 
 #include "mg/mg_arena.h"
 #include "mg/mg_plot.h"
@@ -27,7 +21,7 @@ void mga_on_error(mga_error err) {
     fprintf(stderr, "MGA Error %u: %s\n", err.code, err.msg);
 }
 
-int main(void) {
+void mnist_main(void) {
     mga_desc desc = {
         .desired_max_size = MGA_MiB(256),
         .desired_block_size = MGA_MiB(1),
@@ -102,8 +96,6 @@ int main(void) {
     network_delete(nn);
 
     mga_destroy(perm_arena);
-
-    return 0;
 }
 
 void draw_mnist_digit(f32* digit_data, u32 width, u32 height) {
