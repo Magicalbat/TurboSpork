@@ -1,6 +1,6 @@
 #include "os.h"
 
-#ifdef PLATFORM_WIN32
+#ifdef TS_PLATFORM_WIN32
 
 #include <stdio.h>
 
@@ -13,12 +13,12 @@
 #include <timeapi.h>
 #include <bcrypt.h>
 
-static u64 _ticks_per_sec = 1;
+static ts_u64 _ticks_per_sec = 1;
 
-static string8 _error_string(mg_arena* arena) {
+static ts_string8 _error_string(mg_arena* arena) {
     DWORD err = GetLastError();
     if (err == 0) {
-        return (string8){ 0 };
+        return (ts_string8){ 0 };
     }
 
     LPSTR msg_buf = NULL;
@@ -29,9 +29,9 @@ static string8 _error_string(mg_arena* arena) {
         0, NULL
     );
 
-    string8 out;
-    out.size = (u64)msg_size - 3;
-    out.str = MGA_PUSH_ZERO_ARRAY(arena, u8, (u64)msg_size - 3);
+    ts_string8 out;
+    out.size = (ts_u64)msg_size - 3;
+    out.str = MGA_PUSH_ZERO_ARRAY(arena, ts_u8, (ts_u64)msg_size - 3);
 
     memcpy(out.str, msg_buf, msg_size);
 
@@ -42,52 +42,52 @@ static string8 _error_string(mg_arena* arena) {
 
 #define _w32_error(msg, ...) do {\
         mga_temp scratch = mga_scratch_get(NULL, 0); \
-        string8 err_str = _error_string(scratch.arena); \
+        ts_string8 err_str = _error_string(scratch.arena); \
         fprintf(stderr, msg ", Win32 Error: %.*s\n", __VA_ARGS__, (int)err_str.size, (char*)err_str.str); \
         mga_scratch_release(scratch); \
     } while (0)
 
-void os_time_init(void) {
+void ts_time_init(void) {
     LARGE_INTEGER perf_freq;
     if (QueryPerformanceFrequency(&perf_freq)) {
-        _ticks_per_sec = ((u64)perf_freq.HighPart << 32) | perf_freq.LowPart;
+        _ticks_per_sec = ((ts_u64)perf_freq.HighPart << 32) | perf_freq.LowPart;
     }
 }
 
-static os_datetime _systime_to_datetime(SYSTEMTIME t){  
-    return (os_datetime){
-        .sec   = (u8 )t.wSecond,
-        .min   = (u8 )t.wMinute,
-        .hour  = (u8 )t.wHour,
-        .day   = (u8 )t.wDay,
-        .month = (u8 )t.wMonth,
-        .year  = (i32)t.wYear
+static ts_datetime _systime_to_datetime(SYSTEMTIME t){  
+    return (ts_datetime){
+        .sec   = (ts_u8 )t.wSecond,
+        .min   = (ts_u8 )t.wMinute,
+        .hour  = (ts_u8 )t.wHour,
+        .day   = (ts_u8 )t.wDay,
+        .month = (ts_u8 )t.wMonth,
+        .year  = (ts_i32)t.wYear
     };
 }
 
-os_datetime os_now_localtime(void) {
+ts_datetime ts_now_localtime(void) {
     SYSTEMTIME t;
     GetLocalTime(&t);
     return _systime_to_datetime(t);
 }
 
-u64 os_now_microseconds(void) {
-    u64 out = 0;
+ts_u64 ts_now_usec(void) {
+    ts_u64 out = 0;
     LARGE_INTEGER perf_count;
     if (QueryPerformanceCounter(&perf_count)) {
-        u64 ticks = ((u64)perf_count.HighPart << 32) | perf_count.LowPart;
+        ts_u64 ticks = ((ts_u64)perf_count.HighPart << 32) | perf_count.LowPart;
         out = ticks * 1000000 / _ticks_per_sec;
     }
     return out;
 }
-void os_sleep_milliseconds(u32 t) {
+void ts_sleep_msec(ts_u32 t) {
     Sleep(t);
 }
 
-string8 os_file_read(mg_arena* arena, string8 path) {
+ts_string8 ts_file_read(mg_arena* arena, ts_string8 path) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    string16 path16 = str16_from_str8(scratch.arena, path);
+    ts_string16 path16 = ts_str16_from_str8(scratch.arena, path);
 
     HANDLE file_handle = CreateFile(
         (LPCWSTR)path16.str,
@@ -104,22 +104,22 @@ string8 os_file_read(mg_arena* arena, string8 path) {
     if (file_handle == INVALID_HANDLE_VALUE) {
         _w32_error("Failed to open file \"%.*s\"", (int)path.size, (char*)path.str);
 
-        return (string8){ 0 };
+        return (ts_string8){ 0 };
     }
 
-    string8 out = { 0 };
+    ts_string8 out = { 0 };
 
     DWORD high_size = 0;
     DWORD low_size = GetFileSize(file_handle, &high_size);
-    u64 total_size = ((u64)high_size << 32) | low_size;
+    ts_u64 total_size = ((ts_u64)high_size << 32) | low_size;
 
     mga_temp possible_temp = mga_temp_begin(arena);
 
-    u8* buffer = MGA_PUSH_ZERO_ARRAY(arena, u8, total_size);
+    ts_u8* buffer = MGA_PUSH_ZERO_ARRAY(arena, ts_u8, total_size);
 
-    u64 total_read = 0;
+    ts_u64 total_read = 0;
     while (total_read < total_size) {
-        u64 to_read64 = total_size - total_read;
+        ts_u64 to_read64 = total_size - total_read;
         DWORD to_read = to_read64 > ~(DWORD)(0) ? ~(DWORD)(0) : (DWORD)to_read64;
 
         DWORD bytes_read = 0;
@@ -127,7 +127,7 @@ string8 os_file_read(mg_arena* arena, string8 path) {
             _w32_error("Failed to read to file \"%.*s\"", (int)path.size, (char*)path.str);
             mga_temp_end(possible_temp);
 
-            return (string8){ 0 };
+            return (ts_string8){ 0 };
         }
 
         total_read += bytes_read;
@@ -140,13 +140,13 @@ string8 os_file_read(mg_arena* arena, string8 path) {
     return out;
 }
 
-b32 _file_write_impl(HANDLE file_handle, string8_list str_list) {
-    for (string8_node* node = str_list.first; node != NULL; node = node->next) {
-        u64 total_to_write = node->str.size;
-        u64 total_written = 0;
+ts_b32 _file_write_impl(HANDLE file_handle, ts_string8_list str_list) {
+    for (ts_string8_node* node = str_list.first; node != NULL; node = node->next) {
+        ts_u64 total_to_write = node->str.size;
+        ts_u64 total_written = 0;
 
         while (total_written < total_to_write) {
-            u64 to_write64 = total_to_write - total_written;
+            ts_u64 to_write64 = total_to_write - total_written;
             DWORD to_write = to_write64 > ~(DWORD)(0) ? ~(DWORD)(0) : (DWORD)to_write64;
 
             DWORD written = 0;
@@ -161,10 +161,10 @@ b32 _file_write_impl(HANDLE file_handle, string8_list str_list) {
     return true;
 }
 
-b32 os_file_write(string8 path, string8_list str_list) {
+ts_b32 ts_file_write(ts_string8 path, ts_string8_list str_list) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    string16 path16 = str16_from_str8(scratch.arena, path);
+    ts_string16 path16 = ts_str16_from_str8(scratch.arena, path);
 
     HANDLE file_handle = CreateFile(
         (LPCWSTR)path16.str,
@@ -184,7 +184,7 @@ b32 os_file_write(string8 path, string8_list str_list) {
         return false;
     }
 
-    b32 out = true;
+    ts_b32 out = true;
 
     if (!_file_write_impl(file_handle, str_list)) {
         _w32_error("Failed to write to file \"%.*s\"", (int)path.size, (char*)path.str);
@@ -197,12 +197,12 @@ b32 os_file_write(string8 path, string8_list str_list) {
     return out;
 
 }
-os_file_stats os_file_get_stats(string8 path) {
-    os_file_stats stats = { 0 };
+ts_file_stats ts_file_get_stats(ts_string8 path) {
+    ts_file_stats stats = { 0 };
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    string16 path16 = str16_from_str8(scratch.arena, path);
+    ts_string16 path16 = ts_str16_from_str8(scratch.arena, path);
 
     WIN32_FILE_ATTRIBUTE_DATA attribs = { 0 };
     if (GetFileAttributesEx((LPCWSTR)path16.str, GetFileExInfoStandard, &attribs) == FALSE) {
@@ -211,10 +211,10 @@ os_file_stats os_file_get_stats(string8 path) {
 
     mga_scratch_release(scratch);
 
-    stats.size = ((u64)attribs.nFileSizeHigh << 32) | attribs.nFileSizeLow;
+    stats.size = ((ts_u64)attribs.nFileSizeHigh << 32) | attribs.nFileSizeLow;
 
     if (attribs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        stats.flags |= OS_FILE_IS_DIR;
+        stats.flags |= TS_FILE_IS_DIR;
     }
 
     SYSTEMTIME modify_sys_time = { 0 };
@@ -224,49 +224,49 @@ os_file_stats os_file_get_stats(string8 path) {
     return stats;
 }
 
-void os_get_entropy(void* data, u64 size) {
+void ts_get_entropy(void* data, ts_u64 size) {
     BCryptGenRandom(NULL, data, size, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 }
 
-typedef struct _os_thread_mutex {
+typedef struct _ts_mutex {
     CRITICAL_SECTION cs;
-} os_thread_mutex;
+} ts_mutex;
 
-os_thread_mutex* os_thread_mutex_create(mg_arena* arena) {
-    os_thread_mutex* mutex = MGA_PUSH_ZERO_STRUCT(arena, os_thread_mutex);
+ts_mutex* ts_mutex_create(mg_arena* arena) {
+    ts_mutex* mutex = MGA_PUSH_ZERO_STRUCT(arena, ts_mutex);
 
     InitializeCriticalSection(&mutex->cs);
 
     return mutex;
 }
-void os_thread_mutex_destroy(os_thread_mutex* mutex) {
+void ts_mutex_destroy(ts_mutex* mutex) {
     DeleteCriticalSection(&mutex->cs);
 }
-void os_thread_mutex_lock(os_thread_mutex* mutex) {
+void ts_mutex_lock(ts_mutex* mutex) {
     EnterCriticalSection(&mutex->cs);
 }
-void os_thread_mutex_unlock(os_thread_mutex* mutex) {
+void ts_mutex_unlock(ts_mutex* mutex) {
     LeaveCriticalSection(&mutex->cs);
 }
 
-typedef struct _os_thread_pool {
-    u32 num_threads;
+typedef struct _ts_thread_pool {
+    ts_u32 num_threads;
     HANDLE* threads;
 
-    u32 max_tasks;
-    u32 num_tasks;
-    os_thread_task* task_queue;
+    ts_u32 max_tasks;
+    ts_u32 num_tasks;
+    ts_thread_task* task_queue;
 
     CRITICAL_SECTION mutex; // I know that it is not technically a mutex on win32
     CONDITION_VARIABLE queue_cond_var;
 
-    u32 num_active;
+    ts_u32 num_active;
     CONDITION_VARIABLE active_cond_var;
-} os_thread_pool;
+} ts_thread_pool;
 
 static DWORD _thread_start(void* arg) {
-    os_thread_pool* tp = (os_thread_pool*)arg;
-    os_thread_task task = { 0 };
+    ts_thread_pool* tp = (ts_thread_pool*)arg;
+    ts_thread_task task = { 0 };
 
     while (true) {
         EnterCriticalSection(&tp->mutex);
@@ -276,7 +276,7 @@ static DWORD _thread_start(void* arg) {
 
         tp->num_active++;
         task = tp->task_queue[0];
-        for (u32 i = 0; i < tp->num_tasks - 1; i++) {
+        for (ts_u32 i = 0; i < tp->num_tasks - 1; i++) {
             tp->task_queue[i] = tp->task_queue[i + 1];
         }
         tp->num_tasks--;
@@ -298,11 +298,11 @@ static DWORD _thread_start(void* arg) {
     return 0;
 }
 
-os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_tasks) {
-    os_thread_pool* tp = MGA_PUSH_ZERO_STRUCT(arena, os_thread_pool);
+ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u32 max_tasks) {
+    ts_thread_pool* tp = MGA_PUSH_ZERO_STRUCT(arena, ts_thread_pool);
 
     tp->max_tasks = max_tasks;
-    tp->task_queue = MGA_PUSH_ZERO_ARRAY(arena, os_thread_task, max_tasks);
+    tp->task_queue = MGA_PUSH_ZERO_ARRAY(arena, ts_thread_task, max_tasks);
 
     InitializeCriticalSection(&tp->mutex);
     InitializeConditionVariable(&tp->queue_cond_var);
@@ -310,7 +310,7 @@ os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_
 
     tp->num_threads = num_threads;
     tp->threads = MGA_PUSH_ZERO_ARRAY(arena, HANDLE, num_threads);
-    for (u32 i = 0; i < num_threads; i++) {
+    for (ts_u32 i = 0; i < num_threads; i++) {
         tp->threads[i] = CreateThread(
             NULL, 0, _thread_start, tp, 0, NULL
         );
@@ -318,8 +318,8 @@ os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_
 
     return tp;
 }
-void os_thread_pool_destroy(os_thread_pool* tp) {
-    for (u32 i = 0; i < tp->num_threads; i++) {
+void ts_thread_pool_destroy(ts_thread_pool* tp) {
+    for (ts_u32 i = 0; i < tp->num_threads; i++) {
         TerminateThread(tp->threads[i], 0);
         CloseHandle(tp->threads[i]);
     }
@@ -327,10 +327,10 @@ void os_thread_pool_destroy(os_thread_pool* tp) {
     DeleteCriticalSection(&tp->mutex);
 }
 
-void os_thread_pool_add_task(os_thread_pool* tp, os_thread_task task) {
+void ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task) {
     EnterCriticalSection(&tp->mutex);
 
-    if ((u64)tp->num_tasks + 1 >= (u64)tp->max_tasks) {
+    if ((ts_u64)tp->num_tasks + 1 >= (ts_u64)tp->max_tasks) {
         LeaveCriticalSection(&tp->mutex);
         fprintf(stderr, "Thread pool exceeded max tasks\n");
         return;
@@ -341,7 +341,7 @@ void os_thread_pool_add_task(os_thread_pool* tp, os_thread_task task) {
     LeaveCriticalSection(&tp->mutex);
     WakeConditionVariable(&tp->queue_cond_var);
 }
-void os_thread_pool_wait(os_thread_pool* tp) {
+void ts_thread_pool_wait(ts_thread_pool* tp) {
     EnterCriticalSection(&tp->mutex);
     while (true) {
         if (tp->num_active != 0 || tp->num_tasks != 0) {

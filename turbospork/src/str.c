@@ -329,7 +329,7 @@ ts_u32 ts_str_encode_utf16(ts_u16* dst, ts_u32 code_point) {
     return size;
 }
 
-ts_string32 str32_from_ts_str8(mg_arena* arena, ts_string8 str) {
+ts_string32 ts_str32_from_ts_str8(mg_arena* arena, ts_string8 str) {
     ts_u32* buff = MGA_PUSH_ARRAY(arena, ts_u32, str.size + 1);
 
     ts_u32* ptr_out = buff;
@@ -375,7 +375,7 @@ ts_string8 ts_str8_from_str32(mg_arena* arena, ts_string32 str) {
 
     return (ts_string8){ .str = buff, .size = string_count };
 }
-ts_string16 str16_from_str8(mg_arena* arena, ts_string8 str) {
+ts_string16 ts_str16_from_str8(mg_arena* arena, ts_string8 str) {
     ts_u16* buff = MGA_PUSH_ARRAY(arena, ts_u16, str.size * 2 + 1);
 
     ts_u16* ptr_out = buff;
