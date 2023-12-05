@@ -8,13 +8,17 @@
 #include "mg/mg_arena.h"
 #include "mg/mg_plot.h"
 
+typedef ts_f32 f32;
+typedef ts_u32 u32;
+typedef ts_u64 u64;
+
 void draw_mnist_digit(f32* digit_data, u32 width, u32 height);
 
 typedef struct {
-    tensor* train_imgs;
-    tensor* train_labels;
-    tensor* test_imgs;
-    tensor* test_labels;
+    ts_tensor* train_imgs;
+    ts_tensor* train_labels;
+    ts_tensor* test_imgs;
+    ts_tensor* test_labels;
 } dataset;
 
 void mga_on_error(mga_error err) {
@@ -31,39 +35,39 @@ void mnist_main(void) {
     mga_scratch_set_desc(&desc);
 
     u64 seeds[2] = { 0 };
-    os_get_entropy(seeds, sizeof(seeds));
-    prng_seed(seeds[0], seeds[1]);
+    ts_get_entropy(seeds, sizeof(seeds));
+    ts_prng_seed(seeds[0], seeds[1]);
 
     dataset data = { 0 };
 
-    tensor_list mnist = tensor_list_load(perm_arena, STR8("data/mnist.tpt"));
-    data.train_imgs = tensor_list_get(&mnist, STR8("training_images"));
-    data.train_labels = tensor_list_get(&mnist, STR8("training_labels"));
-    data.test_imgs = tensor_list_get(&mnist, STR8("testing_images"));
-    data.test_labels = tensor_list_get(&mnist, STR8("testing_labels"));
+    ts_tensor_list mnist = ts_tensor_list_load(perm_arena, TS_STR8("data/mnist.tpt"));
+    data.train_imgs = ts_tensor_list_get(&mnist, TS_STR8("training_images"));
+    data.train_labels = ts_tensor_list_get(&mnist, TS_STR8("training_labels"));
+    data.test_imgs = ts_tensor_list_get(&mnist, TS_STR8("testing_images"));
+    data.test_labels = ts_tensor_list_get(&mnist, TS_STR8("testing_labels"));
 
     dataset* cur_data = &data;
 
     //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
     //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
 
-    network* nn = network_load_layout(perm_arena, STR8("networks/mnist_conv.tpl"), true);
+    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tpl"), true);
     //network* nn = network_load(perm_arena, STR8("training_nets/network_0001.tpn"), false);
 
-    network_summary(nn);
+    ts_network_summary(nn);
 
-    network_train_desc train_desc = {
+    ts_network_train_desc train_desc = {
         .epochs = 8,
         .batch_size = 100,
 
         .num_threads = 8,
 
-        .cost = COST_CATEGORICAL_CROSS_ENTROPY,
-        .optim = (optimizer){
-            .type = OPTIMIZER_ADAM,
+        .cost = TS_COST_CATEGORICAL_CROSS_ENTROPY,
+        .optim = (ts_optimizer){
+            .type = TS_OPTIMIZER_ADAM,
             .learning_rate = 0.001f,
 
-            .adam = (optimizer_adam){
+            .adam = (ts_optimizer_adam){
                 .beta1 = 0.9f,
                 .beta2 = 0.999f,
                 .epsilon = 1e-7f
@@ -81,19 +85,19 @@ void mnist_main(void) {
         .test_outputs = cur_data->test_labels
     };
 
-    os_time_init();
+    ts_time_init();
 
-    u64 start = os_now_microseconds();
+    u64 start = ts_now_usec();
 
-    network_train(nn, &train_desc);
+    ts_network_train(nn, &train_desc);
 
-    u64 end = os_now_microseconds();
+    u64 end = ts_now_usec();
 
-    printf("Train Time: %f\n", (f64)(end - start) / 1e6);
+    printf("Train Time: %f\n", (ts_f64)(end - start) / 1e6);
 
     //network_save(nn, STR8("networks/mnist.tpn"));
 
-    network_delete(nn);
+    ts_network_delete(nn);
 
     mga_destroy(perm_arena);
 }

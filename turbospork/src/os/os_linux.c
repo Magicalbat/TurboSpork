@@ -1,6 +1,7 @@
 #include "os.h"
+#include "prng.h"
 
-#ifdef PLATFORM_LINUX
+#ifdef TS_PLATFORM_LINUX
 
 #include <stdio.h>
 #include <unistd.h>
@@ -14,10 +15,10 @@
 #define _lnx_error(msg, ...) \
     fprintf(stderr, msg ", Linux Error: %s", __VA_ARGS__, strerror(errno))
 
-void os_time_init(void) { }
+void ts_time_init(void) { }
 
-os_datetime _tm_to_datetime(struct tm tm) {
-    return (os_datetime){
+ts_datetime _tm_to_datetime(struct tm tm) {
+    return (ts_datetime){
         .sec = tm.tm_sec,
         .min = tm.tm_min,
         .hour = tm.tm_hour,
@@ -27,25 +28,25 @@ os_datetime _tm_to_datetime(struct tm tm) {
     };
 }
 
-os_datetime os_now_localtime(void) {
+ts_datetime ts_now_localtime(void) {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
 
     return _tm_to_datetime(tm);
 }
-u64 os_now_microseconds(void) {
+ts_u64 ts_now_usec(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 }
-void os_sleep_milliseconds(u32 t) {
+void ts_sleep_msec(ts_u32 t) {
     usleep(t * 1000);
 }
 
-int _open_impl(string8 path, int flags, mode_t mode) {
+int _open_impl(ts_string8 path, int flags, mode_t mode) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
     
-    u8* path_cstr = str8_to_cstr(scratch.arena, path);
+    ts_u8* path_cstr = ts_str8_to_cstr(scratch.arena, path);
     int fd = open((char*)path_cstr, flags, mode);
 
     mga_scratch_release(scratch);
@@ -53,30 +54,30 @@ int _open_impl(string8 path, int flags, mode_t mode) {
     return fd;
 }
 
-string8 os_file_read(mg_arena* arena, string8 path) {
+ts_string8 ts_file_read(mg_arena* arena, ts_string8 path) {
     int fd = _open_impl(path, O_RDONLY, 0);
     
     if (fd == -1) {
         _lnx_error("Failed to open file \"%.*s\"", (int)path.size, path.str);
 
-        return (string8){ 0 };
+        return (ts_string8){ 0 };
     }
     
     struct stat file_stat;
     fstat(fd, &file_stat);
 
-    string8 out = { 0 };
+    ts_string8 out = { 0 };
 
     if (S_ISREG(file_stat.st_mode)) {
         out.size = file_stat.st_size;
-        out.str = MGA_PUSH_ZERO_ARRAY(arena, u8, (u64)file_stat.st_size);
+        out.str = MGA_PUSH_ZERO_ARRAY(arena, ts_u8, (ts_u64)file_stat.st_size);
 
         if (read(fd, out.str, file_stat.st_size) == -1) {
             _lnx_error("Failed to read file \"%.*s\"", (int)path.size, path.str);
             
             close(fd);
             
-            return (string8){ 0 };
+            return (ts_string8){ 0 };
         }
     } else {
         fprintf(stderr, "Failed to read file \"%.*s\", file is not regular", (int)path.size, path.str);
@@ -86,7 +87,7 @@ string8 os_file_read(mg_arena* arena, string8 path) {
     return out;
 }
 
-b32 os_file_write(string8 path, string8_list str_list) {
+ts_b32 ts_file_write(ts_string8 path, ts_string8_list str_list) {
     int fd = _open_impl(path, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
 
     if (fd == -1) {
@@ -95,9 +96,9 @@ b32 os_file_write(string8 path, string8_list str_list) {
         return false;
     }
 
-    b32 out = true;
+    ts_b32 out = true;
     
-    for (string8_node* node = str_list.first; node != NULL; node = node->next) {
+    for (ts_string8_node* node = str_list.first; node != NULL; node = node->next) {
         ssize_t written = write(fd, node->str.str, node->str.size);
 
         if (written == -1) {
@@ -112,19 +113,19 @@ b32 os_file_write(string8 path, string8_list str_list) {
 
     return out;
 }
-os_file_flags _file_flags(mode_t mode) {
-    os_file_flags flags = { 0 };
+ts_file_flags _file_flags(mode_t mode) {
+    ts_file_flags flags = { 0 };
 
     if (S_ISDIR(mode)) {
-        flags |= OS_FILE_IS_DIR;
+        flags |= TS_FILE_IS_DIR;
     }
 
     return flags;
 }
-os_file_stats os_file_get_stats(string8 path) {
+ts_file_stats ts_file_get_stats(ts_string8 path) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
     
-    u8* path_cstr = str8_to_cstr(scratch.arena, path);
+    ts_u8* path_cstr = ts_str8_to_cstr(scratch.arena, path);
     
     struct stat file_stat;
     
@@ -135,10 +136,10 @@ os_file_stats os_file_get_stats(string8 path) {
     if (ret == -1) {
         _lnx_error("Failed to get stats for file \"%.*s\"", (int)path.size, path.str);
 
-        return (os_file_stats){ 0 };
+        return (ts_file_stats){ 0 };
     } 
 
-    os_file_stats stats = { 0 };
+    ts_file_stats stats = { 0 };
     
     time_t modify_time = (time_t)file_stat.st_mtim.tv_sec;
     struct tm tm = *localtime(&modify_time);
@@ -150,56 +151,56 @@ os_file_stats os_file_get_stats(string8 path) {
     return stats;
 }
 
-void os_get_entropy(void* data, u64 size) {
+void ts_get_entropy(void* data, ts_u64 size) {
     getentropy(data, size);
 }
 
-typedef struct _os_thread_mutex {
+typedef struct _ts_mutex {
     pthread_mutex_t mutex;
-} os_thread_mutex;
+} ts_mutex;
 
-os_thread_mutex* os_thread_mutex_create(mg_arena* arena) {
-    os_thread_mutex* mutex = MGA_PUSH_ZERO_STRUCT(arena, os_thread_mutex);
+ts_mutex* ts_mutex_create(mg_arena* arena) {
+    ts_mutex* mutex = MGA_PUSH_ZERO_STRUCT(arena, ts_mutex);
 
     pthread_mutex_init(&mutex->mutex, NULL);
 
     return mutex;
 }
-void os_thread_mutex_destroy(os_thread_mutex* mutex) {
+void ts_mutex_destroy(ts_mutex* mutex) {
     pthread_mutex_destroy(&mutex->mutex);
 }
-void os_thread_mutex_lock(os_thread_mutex* mutex) {
+void ts_mutex_lock(ts_mutex* mutex) {
     pthread_mutex_lock(&mutex->mutex);
 }
-void os_thread_mutex_unlock(os_thread_mutex* mutex) {
+void ts_mutex_unlock(ts_mutex* mutex) {
     pthread_mutex_unlock(&mutex->mutex);
 }
 
-typedef struct _os_thread_pool {
-    u32 num_threads;
+typedef struct _ts_thread_pool {
+    ts_u32 num_threads;
     pthread_t* threads;
     
-    b32 stop;
+    ts_b32 stop;
 
-    u32 max_tasks;
-    u32 num_tasks;
-    os_thread_task* task_queue;
+    ts_u32 max_tasks;
+    ts_u32 num_tasks;
+    ts_thread_task* task_queue;
 
     pthread_mutex_t mutex;
     pthread_cond_t queue_cond_var;
 
-    u32 num_active;
+    ts_u32 num_active;
     pthread_cond_t active_cond_var;
-} os_thread_pool;
+} ts_thread_pool;
 
 static void* linux_thread_start(void* arg) {
-    os_thread_pool* tp = (os_thread_pool*)arg;
-    os_thread_task task = { 0 };
+    ts_thread_pool* tp = (ts_thread_pool*)arg;
+    ts_thread_task task = { 0 };
 
     // Init prng
-    u64 seeds[2] = { 0 };
-    os_get_entropy(seeds, sizeof(seeds));
-    prng_seed(seeds[0], seeds[1]);
+    ts_u64 seeds[2] = { 0 };
+    ts_get_entropy(seeds, sizeof(seeds));
+    ts_prng_seed(seeds[0], seeds[1]);
 
     while (true) {
         pthread_mutex_lock(&tp->mutex);
@@ -214,7 +215,7 @@ static void* linux_thread_start(void* arg) {
 
         tp->num_active++;
         task = tp->task_queue[0];
-        for (u32 i = 0; i < tp->num_tasks - 1; i++) {
+        for (ts_u32 i = 0; i < tp->num_tasks - 1; i++) {
             tp->task_queue[i] = tp->task_queue[i + 1];
         }
         tp->num_tasks--;
@@ -240,11 +241,11 @@ static void* linux_thread_start(void* arg) {
     return NULL;
 }
 
-os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_tasks) {
-    os_thread_pool* tp = MGA_PUSH_ZERO_STRUCT(arena, os_thread_pool);
+ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u32 max_tasks) {
+    ts_thread_pool* tp = MGA_PUSH_ZERO_STRUCT(arena, ts_thread_pool);
 
-    tp->max_tasks = MAX(num_threads, max_tasks);
-    tp->task_queue = MGA_PUSH_ZERO_ARRAY(arena, os_thread_task, max_tasks);
+    tp->max_tasks = TS_MAX(num_threads, max_tasks);
+    tp->task_queue = MGA_PUSH_ZERO_ARRAY(arena, ts_thread_task, max_tasks);
 
     pthread_mutex_init(&tp->mutex, NULL);
     pthread_cond_init(&tp->queue_cond_var, NULL);
@@ -252,14 +253,14 @@ os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_
 
     tp->num_threads = num_threads;
     tp->threads = MGA_PUSH_ZERO_ARRAY(arena, pthread_t, num_threads);
-    for (u32 i = 0; i < num_threads; i++) {
+    for (ts_u32 i = 0; i < num_threads; i++) {
         pthread_create(&tp->threads[i], NULL, linux_thread_start, tp);
         pthread_detach(tp->threads[i]);
     }
 
     return tp;
 }
-void os_thread_pool_destroy(os_thread_pool* tp) {
+void ts_thread_pool_destroy(ts_thread_pool* tp) {
     if (tp->num_tasks > 0) {
         // TODO: how should I handle this case?
     }
@@ -273,9 +274,9 @@ void os_thread_pool_destroy(os_thread_pool* tp) {
 
     pthread_mutex_unlock(&tp->mutex);
 
-    os_thread_pool_wait(tp);
+    ts_thread_pool_wait(tp);
 
-    for (u32 i = 0; i < tp->num_threads; i++) {
+    for (ts_u32 i = 0; i < tp->num_threads; i++) {
         pthread_cancel(tp->threads[i]);
     }
 
@@ -284,10 +285,10 @@ void os_thread_pool_destroy(os_thread_pool* tp) {
     pthread_cond_destroy(&tp->active_cond_var);
 }
 
-void os_thread_pool_add_task(os_thread_pool* tp, os_thread_task task) {
+void ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task) {
     pthread_mutex_lock(&tp->mutex);
 
-    if ((u64)tp->num_tasks + 1 > (u64)tp->max_tasks) {
+    if ((ts_u64)tp->num_tasks + 1 > (ts_u64)tp->max_tasks) {
         pthread_mutex_unlock(&tp->mutex);
         fprintf(stderr, "Thread pool exceeded max tasks\n");
 
@@ -300,7 +301,7 @@ void os_thread_pool_add_task(os_thread_pool* tp, os_thread_task task) {
 
     pthread_cond_signal(&tp->queue_cond_var);
 }
-void os_thread_pool_wait(os_thread_pool* tp) {
+void ts_thread_pool_wait(ts_thread_pool* tp) {
     pthread_mutex_lock(&tp->mutex);
 
     while (true) {

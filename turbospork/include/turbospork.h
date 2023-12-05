@@ -3,10 +3,11 @@
 
 #include "mg/mg_arena.h"
 
-#include "base/base.h"
+#include "base_defs.h"
+#include "prng.h"
+#include "str.h"
 #include "tensor.h"
 #include "os.h"
-
 #include "costs.h"
 #include "optimizers.h"
 #include "layers.h"

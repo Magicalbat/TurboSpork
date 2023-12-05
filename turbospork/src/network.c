@@ -1,5 +1,4 @@
 #include "network.h"
-
 #include "layers/layers_internal.h"
 
 #include <math.h>
@@ -7,12 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-u32 _network_max_layer_size(network* nn) {
-    u64 max_layer_size = 0;
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        tensor_shape s = nn->layers[i]->shape;
+ts_u32 _network_max_layer_size(ts_network* nn) {
+    ts_u64 max_layer_size = 0;
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_tensor_shape s = nn->layers[i]->shape;
 
-        u64 size = (u64)s.width * s.height * s.depth;
+        ts_u64 size = (ts_u64)s.width * s.height * s.depth;
 
         if (size > max_layer_size) {
             max_layer_size = size;
@@ -22,21 +21,21 @@ u32 _network_max_layer_size(network* nn) {
     return max_layer_size;
 }
 
-network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode) {
-    network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
+ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer_desc* layer_descs, ts_b32 training_mode) {
+    ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
 
     nn->training_mode = training_mode;
     nn->num_layers = num_layers;
 
-    nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, layer_desc, nn->num_layers);
-    nn->layers = MGA_PUSH_ZERO_ARRAY(arena, layer*, nn->num_layers);
+    nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, ts_layer_desc, nn->num_layers);
+    nn->layers = MGA_PUSH_ZERO_ARRAY(arena, ts_layer*, nn->num_layers);
 
-    tensor_shape prev_shape = { 0 };
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        nn->layer_descs[i] = layer_desc_apply_default(&layer_descs[i]);
+    ts_tensor_shape prev_shape = { 0 };
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        nn->layer_descs[i] = ts_layer_desc_apply_default(&layer_descs[i]);
         nn->layer_descs[i].training_mode = training_mode;
 
-        nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
+        nn->layers[i] = ts_layer_create(arena, &nn->layer_descs[i], prev_shape);
         prev_shape = nn->layers[i]->shape;
     }
 
@@ -46,20 +45,20 @@ network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer
 }
 
 // Inits layers from stripped tpl string
-// See network_save_layout for more detail
-static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file, b32 training_mode) {
+// See ts_network_save_layout for more detail
+static void _ts_network_load_layout_impl(mg_arena* arena, ts_network* nn, ts_string8 file, ts_b32 training_mode) {
     // TODO: Error checking for missing semicolons
 
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
     // Each string in list is a layer_desc save str
-    string8_list desc_str_list = { 0 };
+    ts_string8_list desc_str_list = { 0 };
 
-    u64 desc_str_start = 0;
-    u64 last_semi = 0;
-    b32 first_colon = true;
-    for (u64 i = 0; i < file.size; i++) {
-        u8 c = file.str[i];
+    ts_u64 desc_str_start = 0;
+    ts_u64 last_semi = 0;
+    ts_b32 first_colon = true;
+    for (ts_u64 i = 0; i < file.size; i++) {
+        ts_u8 c = file.str[i];
 
         if (c == ';') {
             last_semi = i;
@@ -77,9 +76,9 @@ static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file
                 continue;
             }
 
-            string8 desc_str = str8_substr(file, desc_str_start, last_semi + 1);
+            ts_string8 desc_str = ts_str8_substr(file, desc_str_start, last_semi + 1);
 
-            str8_list_push(scratch.arena, &desc_str_list, desc_str);
+            ts_str8_list_push(scratch.arena, &desc_str_list, desc_str);
 
             desc_str_start = last_semi + 1;
 
@@ -88,22 +87,22 @@ static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file
             last_semi = i;
         }
     }
-    string8 last_str = str8_substr(file, desc_str_start, file.size);
-    str8_list_push(scratch.arena, &desc_str_list, last_str);
+    ts_string8 last_str = ts_str8_substr(file, desc_str_start, file.size);
+    ts_str8_list_push(scratch.arena, &desc_str_list, last_str);
 
     nn->num_layers = desc_str_list.node_count;
 
-    nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, layer_desc, nn->num_layers);
-    nn->layers = MGA_PUSH_ZERO_ARRAY(arena, layer*, nn->num_layers);
+    nn->layer_descs = MGA_PUSH_ZERO_ARRAY(arena, ts_layer_desc, nn->num_layers);
+    nn->layers = MGA_PUSH_ZERO_ARRAY(arena, ts_layer*, nn->num_layers);
 
-    string8_node* n = desc_str_list.first;
-    tensor_shape prev_shape = { 0 };
-    for (u32 i = 0; i < nn->num_layers; i++, n = n->next) {
-        layer_desc desc = layer_desc_load(n->str);
-        nn->layer_descs[i] = layer_desc_apply_default(&desc);
+    ts_string8_node* n = desc_str_list.first;
+    ts_tensor_shape prev_shape = { 0 };
+    for (ts_u32 i = 0; i < nn->num_layers; i++, n = n->next) {
+        ts_layer_desc desc = ts_layer_desc_load(n->str);
+        nn->layer_descs[i] = ts_layer_desc_apply_default(&desc);
         nn->layer_descs[i].training_mode = training_mode;
 
-        nn->layers[i] = layer_create(arena, &nn->layer_descs[i], prev_shape);
+        nn->layers[i] = ts_layer_create(arena, &nn->layer_descs[i], prev_shape);
         prev_shape = nn->layers[i]->shape;
     }
 
@@ -112,64 +111,64 @@ static void _network_load_layout_impl(mg_arena* arena, network* nn, string8 file
     mga_scratch_release(scratch);
 }
 
-// Creates network from layout file (*.tpl)
-network* network_load_layout(mg_arena* arena, string8 file_name, b32 training_mode) {
-    network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
+// Creates ts_network from layout file (*.tpl)
+ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode) {
+    ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
 
     nn->training_mode = training_mode;
 
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
-    string8 raw_file = os_file_read(scratch.arena, file_name);
-    string8 file = str8_remove_space(scratch.arena, raw_file);
+    ts_string8 raw_file = ts_file_read(scratch.arena, file_name);
+    ts_string8 file = ts_str8_remove_space(scratch.arena, raw_file);
 
-    _network_load_layout_impl(arena, nn, file, training_mode);
+    _ts_network_load_layout_impl(arena, nn, file, training_mode);
 
     mga_scratch_release(scratch);
 
     return nn;
 }
 
-// This is also used in network_save
-static const string8 _tpn_header = {
+// This is also used in ts_network_save
+static const ts_string8 _tpn_header = {
     .size = 10,
-    .str = (u8*)"TP_network"
+    .str = (ts_u8*)"TP_ts_network"
 };
 
-// Creates network from network file (*.tpn)
-network* network_load(mg_arena* arena, string8 file_name, b32 training_mode) {
-    network* nn = MGA_PUSH_ZERO_STRUCT(arena, network);
+// Creates ts_network from ts_network file (*.tpn)
+ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode) {
+    ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
 
     nn->training_mode = training_mode;
 
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
-    string8 file = os_file_read(scratch.arena, file_name);
+    ts_string8 file = ts_file_read(scratch.arena, file_name);
 
-    if (!str8_equals(_tpn_header, str8_substr(file, 0, _tpn_header.size))) {
-        fprintf(stderr, "Cannot load network: not tpn file\n");
-
-        goto end;
-    }
-
-    file = str8_substr(file, _tpn_header.size, file.size);
-
-    u64 tpt_index = 0;
-    if (!str8_index_of(file, tensor_get_tpt_header(), &tpt_index)) {
-        fprintf(stderr, "Cannot load network: invalid tpn file\n");
+    if (!ts_str8_equals(_tpn_header, ts_str8_substr(file, 0, _tpn_header.size))) {
+        fprintf(stderr, "Cannot load ts_network: not tpn file\n");
 
         goto end;
     }
 
-    string8 layout_str = str8_substr(file, 0, tpt_index);
-    string8 tensors_str = str8_substr(file, tpt_index, file.size);
+    file = ts_str8_substr(file, _tpn_header.size, file.size);
 
-    _network_load_layout_impl(arena, nn, layout_str, training_mode);
+    ts_u64 tpt_index = 0;
+    if (!ts_str8_index_of(file, ts_tensor_get_tpt_header(), &tpt_index)) {
+        fprintf(stderr, "Cannot load ts_network: invalid tpn file\n");
 
-    tensor_list params = tensor_list_from_str(scratch.arena, tensors_str);
+        goto end;
+    }
 
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_load(nn->layers[i], &params, i);
+    ts_string8 layout_str = ts_str8_substr(file, 0, tpt_index);
+    ts_string8 ts_tensors_str = ts_str8_substr(file, tpt_index, file.size);
+
+    _ts_network_load_layout_impl(arena, nn, layout_str, training_mode);
+
+    ts_tensor_list params = ts_tensor_list_from_str(scratch.arena, ts_tensors_str);
+
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_load(nn->layers[i], &params, i);
     }
 
     // Using goto so that scratch arena always gets released
@@ -178,28 +177,28 @@ end:
     return nn;
 }
 
-void network_delete(network* nn) {
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_delete(nn->layers[i]);
+void ts_network_delete(ts_network* nn) {
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_delete(nn->layers[i]);
     }
 }
 
-void network_feedforward(const network* nn, tensor* out, const tensor* input) {
+void ts_network_feedforward(const ts_network* nn, ts_tensor* out, const ts_tensor* input) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
-    tensor_copy_ip(in_out, input);
+    ts_tensor* in_out = ts_tensor_create_alloc(scratch.arena, (ts_tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
+    ts_tensor_copy_ip(in_out, input);
 
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_feedforward(nn->layers[i], in_out, NULL);
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_feedforward(nn->layers[i], in_out, NULL);
     }
 
-    tensor_copy_ip(out, in_out);
+    ts_tensor_copy_ip(out, in_out);
 
     mga_scratch_release(scratch);
 }
 
-u32 _num_digits (u32 n) {
+ts_u32 _num_digits (ts_u32 n) {
     if (n < 10) return 1;
     if (n < 100) return 2;
     if (n < 1000) return 3;
@@ -215,134 +214,134 @@ u32 _num_digits (u32 n) {
 }
 
 typedef struct {
-    network* nn;
-    tensor input_view;
-    tensor output_view;
-    cost_type cost;
-} _network_backprop_args;
+    ts_network* nn;
+    ts_tensor input_view;
+    ts_tensor output_view;
+    ts_cost_type cost;
+} _ts_network_backprop_args;
 
-void _network_backprop_thread(void* args) {
-    _network_backprop_args* bargs = (_network_backprop_args*)args;
+void _ts_network_backprop_thread(void* args) {
+    _ts_network_backprop_args* bargs = (_ts_network_backprop_args*)args;
 
-    network* nn = bargs->nn;
+    ts_network* nn = bargs->nn;
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    layers_cache cache = { .arena = scratch.arena };
+    ts_layers_cache cache = { .arena = scratch.arena };
 
-    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
-    tensor_copy_ip(in_out, &bargs->input_view);
-    tensor* output = tensor_copy(scratch.arena, &bargs->output_view, false);
+    ts_tensor* in_out = ts_tensor_create_alloc(scratch.arena, (ts_tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
+    ts_tensor_copy_ip(in_out, &bargs->input_view);
+    ts_tensor* output = ts_tensor_copy(scratch.arena, &bargs->output_view, false);
 
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_feedforward(nn->layers[i], in_out, &cache);
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_feedforward(nn->layers[i], in_out, &cache);
     }
 
     // Renaming for clarity
-    tensor* delta = in_out;
-    cost_grad(bargs->cost, delta, output);
+    ts_tensor* delta = in_out;
+    ts_cost_grad(bargs->cost, delta, output);
 
-    for (i64 i = nn->num_layers - 1; i >= 0; i--) {
-        layer_backprop(nn->layers[i], delta, &cache);
+    for (ts_i64 i = nn->num_layers - 1; i >= 0; i--) {
+        ts_layer_backprop(nn->layers[i], delta, &cache);
     }
 
     mga_scratch_release(scratch);
 }
 
 typedef struct {
-    u32* num_correct;
-    os_thread_mutex* num_correct_mutex;
+    ts_u32* num_correct;
+    ts_mutex* num_correct_mutex;
 
-    network* nn;
+    ts_network* nn;
 
-    tensor input_view;
-    tensor_index output_argmax;
-} _network_test_args;
-void _network_test_thread(void* args) {
-    _network_test_args* targs = (_network_test_args*)args;
+    ts_tensor input_view;
+    ts_tensor_index output_argmax;
+} _ts_network_test_args;
+void _ts_network_test_thread(void* args) {
+    _ts_network_test_args* targs = (_ts_network_test_args*)args;
 
-    network* nn = targs->nn;
+    ts_network* nn = targs->nn;
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    tensor* in_out = tensor_create_alloc(scratch.arena, (tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
-    tensor_copy_ip(in_out, &targs->input_view);
+    ts_tensor* in_out = ts_tensor_create_alloc(scratch.arena, (ts_tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
+    ts_tensor_copy_ip(in_out, &targs->input_view);
 
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_feedforward(nn->layers[i], in_out, NULL);
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_feedforward(nn->layers[i], in_out, NULL);
     }
 
-    if (tensor_index_eq(tensor_argmax(in_out), targs->output_argmax)) {
-        os_thread_mutex_lock(targs->num_correct_mutex);
+    if (ts_tensor_index_eq(ts_tensor_argmax(in_out), targs->output_argmax)) {
+        ts_mutex_lock(targs->num_correct_mutex);
 
         *targs->num_correct += 1;
 
-        os_thread_mutex_unlock(targs->num_correct_mutex);
+        ts_mutex_unlock(targs->num_correct_mutex);
     }
     
     mga_scratch_release(scratch);
 }
 
 #define _BAR_SIZE 20
-void network_train(network* nn, const network_train_desc* desc) {
+void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
     if (!nn->training_mode) {
-        fprintf(stderr, "Cannot train network that is not in training mode\n");
+        fprintf(stderr, "Cannot train ts_network that is not in training mode\n");
 
         return;
     }
 
-    optimizer optim = desc->optim;
+    ts_optimizer optim = desc->optim;
     optim._batch_size = desc->batch_size;
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     // +1 is just for insurance
-    os_thread_pool* tpool = os_thread_pool_create(scratch.arena, MAX(1, desc->num_threads), desc->batch_size + 1);
+    ts_thread_pool* tpool = ts_thread_pool_create(scratch.arena, TS_MAX(1, desc->num_threads), desc->batch_size + 1);
 
-    _network_backprop_args* backprop_args = MGA_PUSH_ZERO_ARRAY(scratch.arena, _network_backprop_args, desc->batch_size);
+    _ts_network_backprop_args* backprop_args = MGA_PUSH_ZERO_ARRAY(scratch.arena, _ts_network_backprop_args, desc->batch_size);
 
     // Accuracy testing stuff
-    _network_test_args* test_args = NULL;
-    u32 num_correct = 0;
-    os_thread_mutex* num_correct_mutex = NULL;
+    _ts_network_test_args* test_args = NULL;
+    ts_u32 num_correct = 0;
+    ts_mutex* num_correct_mutex = NULL;
     if (desc->accuracy_test) {
-        test_args = MGA_PUSH_ZERO_ARRAY(scratch.arena, _network_test_args, desc->batch_size);
-        num_correct_mutex = os_thread_mutex_create(scratch.arena);
+        test_args = MGA_PUSH_ZERO_ARRAY(scratch.arena, _ts_network_test_args, desc->batch_size);
+        num_correct_mutex = ts_mutex_create(scratch.arena);
     }
 
-    u8 bar_str_data[_BAR_SIZE + 1] = { 0 };
+    ts_u8 bar_str_data[_BAR_SIZE + 1] = { 0 };
     memset(bar_str_data, ' ', _BAR_SIZE);
 
-    u8 batch_str_data[11] = { 0 };
+    ts_u8 batch_str_data[11] = { 0 };
 
     // This will add one if there is a remainder
     // Allows for batch sizes that are not perfectly divisible
     div_t num_batches_div = div(desc->train_inputs->shape.depth, desc->batch_size);
-    u32 num_batches = num_batches_div.quot + (num_batches_div.rem != 0);
-    u32 last_batch_size = desc->train_inputs->shape.depth - (desc->batch_size * (num_batches - 1));
+    ts_u32 num_batches = num_batches_div.quot + (num_batches_div.rem != 0);
+    ts_u32 last_batch_size = desc->train_inputs->shape.depth - (desc->batch_size * (num_batches - 1));
 
-    u32 num_batches_digits = _num_digits(num_batches);
+    ts_u32 num_batches_digits = _num_digits(num_batches);
 
     // Same calculations for test batches
     div_t num_test_batches_div = div(desc->test_inputs->shape.depth, desc->batch_size);
-    u32 num_test_batches = num_test_batches_div.quot + (num_test_batches_div.rem != 0);
-    u32 last_test_batch_size = desc->test_inputs->shape.depth - (desc->batch_size * (num_test_batches - 1));
+    ts_u32 num_test_batches = num_test_batches_div.quot + (num_test_batches_div.rem != 0);
+    ts_u32 last_test_batch_size = desc->test_inputs->shape.depth - (desc->batch_size * (num_test_batches - 1));
 
-    for (u32 epoch = 0; epoch < desc->epochs; epoch++) {
+    for (ts_u32 epoch = 0; epoch < desc->epochs; epoch++) {
         printf("Epoch: %u / %u\n", epoch + 1, desc->epochs);
 
-        for (u32 batch = 0; batch < num_batches; batch++) {
+        for (ts_u32 batch = 0; batch < num_batches; batch++) {
             // Progress in stdout
             {
                 // This is so the batch number always takes up the same amount of space
-                u32 batch_digits = _num_digits(batch + 1);
+                ts_u32 batch_digits = _num_digits(batch + 1);
                 memset(batch_str_data, ' ', 9);
-                u32 offset = num_batches_digits - batch_digits;
+                ts_u32 offset = num_batches_digits - batch_digits;
                 snprintf((char*)(batch_str_data + offset), 11 - offset, "%u", batch + 1);
                 printf("%.*s / %u  ", (int)num_batches_digits, batch_str_data, num_batches);
 
-                f32 bar_length = (f32)_BAR_SIZE * ((f32)(batch + 1) / num_batches);
-                u32 bar_chars = ceilf(bar_length);
+                ts_f32 bar_length = (ts_f32)_BAR_SIZE * ((ts_f32)(batch + 1) / num_batches);
+                ts_u32 bar_chars = ceilf(bar_length);
                 memset(bar_str_data, '=', bar_chars);
                 if (batch + 1 != num_batches) {
                     bar_str_data[bar_chars - 1] = '>';
@@ -358,35 +357,35 @@ void network_train(network* nn, const network_train_desc* desc) {
             mga_temp batch_temp = mga_temp_begin(scratch.arena);
 
             // Training batch
-            u32 batch_size = (batch == num_batches - 1) ? last_batch_size : desc->batch_size;
-            for (u32 i = 0; i < batch_size; i++) {
-                u64 index = (u64)i + (u64)batch * desc->batch_size;
+            ts_u32 batch_size = (batch == num_batches - 1) ? last_batch_size : desc->batch_size;
+            for (ts_u32 i = 0; i < batch_size; i++) {
+                ts_u64 index = (ts_u64)i + (ts_u64)batch * desc->batch_size;
 
-                tensor input_view = { 0 };
-                tensor output_view = { 0 };
-                tensor_2d_view(&input_view, desc->train_inputs, index);
-                tensor_2d_view(&output_view, desc->train_outputs, index);
+                ts_tensor input_view = { 0 };
+                ts_tensor output_view = { 0 };
+                ts_tensor_2d_view(&input_view, desc->train_inputs, index);
+                ts_tensor_2d_view(&output_view, desc->train_outputs, index);
 
-                backprop_args[i] = (_network_backprop_args){ 
+                backprop_args[i] = (_ts_network_backprop_args){ 
                     .nn = nn,
                     .input_view = input_view,
                     .output_view = output_view,
                     .cost = desc->cost,
                 };
 
-                os_thread_pool_add_task(
+                ts_thread_pool_add_task(
                     tpool,
-                    (os_thread_task){
-                        .func = _network_backprop_thread,
+                    (ts_thread_task){
+                        .func = _ts_network_backprop_thread,
                         .arg = &backprop_args[i]
                     }
                 );
             }
 
-            os_thread_pool_wait(tpool);
+            ts_thread_pool_wait(tpool);
 
-            for (u32 i = 0; i < nn->num_layers; i++) {
-                layer_apply_changes(nn->layers[i], &optim);
+            for (ts_u32 i = 0; i < nn->num_layers; i++) {
+                ts_layer_apply_changes(nn->layers[i], &optim);
             }
 
             mga_temp_end(batch_temp);
@@ -398,25 +397,25 @@ void network_train(network* nn, const network_train_desc* desc) {
         if (desc->save_interval != 0 && ((epoch + 1) % desc->save_interval) == 0) {
             mga_temp save_temp = mga_temp_begin(scratch.arena);
 
-            string8 path = str8_pushf(save_temp.arena, "%.*s%.4u.tpn", (int)desc->save_path.size, desc->save_path.str, epoch + 1);
+            ts_string8 path = ts_str8_pushf(save_temp.arena, "%.*s%.4u.tpn", (int)desc->save_path.size, desc->save_path.str, epoch + 1);
 
-            network_save(nn, path);
+            ts_network_save(nn, path);
 
             mga_temp_end(save_temp);
         }
 
-        f32 accuracy = 0.0f;
+        ts_f32 accuracy = 0.0f;
         if (desc->accuracy_test) {
             num_correct = 0;
 
-            os_time_init();
-            string8 load_anim = STR8("-\\|/");
-            u64 anim_start_time = os_now_microseconds();
-            u32 anim_frame = 0;
+            ts_time_init();
+            ts_string8 load_anim = TS_STR8("-\\|/");
+            ts_u64 anim_start_time = ts_now_usec();
+            ts_u32 anim_frame = 0;
 
             // Accuracy test is also done in batches for multithreading
-            for (u32 batch = 0; batch < num_test_batches; batch++) {
-                u64 cur_time = os_now_microseconds();
+            for (ts_u32 batch = 0; batch < num_test_batches; batch++) {
+                ts_u64 cur_time = ts_now_usec();
                 if (cur_time - anim_start_time > 100000) {
                     anim_start_time = cur_time;
                     anim_frame++;
@@ -428,18 +427,18 @@ void network_train(network* nn, const network_train_desc* desc) {
                 mga_temp batch_temp = mga_temp_begin(scratch.arena);
 
                 // Test batch
-                u32 batch_size = batch == num_test_batches - 1 ? last_test_batch_size : desc->batch_size;
-                for (u32 i = 0; i < batch_size; i++) {
-                    u64 index = (u64)i + (u64)batch * desc->batch_size;
+                ts_u32 batch_size = batch == num_test_batches - 1 ? last_test_batch_size : desc->batch_size;
+                for (ts_u32 i = 0; i < batch_size; i++) {
+                    ts_u64 index = (ts_u64)i + (ts_u64)batch * desc->batch_size;
 
-                    tensor input_view = { 0 };
-                    tensor output_view = { 0 };
-                    tensor_2d_view(&input_view, desc->test_inputs, index);
-                    tensor_2d_view(&output_view, desc->test_outputs, index);
+                    ts_tensor input_view = { 0 };
+                    ts_tensor output_view = { 0 };
+                    ts_tensor_2d_view(&input_view, desc->test_inputs, index);
+                    ts_tensor_2d_view(&output_view, desc->test_outputs, index);
 
-                    tensor_index output_argmax = tensor_argmax(&output_view);
+                    ts_tensor_index output_argmax = ts_tensor_argmax(&output_view);
 
-                    test_args[i] = (_network_test_args){ 
+                    test_args[i] = (_ts_network_test_args){ 
                         .num_correct = &num_correct,
                         .num_correct_mutex = num_correct_mutex,
 
@@ -448,27 +447,27 @@ void network_train(network* nn, const network_train_desc* desc) {
                         .output_argmax = output_argmax
                     };
 
-                    os_thread_pool_add_task(
+                    ts_thread_pool_add_task(
                         tpool,
-                        (os_thread_task){
-                            .func = _network_test_thread,
+                        (ts_thread_task){
+                            .func = _ts_network_test_thread,
                             .arg = &test_args[i]
                         }
                     );
                 }
 
-                os_thread_pool_wait(tpool);
+                ts_thread_pool_wait(tpool);
 
                 mga_temp_end(batch_temp);
             }
 
-            accuracy = (f32)num_correct / desc->test_inputs->shape.depth;
+            accuracy = (ts_f32)num_correct / desc->test_inputs->shape.depth;
 
             printf("Test Accuracy: %f\n", accuracy);
         }
 
         if (desc->epoch_callback) {
-            network_epoch_info info = {
+            ts_network_epoch_info info = {
                 .epoch = epoch,
 
                 .test_accuracy = accuracy
@@ -478,10 +477,10 @@ void network_train(network* nn, const network_train_desc* desc) {
         }
     }
 
-    os_thread_pool_destroy(tpool);
+    ts_thread_pool_destroy(tpool);
 
     if (desc->accuracy_test) {
-        os_thread_mutex_destroy(num_correct_mutex);
+        ts_mutex_destroy(num_correct_mutex);
     }
 
     mga_scratch_release(scratch);
@@ -491,7 +490,7 @@ void network_train(network* nn, const network_train_desc* desc) {
 Sample Summary:
 
 -------------------------
-    Network (5 layers)
+    ts_network (5 layers)
 
 type        shape
 ----        -----
@@ -503,35 +502,35 @@ activation  (10, 1, 1)
 
 -------------------------
 */
-void network_summary(const network* nn) {
+void ts_network_summary(const ts_network* nn) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    string8 header = str8_pushf(scratch.arena, "Network (%u layers)", nn->num_layers);
+    ts_string8 header = ts_str8_pushf(scratch.arena, "network (%u layers)", nn->num_layers);
 
     // Storing strings in a list first to get good spacing in the console
     // +2 is for column name and "---" separator
-    string8* types = MGA_PUSH_ZERO_ARRAY(scratch.arena, string8, nn->num_layers + 2);
-    string8* shapes = MGA_PUSH_ZERO_ARRAY(scratch.arena, string8, nn->num_layers + 2);
+    ts_string8* types = MGA_PUSH_ZERO_ARRAY(scratch.arena, ts_string8, nn->num_layers + 2);
+    ts_string8* shapes = MGA_PUSH_ZERO_ARRAY(scratch.arena, ts_string8, nn->num_layers + 2);
 
-    types[0] = STR8("type");
-    types[1] = STR8("----");
+    types[0] = TS_STR8("type");
+    types[1] = TS_STR8("----");
 
-    shapes[0] = STR8("shape");
-    shapes[1] = STR8("-----");
+    shapes[0] = TS_STR8("shape");
+    shapes[1] = TS_STR8("-----");
 
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        types[i + 2] = layer_get_name(nn->layers[i]->type);
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        types[i + 2] = ts_layer_get_name(nn->layers[i]->type);
 
-        tensor_shape s = nn->layers[i]->shape;
-        string8 shape_str = str8_pushf(scratch.arena, "(%u %u %u)", s.width, s.height, s.depth);
+        ts_tensor_shape s = nn->layers[i]->shape;
+        ts_string8 shape_str = ts_str8_pushf(scratch.arena, "(%u %u %u)", s.width, s.height, s.depth);
 
         shapes[i + 2] = shape_str;
     }
 
-    u64 max_type_width = types[0].size;
-    u64 max_shape_width = shapes[0].size;
+    ts_u64 max_type_width = types[0].size;
+    ts_u64 max_shape_width = shapes[0].size;
 
-    for (u32 i = 0; i < nn->num_layers; i++) {
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
         if (types[i + 2].size > max_type_width) {
             max_type_width = types[i + 2].size;
         }
@@ -542,8 +541,8 @@ void network_summary(const network* nn) {
     }
 
     // Spacing before, between, and after items
-    u64 row_width = 1 + max_type_width + 2 + max_shape_width + 1;
-    row_width = MAX(row_width, header.size + 2);
+    ts_u64 row_width = 1 + max_type_width + 2 + max_shape_width + 1;
+    row_width = TS_MAX(row_width, header.size + 2);
 
     // For even spacing of the header
     if ((row_width - header.size) % 2 != 0) {
@@ -554,15 +553,15 @@ void network_summary(const network* nn) {
     row_width++;
 
     // Borders + border padding + header + layers + titles
-    u32 num_rows = 2 + 2 + 1 + nn->num_layers + 2;
+    ts_u32 num_rows = 2 + 2 + 1 + nn->num_layers + 2;
 
-    string8 out = {
+    ts_string8 out = {
         .size = row_width * num_rows,
-        .str = MGA_PUSH_ARRAY(scratch.arena, u8, row_width * num_rows)
+        .str = MGA_PUSH_ARRAY(scratch.arena, ts_u8, row_width * num_rows)
     };
 
     memset(out.str, ' ', out.size);
-    for (u32 y = 0; y < num_rows; y++) {
+    for (ts_u32 y = 0; y < num_rows; y++) {
         out.str[row_width - 1 + y * row_width] = '\n';
     }
 
@@ -571,13 +570,13 @@ void network_summary(const network* nn) {
     memset(out.str + (num_rows - 1) * row_width, '-', row_width - 1);
 
     // Header
-    u32 header_spacing = (row_width - 1 - header.size) / 2;
+    ts_u32 header_spacing = (row_width - 1 - header.size) / 2;
     memcpy(out.str + row_width + header_spacing, header.str, header.size);
 
-    u32 shape_start_x = 1 + max_type_width + 2;
-    for (u32 i = 0; i < nn->num_layers + 2; i++) {
+    ts_u32 shape_start_x = 1 + max_type_width + 2;
+    for (ts_u32 i = 0; i < nn->num_layers + 2; i++) {
         // Start index into row
-        u64 start_i = (i + 3) * row_width;
+        ts_u64 start_i = (i + 3) * row_width;
 
         memcpy(out.str + start_i + 1, types[i].str, types[i].size);
         memcpy(out.str + start_i + shape_start_x, shapes[i].str, shapes[i].size);
@@ -594,25 +593,25 @@ File Format (*.tpl):
 List of layer_desc saves
 See layer_desc_save
 */
-void network_save_layout(const network* nn, string8 file_name) {
+void ts_network_save_layout(const ts_network* nn, ts_string8 file_name) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    string8_list save_list = { 0 };
+    ts_string8_list save_list = { 0 };
 
     // For spacing between layer_descs
-    string8 new_line = STR8("\n");
+    ts_string8 new_line = TS_STR8("\n");
 
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_desc_save(scratch.arena, &save_list, &nn->layer_descs[i]);
-        str8_list_push(scratch.arena, &save_list, new_line);
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_desc_save(scratch.arena, &save_list, &nn->layer_descs[i]);
+        ts_str8_list_push(scratch.arena, &save_list, new_line);
     }
 
-    os_file_write(file_name, save_list);
+    ts_file_write(file_name, save_list);
 
     mga_scratch_release(scratch);
 }
 
-string8 network_get_tpn_header(void) {
+ts_string8 ts_network_get_tpn_header(void) {
     return _tpn_header;
 }
 
@@ -620,41 +619,41 @@ string8 network_get_tpn_header(void) {
 File Format (*.tpn):
 
 Header
-Network Layout (tpl)
-Tensor List of layer params
+ts_network Layout (tpl)
+ts_tensor List of layer params
 */
-void network_save(const network* nn, string8 file_name) {
+void ts_network_save(const ts_network* nn, ts_string8 file_name) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
-    string8 layout_str = { 0 };
+    ts_string8 layout_str = { 0 };
 
     {
         mga_temp scratch2 = mga_scratch_get(&scratch.arena, 1);
 
-        string8_list layout_list = { 0 };
-        for (u32 i = 0; i < nn->num_layers; i++) {
-            layer_desc_save(scratch.arena, &layout_list, &nn->layer_descs[i]);
+        ts_string8_list layout_list = { 0 };
+        for (ts_u32 i = 0; i < nn->num_layers; i++) {
+            ts_layer_desc_save(scratch.arena, &layout_list, &nn->layer_descs[i]);
         }
 
-        string8 full_layout_str = str8_concat(scratch2.arena, layout_list);
-        layout_str = str8_remove_space(scratch.arena, full_layout_str);
+        ts_string8 full_layout_str = ts_str8_concat(scratch2.arena, layout_list);
+        layout_str = ts_str8_remove_space(scratch.arena, full_layout_str);
 
         mga_scratch_release(scratch2);
     }
 
 
-    tensor_list param_list = { 0 };
-    for (u32 i = 0; i < nn->num_layers; i++) {
-        layer_save(scratch.arena, &param_list, nn->layers[i], i);
+    ts_tensor_list param_list = { 0 };
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_save(scratch.arena, &param_list, nn->layers[i], i);
     }
 
-    string8 param_str = tensor_list_to_str(scratch.arena, &param_list);
+    ts_string8 param_str = ts_tensor_list_to_str(scratch.arena, &param_list);
 
-    string8_list save_list = { 0 };
-    str8_list_push(scratch.arena, &save_list, _tpn_header);
-    str8_list_push(scratch.arena, &save_list, layout_str);
-    str8_list_push(scratch.arena, &save_list, param_str);
+    ts_string8_list save_list = { 0 };
+    ts_str8_list_push(scratch.arena, &save_list, _tpn_header);
+    ts_str8_list_push(scratch.arena, &save_list, layout_str);
+    ts_str8_list_push(scratch.arena, &save_list, param_str);
 
-    os_file_write(file_name, save_list);
+    ts_file_write(file_name, save_list);
 
     mga_scratch_release(scratch);
 }

@@ -1,41 +1,42 @@
 #ifndef TENSOR_H
 #define TENSOR_H
 
-#include "base/base.h"
+#include "base_defs.h"
+#include "str.h"
 #include "mg/mg_arena.h"
 
 typedef struct {
-    u32 width;
-    u32 height;
-    u32 depth;
-} tensor_shape;
+    ts_u32 width;
+    ts_u32 height;
+    ts_u32 depth;
+} ts_tensor_shape;
 
 typedef struct {
-    u32 x, y, z;
-} tensor_index;
+    ts_u32 x, y, z;
+} ts_tensor_index;
 
 typedef struct {
     // Size of each dim, 0 if unused
-    tensor_shape shape;
+    ts_tensor_shape shape;
     // Number of f32's allocated
-    u64 alloc;
+    ts_u64 alloc;
     // Data of tensor
-    f32* data;
-} tensor;
+    ts_f32* data;
+} ts_tensor;
 
-typedef struct tensor_node {
-    struct tensor_node* next;
+typedef struct ts_tensor_node {
+    struct ts_tensor_node* next;
 
-    tensor* tensor;
-    string8 name;
-} tensor_node;
+    ts_tensor* tensor;
+    ts_string8 name;
+} ts_tensor_node;
 
 typedef struct {
-    tensor_node* first;
-    tensor_node* last;
+    ts_tensor_node* first;
+    ts_tensor_node* last;
 
-    u32 size;
-} tensor_list;
+    ts_u32 size;
+} ts_tensor_list;
 
 /*
 NOTE:
@@ -43,75 +44,71 @@ NOTE:
     ONLY CREATE TENSOR WITH ONE OF THE CREATION FUNCTIONS
 */
 
-#ifndef TENSOR_PRINT_IP_ALLOC_ERRORS
-#define TENSOR_PRINT_IP_ALLOC_ERRORS 1
+#ifndef TS_TENSOR_PRINT_IP_ALLOC_ERRORS
+#define TS_TENSOR_PRINT_IP_ALLOC_ERRORS 1
 #endif
 
-#define tensor_INDEX(tensor, x, y, z) \
-    ((u64)(x) + (u64)(y) * tensor->shape.width + (u64)(z) * tensor->shape.width * tensor->shape.height)
-#define tensor_AT(tensor, x, y, z) tensor->data[tensor_INDEX(tensor, x, y, z)]
+ts_b32 ts_tensor_index_eq(ts_tensor_index a, ts_tensor_index b);
+ts_b32 ts_tensor_shape_eq(ts_tensor_shape a, ts_tensor_shape b);
 
-b32 tensor_index_eq(tensor_index a, tensor_index b);
-b32 tensor_shape_eq(tensor_shape a, tensor_shape b);
+ts_tensor* ts_tensor_create(mg_arena* arena, ts_tensor_shape shape);
+ts_tensor* ts_tensor_create_alloc(mg_arena* arena, ts_tensor_shape shape, ts_u64 alloc);
+ts_tensor* ts_tensor_copy(mg_arena* arena, const ts_tensor* tensor, ts_b32 keep_alloc);
+ts_b32 ts_tensor_copy_ip(ts_tensor* out, const ts_tensor* t);
 
-tensor* tensor_create(mg_arena* arena, tensor_shape shape);
-tensor* tensor_create_alloc(mg_arena* arena, tensor_shape shape, u64 alloc);
-tensor* tensor_copy(mg_arena* arena, const tensor* tensor, b32 keep_alloc);
-b32 tensor_copy_ip(tensor* out, const tensor* t);
+void ts_tensor_fill(ts_tensor* tensor, ts_f32 num);
 
-void tensor_fill(tensor* tensor, f32 num);
+ts_tensor_index ts_tensor_argmax(const ts_tensor* t);
 
-tensor_index tensor_argmax(const tensor* t);
-
-b32 tensor_is_zero(const tensor* t);
+ts_b32 ts_tensor_is_zero(const ts_tensor* t);
 
 // Indices work like substring (inclusive start, exclusive end)
-tensor* tensor_slice(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_index end);
-tensor* tensor_slice_size(mg_arena* arena, const tensor* tensor, tensor_index start, tensor_shape shape);
+ts_tensor* ts_tensor_slice(mg_arena* arena, const ts_tensor* tensor, ts_tensor_index start, ts_tensor_index end);
+ts_tensor* ts_tensor_slice_size(mg_arena* arena, const ts_tensor* tensor, ts_tensor_index start, ts_tensor_shape shape);
 // Does not copy data
-void tensor_2d_view(tensor* out, const tensor* tensor, u32 z);
+void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* tensor, ts_u32 z);
 
 // Only works for 2d or less
-b32 tensor_dot_ip(tensor* out, const tensor* a, const tensor* b);
-tensor* tensor_dot(mg_arena* arena, const tensor* a, const tensor* b);
+ts_b32 ts_tensor_dot_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
+ts_tensor* ts_tensor_dot(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
 
 // Helper function for computing the output shape of a convolution
-tensor_shape tensor_conv_shape(tensor_shape in_shape, tensor_shape kernel_shape, u32 stride_x, u32 stride_y);
+ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape kernel_shape, ts_u32 stride_x, ts_u32 stride_y);
 
 // Performs a convolution
 // Only works for 2d tensors
-b32 tensor_conv_ip(tensor* out, const tensor* input, const tensor* kernel, u32 stride_x, u32 stride_y);
-tensor* tensor_conv(mg_arena* arena, const tensor* input, const tensor* kernel, u32 stride_x, u32 stride_y);
+ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
+ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
 
 // Only works for 2d or less
-void tensor_transpose(tensor* t);
+void ts_tensor_transpose(ts_tensor* t);
 
-b32 tensor_add_ip(tensor* out, const tensor* a, const tensor* b);
-b32 tensor_sub_ip(tensor* out, const tensor* a, const tensor* b);
-b32 tensor_component_mul_ip(tensor* out, const tensor* a, const tensor* b);
-b32 tensor_component_div_ip(tensor* out, const tensor* a, const tensor* b);
-b32 tensor_scale_ip(tensor* out, const tensor* t, f32 s);
-b32 tensor_sqrt_ip(tensor* out, const tensor* t);
+ts_b32 ts_tensor_add_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
+ts_b32 ts_tensor_sub_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
+ts_b32 ts_tensor_component_mul_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
+ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
+ts_b32 ts_tensor_scale_ip(ts_tensor* out, const ts_tensor* t, ts_f32 s);
+ts_b32 ts_tensor_sqrt_ip(ts_tensor* out, const ts_tensor* t);
 
-tensor* tensor_add(mg_arena* arena, const tensor* a, const tensor* b);
-tensor* tensor_sub(mg_arena* arena, const tensor* a, const tensor* b);
-tensor* tensor_component_mul(mg_arena* arena, const tensor* a, const tensor* b);
-tensor* tensor_component_div(mg_arena* arena, const tensor* a, const tensor* b);
-tensor* tensor_scale(mg_arena* arena, const tensor* t, f32 s);
-tensor* tensor_sqrt(mg_arena* arena, const tensor* t);
+ts_tensor* ts_tensor_add(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
+ts_tensor* ts_tensor_sub(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
+ts_tensor* ts_tensor_component_mul(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
+ts_tensor* ts_tensor_component_div(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
+ts_tensor* ts_tensor_scale(mg_arena* arena, const ts_tensor* t, ts_f32 s);
+ts_tensor* ts_tensor_sqrt(mg_arena* arena, const ts_tensor* t);
 
-void tensor_list_push_existing(tensor_list* list, tensor* tensor, string8 name, tensor_node* node);
-void tensor_list_push(mg_arena* arena, tensor_list* list, tensor* tensor, string8 name);
+void ts_tensor_list_push_existing(ts_tensor_list* list, ts_tensor* tensor, ts_string8 name, ts_tensor_node* node);
+void ts_tensor_list_push(mg_arena* arena, ts_tensor_list* list, ts_tensor* tensor, ts_string8 name);
 // returns NULL if name is not found in list
-tensor* tensor_list_get(const tensor_list* list, string8 name);
+ts_tensor* ts_tensor_list_get(const ts_tensor_list* list, ts_string8 name);
 
-string8 tensor_list_to_str(mg_arena* arena, const tensor_list* list);
-tensor_list tensor_list_from_str(mg_arena* arena, string8 str);
+ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list);
+ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str);
 
-string8 tensor_get_tpt_header(void);
+ts_string8 ts_tensor_get_tpt_header(void);
 
 // *.tpt file
-void tensor_list_save(const tensor_list* list, string8 file_name);
-tensor_list tensor_list_load(mg_arena* arena, string8 file_name);
+void ts_tensor_list_save(const ts_tensor_list* list, ts_string8 file_name);
+ts_tensor_list ts_tensor_list_load(mg_arena* arena, ts_string8 file_name);
 
 #endif // TENSOR_H

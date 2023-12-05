@@ -1,58 +1,58 @@
 #ifndef OS_H
 #define OS_H
 
-#include "base/base.h"
+#include "base_defs.h"
+#include "str.h"
 #include "mg/mg_arena.h"
 
 typedef enum {
-    OS_FILE_IS_DIR = (1 << 0)
-} os_file_flags;
+    TS_FILE_IS_DIR = (1 << 0)
+} ts_file_flags;
 
 typedef struct {
-    u8 sec;
-    u8 min;
-    u8 hour;
-    u8 day;
-    u8 month;
-    i32 year;
-} os_datetime;
+    ts_u8 sec;
+    ts_u8 min;
+    ts_u8 hour;
+    ts_u8 day;
+    ts_u8 month;
+    ts_i32 year;
+} ts_datetime;
 
 typedef struct {
-    u64 size;
-    os_file_flags flags;
-    os_datetime modify_time;
-} os_file_stats;
+    ts_u64 size;
+    ts_file_flags flags;
+    ts_datetime modify_time;
+} ts_file_stats;
 
-typedef struct _os_thread_mutex os_thread_mutex;
+typedef struct _ts_mutex ts_mutex;
 
-typedef struct _os_thread_pool os_thread_pool;
+typedef struct _ts_thread_pool ts_thread_pool;
 
-typedef void (os_thread_func)(void*);
+typedef void (ts_thread_func)(void*);
 typedef struct {
-    os_thread_func* func;
+    ts_thread_func* func;
     void* arg;
-} os_thread_task;
+} ts_thread_task;
 
-void os_time_init(void);
+void ts_time_init(void);
 
-os_datetime os_now_localtime(void);
-u64 os_now_microseconds(void);
-void os_sleep_milliseconds(u32 t);
+ts_datetime ts_now_localtime(void);
+ts_u64 ts_now_usec(void);
+void ts_sleep_msec(ts_u32 t);
 
-string8 os_file_read(mg_arena* arena, string8 path);
-b32 os_file_write(string8 path, string8_list str_list);
-os_file_stats os_file_get_stats(string8 path);
+ts_string8 ts_file_read(mg_arena* arena, ts_string8 path);
+ts_b32 ts_file_write(ts_string8 path, ts_string8_list str_list);
+ts_file_stats ts_file_get_stats(ts_string8 path);
+void ts_get_entropy(void* data, ts_u64 size);
 
-void os_get_entropy(void* data, u64 size);
+ts_mutex* ts_mutex_create(mg_arena* arena);
+void ts_mutex_destroy(ts_mutex* mutex);
+void ts_mutex_lock(ts_mutex* mutex);
+void ts_mutex_unlock(ts_mutex* mutex);
 
-os_thread_mutex* os_thread_mutex_create(mg_arena* arena);
-void os_thread_mutex_destroy(os_thread_mutex* mutex);
-void os_thread_mutex_lock(os_thread_mutex* mutex);
-void os_thread_mutex_unlock(os_thread_mutex* mutex);
-
-os_thread_pool* os_thread_pool_create(mg_arena* arena, u32 num_threads, u32 max_tasks);
-void os_thread_pool_destroy(os_thread_pool* tp);
-void os_thread_pool_add_task(os_thread_pool* tp, os_thread_task task);
-void os_thread_pool_wait(os_thread_pool* tp);
+ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u32 max_tasks);
+void ts_thread_pool_destroy(ts_thread_pool* tp);
+void ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task);
+void ts_thread_pool_wait(ts_thread_pool* tp);
 
 #endif // OS_H

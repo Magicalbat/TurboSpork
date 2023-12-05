@@ -1,20 +1,20 @@
 #ifndef COST_H
 #define COST_H
 
-#include "base/base.h"
+#include "base_defs.h"
 #include "tensor.h"
 
 typedef enum {
-    COST_NULL = 0,
+    TS_COST_NULL = 0,
 
-    COST_MEAN_SQUARED_ERROR,
+    TS_COST_MEAN_SQUARED_ERROR,
 
-    COST_CATEGORICAL_CROSS_ENTROPY,
+    TS_COST_CATEGORICAL_CROSS_ENTROPY,
 
-    COST_COUNT
-} cost_type;
+    TS_COST_COUNT
+} ts_cost_type;
 
-f32 cost_func(cost_type type, const tensor* in, const tensor* desired_out);
-void cost_grad(cost_type type, tensor* in_out, const tensor* desired_out);
+ts_f32 ts_cost_func(ts_cost_type type, const ts_tensor* in, const ts_tensor* desired_out);
+void ts_cost_grad(ts_cost_type type, ts_tensor* in_out, const ts_tensor* desired_out);
 
 #endif // COST_H

@@ -1,7 +1,8 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include "base/base.h"
+#include "base_defs.h"
+#include "str.h"
 #include "mg/mg_arena.h"
 #include "tensor.h"
 
@@ -10,81 +11,81 @@
 #include "optimizers.h"
 
 typedef struct {
-    b32 training_mode;
+    ts_b32 training_mode;
 
-    u32 num_layers;
-    layer** layers;
+    ts_u32 num_layers;
+    ts_layer** layers;
 
     // For saving
-    layer_desc* layer_descs;
+    ts_layer_desc* layer_descs;
 
     // Used for forward and backward passes
     // Allows for single allocation of input/output variable
-    u64 max_layer_size;
-} network;
+    ts_u64 max_layer_size;
+} ts_network;
 
 typedef struct {
-    u32 epoch;
+    ts_u32 epoch;
 
-    f32 test_accuracy;
-} network_epoch_info;
+    ts_f32 test_accuracy;
+} ts_network_epoch_info;
 
-typedef void(network_epoch_callback)(const network_epoch_info*);
+typedef void(ts_network_epoch_callback)(const ts_network_epoch_info*);
 
 typedef struct {
-    u32 epochs;
-    u32 batch_size;
+    ts_u32 epochs;
+    ts_u32 batch_size;
 
-    u32 num_threads;
+    ts_u32 num_threads;
 
-    cost_type cost;
-    optimizer optim;
+    ts_cost_type cost;
+    ts_optimizer optim;
 
     // Can be null
     // Gives information to function after each epoch
-    network_epoch_callback* epoch_callback;
+    ts_network_epoch_callback* epoch_callback;
 
     // Epoch interval to save network 
     // When (epoch + 1) % save_interval == 0
     // Interval of zero means no saving
-    u32 save_interval;
+    ts_u32 save_interval;
     // Output will be "{save_path}{epoch_num}.tpn"
-    string8 save_path;
+    ts_string8 save_path;
 
-    tensor* train_inputs;
-    tensor* train_outputs;
+    ts_tensor* train_inputs;
+    ts_tensor* train_outputs;
 
-    b32 accuracy_test;
-    tensor* test_inputs;
-    tensor* test_outputs;
-} network_train_desc;
+    ts_b32 accuracy_test;
+    ts_tensor* test_inputs;
+    ts_tensor* test_outputs;
+} ts_network_train_desc;
 
 // This training_mode overrides the one in the desc
-network* network_create(mg_arena* arena, u32 num_layers, const layer_desc* layer_descs, b32 training_mode);
+ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer_desc* layer_descs, ts_b32 training_mode);
 // Reads layout file (*.tpl)
 // See network_layout_save
-network* network_load_layout(mg_arena* arena, string8 file_name, b32 training_mode);
+ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode);
 // Reads network file (*.tpn)
 // See network_save
-network* network_load(mg_arena* arena, string8 file_name, b32 training_mode);
+ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode);
 
-void network_delete(network* nn);
+void ts_network_delete(ts_network* nn);
 
-void network_feedforward(const network* nn, tensor* out, const tensor* input);
-void network_train(network* nn, const network_train_desc* desc);
+void ts_network_feedforward(const ts_network* nn, ts_tensor* out, const ts_tensor* input);
+void ts_network_train(ts_network* nn, const ts_network_train_desc* desc);
 
 // Prints the network summary to stdout
-void network_summary(const network* nn);
+void ts_network_summary(const ts_network* nn);
 
 // Saves layer descs
 // *.tpl
-void network_save_layout(const network* nn, string8 file_name);
+void ts_network_save_layout(const ts_network* nn, ts_string8 file_name);
 
-string8 network_get_tpn_header(void);
+ts_string8 ts_network_get_tpn_header(void);
 
 // Saves layer descs and layer params
 // *.tpn
-void network_save(const network* nn, string8 file_name);
+void ts_network_save(const ts_network* nn, ts_string8 file_name);
 
 #endif // NETWORK_H
 

@@ -1,14 +1,14 @@
 #include "layers.h"
 #include "layers_internal.h"
 
-void _layer_input_create(mg_arena* arena, layer* out, const layer_desc* desc, tensor_shape prev_shape) {
-    UNUSED(arena);
-    UNUSED(prev_shape);
+void _layer_input_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
+    TS_UNUSED(arena);
+    TS_UNUSED(prev_shape);
 
     out->shape = desc->input.shape;
 }
-void _layer_input_feedforward(layer* l, tensor* in_out, layers_cache* cache) {
-    UNUSED(cache);
+void _layer_input_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache) {
+    TS_UNUSED(cache);
 
     in_out->shape = l->shape;
 }
