@@ -2,8 +2,8 @@
 #define OPTIMIZERS_H
 
 #include "base/base.h"
-#include "os/os.h"
-#include "tensor/tensor.h"
+#include "os.h"
+#include "tensor.h"
 
 typedef enum {
     OPTIMIZER_NULL = 0,

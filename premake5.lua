@@ -10,7 +10,7 @@ project "TurboSpork"
     kind "StaticLib"
 
     includedirs {
-        "turbospork",
+        "turbospork/include",
         "turbospork/third_party"
     }
 
@@ -65,7 +65,7 @@ project "Examples"
     includedirs {
         "examples",
         "examples/third_party",
-        "turbospork",
+        "turbospork/include",
     }
 
     files {

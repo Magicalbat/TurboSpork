@@ -2,7 +2,7 @@
 #define COST_H
 
 #include "base/base.h"
-#include "tensor/tensor.h"
+#include "tensor.h"
 
 typedef enum {
     COST_NULL = 0,

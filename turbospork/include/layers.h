@@ -4,8 +4,8 @@
 #include "mg/mg_arena.h"
 
 #include "base/base.h"
-#include "tensor/tensor.h"
-#include "optimizers/optimizers.h"
+#include "tensor.h"
+#include "optimizers.h"
 
 typedef enum {
     LAYER_NULL = 0,

@@ -3,11 +3,11 @@
 
 #include "base/base.h"
 #include "mg/mg_arena.h"
-#include "tensor/tensor.h"
+#include "tensor.h"
 
-#include "layers/layers.h"
-#include "costs/costs.h"
-#include "optimizers/optimizers.h"
+#include "layers.h"
+#include "costs.h"
+#include "optimizers.h"
 
 typedef struct {
     b32 training_mode;
