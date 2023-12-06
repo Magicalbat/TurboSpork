@@ -1,3 +1,8 @@
+/**
+ * @file turbospork.h
+ * @brief Includes all other turbospork headers
+ */
+
 #ifndef TURBOSPORK_H
 #define TURBOSPORK_H
 

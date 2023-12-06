@@ -16,6 +16,8 @@ typedef struct {
 
 static void _null_func(ts_tensor* t);
 static void _null_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta);
+static void _linear_func(ts_tensor* t);
+static void _linear_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta);
 static void _sigmoid_func(ts_tensor* t);
 static void _sigmoid_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta);
 static void _tanh_func(ts_tensor* t);
@@ -29,6 +31,7 @@ static void _softmax_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* de
 
 static _activation _activations[TS_ACTIVATION_COUNT] = {
     [TS_ACTIVATION_NULL] = { _null_func, _null_grad, false, false },
+    [TS_ACTIVATION_LINEAR] = { _linear_func, _linear_grad, false, false },
     [TS_ACTIVATION_SIGMOID] = { _sigmoid_func, _sigmoid_grad, false, true },
     [TS_ACTIVATION_TANH] = { _tanh_func, _tanh_grad, false, true },
     [TS_ACTIVATION_RELU] = { _relu_func, _relu_grad, true, false },
@@ -98,6 +101,20 @@ static void _null_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta
 
 #define _LOOP_T(t) ts_u64 _size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth; \
     for (ts_u64 i = 0; i < _size; i++) 
+
+static void _linear_func(ts_tensor* t) {
+    TS_UNUSED(t);
+
+    // Output of linear function equals input
+}
+static void _linear_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta) {
+    TS_UNUSED(prev_in);
+    TS_UNUSED(prev_out);
+    TS_UNUSED(delta);
+
+    // delta * 1 = delta
+    // No code is required
+}
 
 static void _sigmoid_func(ts_tensor* t) {
     _LOOP_T(t) {

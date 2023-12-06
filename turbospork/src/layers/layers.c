@@ -273,6 +273,7 @@ static const char* _param_init_names[TS_PARAM_INIT_COUNT] = {
 
 static const char* _activ_names[TS_ACTIVATION_COUNT] = {
     [TS_ACTIVATION_NULL] = "null",
+    [TS_ACTIVATION_LINEAR] = "linear",
     [TS_ACTIVATION_SIGMOID] = "sigmoid",
     [TS_ACTIVATION_TANH] = "tanh",
     [TS_ACTIVATION_RELU] = "relu",

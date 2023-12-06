@@ -23,28 +23,31 @@ typedef enum {
 } ts_layer_type;
 
 typedef enum {
+    /// Does nothing to param
     TS_PARAM_INIT_NULL = 0,
 
-    // Fills param with zeors
+    /// Fills param with zeors
     TS_PARAM_INIT_ZEROS,
-    // Fills param with zeors
+    /// Fills param with zeors
     TS_PARAM_INIT_ONES,
 
-    // Xavier Glorot uniform
+    /// Xavier Glorot uniform
     TS_PARAM_INIT_XAVIER_UNIFORM,
-    // Xavier Glorot normal
+    /// Xavier Glorot normal
     TS_PARAM_INIT_XAVIER_NORMAL,
 
-    // He/Kaiming uniform
+    /// He/Kaiming uniform
     TS_PARAM_INIT_HE_UNIFORM,
-    // He/Kaiming normal
+    /// He/Kaiming normal
     TS_PARAM_INIT_HE_NORMAL,
 
+    /// Number of param init types
     TS_PARAM_INIT_COUNT
 } ts_param_init_type;
 
 typedef enum {
     TS_ACTIVATION_NULL = 0,
+    TS_ACTIVATION_LINEAR,
     TS_ACTIVATION_SIGMOID,
     TS_ACTIVATION_TANH,
     TS_ACTIVATION_RELU,
