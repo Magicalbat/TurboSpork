@@ -24,7 +24,7 @@ void _layer_null_apply_changes(ts_layer* l, const ts_optimizer* optim) {
 void _layer_null_delete(ts_layer* l) {
     TS_UNUSED(l);
 }
-void _layer_null_save(mg_arena* arena, ts_tensor_list* list, ts_layer* l, ts_u32 index) {
+void _layer_null_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index) {
     TS_UNUSED(arena);
     TS_UNUSED(list);
     TS_UNUSED(l);

@@ -220,7 +220,7 @@ void _layer_conv_2d_delete(ts_layer* l) {
         ts_param_change_delete(&conv->biases_change);
     }
 }
-void _layer_conv_2d_save(mg_arena* arena, ts_tensor_list* list, ts_layer* l, ts_u32 index) {
+void _layer_conv_2d_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index) {
     _layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     ts_string8 kernels_name = ts_str8_pushf(arena, "conv_2d_kernels_%u", index);

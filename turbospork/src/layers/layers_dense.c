@@ -81,7 +81,7 @@ void _layer_dense_delete(ts_layer* l) {
     }
 }
 // TODO: Make noe function to get weight and bias names
-void _layer_dense_save(mg_arena* arena, ts_tensor_list* list, ts_layer* l, ts_u32 index) {
+void _layer_dense_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index) {
     _layer_dense_backend* dense = &l->dense_backend;
 
     ts_string8 weight_name = ts_str8_pushf(arena, "dense_weight_%u", index);

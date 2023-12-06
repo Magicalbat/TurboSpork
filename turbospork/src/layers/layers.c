@@ -167,10 +167,10 @@ void ts_layer_delete(ts_layer* l) {
 
     _layer_funcs[l->type].delete(l);
 }
-void ts_layer_save(mg_arena* arena, ts_tensor_list* list, ts_layer* l, ts_u32 index) {
+void ts_layer_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index) {
     _TYPE_CHECK("Cannot save layer: invalid type\n");
 
-    _layer_funcs[l->type].save(arena, list, l, index);
+    _layer_funcs[l->type].save(arena, l, list, index);
 }
 void ts_layer_load(ts_layer* l, const ts_tensor_list* list, ts_u32 index) {
     _TYPE_CHECK("Cannot load layer: invalid type\n");
@@ -598,6 +598,8 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
         fprintf(stderr, "Cannot load layer desc: Invalid string\n");
 
         mga_scratch_release(scratch);
+
+        return out;
     }
 
     ts_string8 type_str = ts_str8_substr(stripped_str, 0, colon_index);
