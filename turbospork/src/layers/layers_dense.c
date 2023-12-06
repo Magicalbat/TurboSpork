@@ -66,8 +66,8 @@ void _layer_dense_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cache
 void _layer_dense_apply_changes(ts_layer* l, const ts_optimizer* optim) {
     _layer_dense_backend* dense = &l->dense_backend;
 
-    ts_param_change_update(optim, dense->weight, &dense->weight_change);
-    ts_param_change_update(optim, dense->bias, &dense->bias_change);
+    ts_param_change_apply(optim, dense->weight, &dense->weight_change);
+    ts_param_change_apply(optim, dense->bias, &dense->bias_change);
 
     ts_tensor_copy_ip(dense->weight_transposed, dense->weight);
     ts_tensor_transpose(dense->weight_transposed);

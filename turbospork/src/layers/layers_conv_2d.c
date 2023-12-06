@@ -209,8 +209,8 @@ void _layer_conv_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cac
 void _layer_conv_2d_apply_changes(ts_layer* l, const ts_optimizer* optim) {
     _layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
-    ts_param_change_update(optim, conv->kernels, &conv->kernels_change);
-    ts_param_change_update(optim, conv->biases, &conv->biases_change);
+    ts_param_change_apply(optim, conv->kernels, &conv->kernels_change);
+    ts_param_change_apply(optim, conv->biases, &conv->biases_change);
 }
 void _layer_conv_2d_delete(ts_layer* l) {
     _layer_conv_2d_backend* conv = &l->conv_2d_backend;

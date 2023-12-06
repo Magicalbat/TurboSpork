@@ -643,7 +643,7 @@ void ts_network_save(const ts_network* nn, ts_string8 file_name) {
 
     ts_tensor_list param_list = { 0 };
     for (ts_u32 i = 0; i < nn->num_layers; i++) {
-        ts_layer_save(scratch.arena, &param_list, nn->layers[i], i);
+        ts_layer_save(scratch.arena, nn->layers[i], &param_list, i);
     }
 
     ts_string8 param_str = ts_tensor_list_to_str(scratch.arena, &param_list);
