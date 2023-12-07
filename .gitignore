@@ -11,3 +11,5 @@ replit.nix
 .ccls
 data
 **.tpn
+docs/html
+
