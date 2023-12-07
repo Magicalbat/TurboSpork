@@ -4,6 +4,8 @@ on:
   # Update on pushes to main
   push:
     branches: [ "main" ]
+    paths:
+      - "turbospork/include/**"
 
   # Allow running workflow manually
   workflow_dispatch:
