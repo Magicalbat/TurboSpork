@@ -159,6 +159,7 @@ typedef struct _ts_mutex {
     pthread_mutex_t mutex;
 } ts_mutex;
 
+// TODO: error handling here
 ts_mutex* ts_mutex_create(mg_arena* arena) {
     ts_mutex* mutex = MGA_PUSH_ZERO_STRUCT(arena, ts_mutex);
 
