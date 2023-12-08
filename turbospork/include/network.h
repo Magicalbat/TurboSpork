@@ -9,7 +9,6 @@
 #include "layers.h"
 #include "costs.h"
 #include "optimizers.h"
-
 typedef struct {
     ts_b32 training_mode;
 
