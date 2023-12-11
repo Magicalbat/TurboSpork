@@ -15,6 +15,27 @@
 
 static ts_u64 _ticks_per_sec = 1;
 
+typedef struct {
+    ts_u16* str;
+    ts_u64 size;
+} _string16;
+
+static _string16 _utf16_from_utf8(mg_arena* arena, ts_string8 str) {
+    mga_temp scratch = mga_scratch_get(&arena, 1);
+
+    ts_u64 tmp_size = str.size * 2 + 1;
+    ts_u16* tmp_out = MGA_PUSH_ZERO_ARRAY(scratch.arena, ts_u16, tmp_size);
+
+    ts_i32 size_written = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, (LPCCH)str.str, str.size, tmp_out, tmp_size);
+
+    ts_u16* out = MGA_PUSH_ARRAY(scratch.arena, ts_u16, size_written);
+    memcpy(out, tmp_out, sizeof(ts_u16) * size_written);
+
+    mga_scratch_release(scratch);
+
+    return (_string16){ .str = out, .size = size_written };
+}
+
 static ts_string8 _error_string(mg_arena* arena) {
     DWORD err = GetLastError();
     if (err == 0) {
@@ -87,7 +108,7 @@ void ts_sleep_msec(ts_u32 t) {
 ts_string8 ts_file_read(mg_arena* arena, ts_string8 path) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    ts_string16 path16 = ts_str16_from_str8(scratch.arena, path);
+    _string16 path16 = _utf16_from_utf8(scratch.arena, path);
 
     HANDLE file_handle = CreateFile(
         (LPCWSTR)path16.str,
@@ -164,7 +185,7 @@ ts_b32 _file_write_impl(HANDLE file_handle, ts_string8_list str_list) {
 ts_b32 ts_file_write(ts_string8 path, ts_string8_list str_list) {
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    ts_string16 path16 = ts_str16_from_str8(scratch.arena, path);
+    _string16 path16 = _utf16_from_utf8(scratch.arena, path);
 
     HANDLE file_handle = CreateFile(
         (LPCWSTR)path16.str,
@@ -202,7 +223,7 @@ ts_file_stats ts_file_get_stats(ts_string8 path) {
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    ts_string16 path16 = ts_str16_from_str8(scratch.arena, path);
+    _string16 path16 = _utf16_from_utf8(scratch.arena, path);
 
     WIN32_FILE_ATTRIBUTE_DATA attribs = { 0 };
     if (GetFileAttributesEx((LPCWSTR)path16.str, GetFileExInfoStandard, &attribs) == FALSE) {
@@ -354,3 +375,4 @@ void ts_thread_pool_wait(ts_thread_pool* tp) {
 }
 
 #endif // PLATFORM_WIN32
+

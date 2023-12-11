@@ -26,19 +26,6 @@ typedef struct {
 } ts_string8;
 
 /**
- * @brief Length based 16-bit string
- * 
- * Null characters are never included <br>
- * This is often used for Windows API functions
- */
-typedef struct {
-    /// Length of string
-    ts_u64 size;
-    /// Pointer to characters
-    ts_u16* str;
-} ts_string16;
-
-/**
  * @brief Node of `ts_string8_list`
  */
 typedef struct ts_string8_node {
