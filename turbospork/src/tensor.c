@@ -284,6 +284,11 @@ ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape k
     return out_shape;
 }
 ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y) {
+    if (stride_x == 0 || stride_y == 0) {
+        fprintf(stderr, "Cannot conv tensors: strides cannot be zero\n");
+
+        return false;
+    }
     ts_tensor_shape out_shape = ts_tensor_conv_shape(input->shape, kernel->shape, stride_x, stride_y);
 
     ts_u64 out_alloc = (ts_u64)out_shape.width * out_shape.height * out_shape.depth;
