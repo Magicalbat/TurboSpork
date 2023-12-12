@@ -61,7 +61,7 @@ ts_tensor* ts_tensor_copy(mg_arena* arena, const ts_tensor* t, ts_b32 keep_alloc
 ts_b32 ts_tensor_copy_ip(ts_tensor* out, const ts_tensor* t) {
     ts_u64 size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
     if (out->alloc < size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot copy ts_tensor: not enough space in out\n");
         #endif
 
@@ -212,7 +212,7 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     ts_u64 data_size = (ts_u64)shape.width * shape.height;
 
     if (out->alloc < data_size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot dot ts_tensor: not enough space in out\n");
         #endif
 
@@ -289,7 +289,7 @@ ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor
     ts_u64 out_alloc = (ts_u64)out_shape.width * out_shape.height * out_shape.depth;
 
     if (out->alloc < out_alloc) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot add ts_tensor: not enough space in out\n");
         #endif
 
@@ -342,9 +342,9 @@ ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tens
     return out;
 }
 
-void ts_tensor_transpose(ts_tensor* t) {
+void ts_tensor_transpose_ip(ts_tensor* t) {
     if (t->shape.depth != 1) {
-        fprintf(stderr, "Cannot transpose ts_tensor with depth");
+        fprintf(stderr, "Cannot transpose ts_tensor with depth\n");
 
         return;
     }
@@ -367,13 +367,30 @@ void ts_tensor_transpose(ts_tensor* t) {
     ts_f32* orig_data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
     memcpy(orig_data, t->data, sizeof(ts_f32) * data_size);
 
-    for (ts_u64 y = 0; y < t->shape.height; y++) {
-        for (ts_u64 x = 0; x < t->shape.width; x++) {
+    for (ts_u64 x = 0; x < t->shape.width; x++) {
+        for (ts_u64 y = 0; y < t->shape.height; y++) {
             t->data[x + y * t->shape.width] = orig_data[y + x * orig_width];
         }
     }
 
     mga_scratch_release(scratch);
+}
+ts_tensor* ts_tensor_transpose(mg_arena* arena, const ts_tensor* t) {
+    if (t->shape.depth != 1) {
+        fprintf(stderr, "Cannot transpose ts_tensor with depth\n");
+
+        return NULL;
+    }
+
+    ts_tensor* out = ts_tensor_create(arena, (ts_tensor_shape){ t->shape.height, t->shape.width, 1 });
+
+    for (ts_u64 x = 0; x < t->shape.width; x++) {
+        for (ts_u64 y = 0; y < t->shape.height; y++) {
+            out->data[x + y * out->shape.width] = t->data[y + x * t->shape.width];
+        }
+    }
+
+    return out;
 }
 
 ts_b32 ts_tensor_add_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) {
@@ -385,7 +402,7 @@ ts_b32 ts_tensor_add_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot add ts_tensor: not enough space in out\n");
         #endif
 
@@ -408,7 +425,7 @@ ts_b32 ts_tensor_sub_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot subtract ts_tensor: not enough space in out\n");
         #endif
 
@@ -431,7 +448,7 @@ ts_b32 ts_tensor_component_mul_ip(ts_tensor* out, const ts_tensor* a, const ts_t
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot multiply ts_tensor: not enough space in out\n");
         #endif
 
@@ -454,7 +471,7 @@ ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_t
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot divide ts_tensor: not enough space in out\n");
         #endif
 
@@ -471,7 +488,7 @@ ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_t
 ts_b32 ts_tensor_scale_ip(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
     ts_u64 data_size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
     if (out->alloc < data_size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot scale ts_tensor: not enough space in out\n");
         #endif
 
@@ -488,7 +505,7 @@ ts_b32 ts_tensor_scale_ip(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
 ts_b32 ts_tensor_sqrt_ip(ts_tensor* out, const ts_tensor* t) {
     ts_u64 data_size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
     if (out->alloc < data_size) {
-        #if ts_tensor_PRINT_IP_ALLOC_ERRORS
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
         fprintf(stderr, "Cannot sqrt ts_tensor: not enough space in out\n");
         #endif
 

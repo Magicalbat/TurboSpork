@@ -60,7 +60,7 @@ void mnist_main(void) {
         .epochs = 2,
         .batch_size = 100,
 
-        .num_threads = 1,
+        .num_threads = 8,
 
         .cost = TS_COST_MEAN_SQUARED_ERROR,
         .optim = (ts_optimizer){

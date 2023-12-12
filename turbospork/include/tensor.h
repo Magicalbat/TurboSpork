@@ -81,7 +81,8 @@ ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor
 ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
 
 // Only works for 2d or less
-void ts_tensor_transpose(ts_tensor* t);
+void ts_tensor_transpose_ip(ts_tensor* t);
+ts_tensor* ts_tensor_transpose(mg_arena* arena, const ts_tensor* t);
 
 ts_b32 ts_tensor_add_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
 ts_b32 ts_tensor_sub_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
