@@ -771,7 +771,7 @@ void _param_init_uniform(ts_tensor* param, ts_f32 lower, ts_f32 upper) {
     ts_u64 size = (ts_u64)param->shape.width * param->shape.height * param->shape.depth;
     for (ts_u64 i = 0; i < size; i++) {
         param->data[i] = ts_prng_rand_f32();
-        param->data[i] = param->data[i] * (upper - lower) - lower;
+        param->data[i] = param->data[i] * (upper - lower) + lower;
     }
 }
 

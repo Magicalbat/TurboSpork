@@ -4,7 +4,7 @@ input:
 flatten:
 
 dense:
-    size = 64;
+    size = 128;
 
 activation:
     type = relu;
@@ -14,4 +14,3 @@ dense:
 
 activation:
     type = softmax;
-

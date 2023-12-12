@@ -51,18 +51,18 @@ void mnist_main(void) {
     //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
     //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
 
-    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tpl"), true);
+    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_feedforward.tpl"), true);
     //network* nn = network_load(perm_arena, STR8("training_nets/network_0001.tpn"), false);
 
     ts_network_summary(nn);
 
     ts_network_train_desc train_desc = {
-        .epochs = 8,
+        .epochs = 2,
         .batch_size = 100,
 
-        .num_threads = 8,
+        .num_threads = 1,
 
-        .cost = TS_COST_CATEGORICAL_CROSS_ENTROPY,
+        .cost = TS_COST_MEAN_SQUARED_ERROR,
         .optim = (ts_optimizer){
             .type = TS_OPTIMIZER_ADAM,
             .learning_rate = 0.001f,
