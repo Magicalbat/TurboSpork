@@ -381,6 +381,9 @@ ts_b32 ts_tensor_im2row_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
         return false;
     }
 
+    out->shape = shape;
+    ts_tensor_fill(out, 0.0f);
+
     for (ts_u32 z = 0; z < input->shape.depth; z++) {
         for (ts_u32 k = 0; k < kernel_size * kernel_size; k++) {
             // Offsets into kernel
@@ -393,12 +396,15 @@ ts_b32 ts_tensor_im2row_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
                     ts_i64 im_x = (ts_i64)(x_off + x * stride) - padding;
                     ts_i64 im_y = (ts_i64)(y_off + y * stride) - padding;
 
-                    ts_u64 out_index = ((ts_u64)x_off + (ts_u64)y_off * kernel_size + (ts_u64)z * kernel_size * kernel_size) + (ts_u64)(x + y) * shape.width;
+                    // Index into rows
+                    ts_u64 out_index = ((((ts_u64)x + y) * input->shape.depth) + z) * kernel_size * kernel_size + k;
+                    // Index into input image
+                    ts_u64 in_index = ((ts_u64)z * input->shape.height + im_y) * input->shape.width + im_x;
 
                     if (im_x < 0 || im_y < 0 || im_x >= input->shape.width || im_y >= input->shape.height)
                         out->data[out_index] = 0.0f;
                     else
-                        out->data[out_index] = input->data[(ts_u64)im_x + ((ts_u64)y + (ts_u64)z * input->shape.height) * input->shape.width];
+                        out->data[out_index] = input->data[in_index];
                 }
             }
         }
@@ -426,8 +432,59 @@ ts_tensor* ts_tensor_im2row(mg_arena* arena, const ts_tensor* input, ts_u32 kern
     return out;
 }
 
-ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
-ts_tensor* ts_tensor_row2im(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+    if (stride == 0) {
+        fprintf(stderr, "Cannot convert rows to image: stride is zero\n");
+
+        return false;
+    }
+    if (out->data == input->data) {
+        fprintf(stderr, "Cannot convert rows to image: out and input overlap");
+
+        return false;
+    }
+
+    ts_u64 out_alloc = (ts_u64)out_shape.width * out_shape.height * out_shape.depth;
+    if (out->alloc < out_alloc) {
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot convert rows to image: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+    out->shape = out_shape;
+    ts_tensor_fill(out, 0.0f);
+
+    ts_u32 x_kernels = (out_shape.width + padding * 2 - kernel_size) / stride + 1;
+    ts_u32 y_kernels = (out_shape.height + padding * 2 - kernel_size) / stride + 1;
+
+    for (ts_u32 z = 0; z < out_shape.depth; z++) {
+        for (ts_u32 k = 0; k < kernel_size * kernel_size; k++) {
+            // Offsets into kernel
+            ts_u32 x_off = k % kernel_size;
+            ts_u32 y_off = k / kernel_size;
+
+            for (ts_u32 y = 0; y < y_kernels; y++) {
+                for (ts_u32 x = 0; x < x_kernels; x++) {
+                    // Image posisitons
+                    ts_i64 im_x = (ts_i64)(x_off + x * stride) - padding;
+                    ts_i64 im_y = (ts_i64)(y_off + y * stride) - padding;
+
+                    // Index into rows
+                    ts_u64 in_index = ((((ts_u64)x + y) * out_shape.depth) + z) * kernel_size * kernel_size + k;
+                    // Index into input image
+                    ts_u64 out_index = ((ts_u64)z * out_shape.height + im_y) * out_shape.width + im_x;
+
+                    if (im_x >= 0 && im_y >= 0 && im_x < input->shape.width && im_y < input->shape.height)
+                        out->data[out_index] = input->data[in_index];
+                }
+            }
+        }
+    }
+
+    return true;
+}
+ts_tensor* ts_tensor_row2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
 
 void ts_tensor_transpose_ip(ts_tensor* t) {
     if (t->shape.depth != 1) {
