@@ -35,7 +35,7 @@ void mnist_main(void) {
     mga_scratch_set_desc(&desc);
 
     u64 seeds[2] = { 0 };
-    ts_get_entropy(seeds, sizeof(seeds));
+    //ts_get_entropy(seeds, sizeof(seeds));
     ts_prng_seed(seeds[0], seeds[1]);
 
     dataset data = { 0 };
