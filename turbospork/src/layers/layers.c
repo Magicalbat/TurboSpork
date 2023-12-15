@@ -200,8 +200,7 @@ static const ts_layer_desc _default_descs[TS_LAYER_COUNT] = {
     },
     [TS_LAYER_CONV_2D] = {
         .conv_2d = (ts_layer_conv_2d_desc) {
-            .stride_x = 1,
-            .stride_y = 1,
+            .stride = 1,
             .kernels_init = TS_PARAM_INIT_HE_NORMAL,
             .biases_init = TS_PARAM_INIT_ZEROS
         }
@@ -248,8 +247,7 @@ ts_layer_desc ts_layer_desc_apply_default(const ts_layer_desc* desc) {
             ts_layer_conv_2d_desc* out_c = &out.conv_2d;
             const ts_layer_conv_2d_desc* def_c = &def->conv_2d;
 
-            _PARAM_DEFAULT(out_c->stride_x, def_c->stride_x);
-            _PARAM_DEFAULT(out_c->stride_y, def_c->stride_y);
+            _PARAM_DEFAULT(out_c->stride, def_c->stride);
 
             _PARAM_DEFAULT(out_c->kernels_init, def_c->kernels_init);
             _PARAM_DEFAULT(out_c->biases_init, def_c->biases_init);
@@ -390,17 +388,16 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
             ts_string8 conv_2d_str = ts_str8_pushf(
                 arena,
                 "   num_filters = %u;\n"
-                "   kernel_size = (%u, %u);\n"
+                "   kernel_size = %u;\n"
                 "   padding = %s;\n"
-                "   stride_x = %u;\n"
-                "   stride_y = %u;\n"
+                "   stride = %u;\n"
                 "   kernels_init = %s;\n"
                 "   bias_init = %s;\n",
 
                 cdesc->num_filters,
-                cdesc->kernel_size.width, cdesc->kernel_size.height, 
+                cdesc->kernel_size, 
                 cdesc->padding ? "true" : "false",
-                cdesc->stride_x, cdesc->stride_y,
+                cdesc->stride,
                 _param_init_names[cdesc->kernels_init],
                 _param_init_names[cdesc->biases_init]
             );
@@ -721,19 +718,15 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("kernel_size"))) {
-                    _parse_res res = _parse_ts_tensor_shape(&out.conv_2d.kernel_size, value);
+                    _parse_res res = _parse_ts_u32(&out.conv_2d.kernel_size, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("padding"))) {
                     _parse_res res = _parse_ts_b32(&out.conv_2d.padding, value);
 
                     _PARSE_RES_ERR_CHECK(res);
-                } else if (ts_str8_equals(key, TS_STR8("stride_x"))) {
-                    _parse_res res = _parse_ts_u32(&out.conv_2d.stride_x, value);
-
-                    _PARSE_RES_ERR_CHECK(res);
-                } else if (ts_str8_equals(key, TS_STR8("stride_y"))) {
-                    _parse_res res = _parse_ts_u32(&out.conv_2d.stride_x, value);
+                } else if (ts_str8_equals(key, TS_STR8("stride"))) {
+                    _parse_res res = _parse_ts_u32(&out.conv_2d.stride, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("kernels_init"))) {

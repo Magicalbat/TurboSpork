@@ -208,11 +208,9 @@ typedef struct {
     ts_u32 num_filters;
 
     /**
-     * @brief Size of kernel for convolution operation
-     *
-     * depth of `kernel_size` is ignored
+     * @brief Side length of kernel for convolution operation
      */
-    ts_tensor_shape kernel_size;
+    ts_u32 kernel_size;
 
     /**
      * @brief Adds padding to input before the convolution operation
@@ -222,10 +220,8 @@ typedef struct {
      */
     ts_b32 padding;
 
-    /// x stride for convolution. Defaults to 1
-    ts_u32 stride_x;
-    /// y stride for convolution. Defaults to 1
-    ts_u32 stride_y;
+    /// Stride for convolution. Defaults to 1
+    ts_u32 stride;
 
     /**
      * @brief Initialization type for kernels

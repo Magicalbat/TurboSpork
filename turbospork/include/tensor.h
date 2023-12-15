@@ -215,6 +215,52 @@ ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor
 ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
 
 /**
+ * @brief Implements the `im2col` function, but `ts_tensor`s are row major, so it is im2row. In place version
+ *
+ * Converts 3d sections of the input image into rows in the output image. <br>
+ * `input` and `out` cannot be the same or overlap. <br>
+ * Commonly used in convolutional layers to speed up convolutions
+ *
+ * @param out Output rows
+ * @param input Input image
+ * @param kernel_size Side length of kernel
+ * @param padding Padding of image on each side of x and y
+ * @param stride Stride of convolution
+ *
+ * @return true if `out` is big enough
+ */
+ts_b32 ts_tensor_im2row_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+/**
+ * @brief Implements the `im2col` function, but `ts_tensor`s are row major, so it is im2row
+ *
+ * See `ts_tensor_im2row_ip` for details
+ */
+ts_tensor* ts_tensor_im2row(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+
+/**
+ * @brief Row major version of the `col2im` function. In place version
+ *
+ * Converts rows of input matrix into an image. 
+ * Used in convolution layers
+ *
+ * @param out Output image
+ * @param input 2D input matrix
+ * @param kernel_size Side length of kernel
+ * @param padding Padding of image on each side of x and y
+ * @param stride Stride of convolution
+ *
+ * @return true if `out` is big enough
+ */
+ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+/**
+ * @brief Row major version of the `col2im` function.
+ *
+ * See `ts_tensor_row2im` for details
+ */
+ts_tensor* ts_tensor_row2im(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+
+
+/**
  * @brief Transposes a 2D tensor in place
  *
  * Must be 2D

@@ -241,16 +241,16 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     out->shape = shape;
     memset(out->data, 0, sizeof(ts_f32) * data_size);
 
-    for (ts_u32 y = 0; y < shape.height; y++) {
+    for (ts_u32 y = 0; y < out->shape.height; y++) {
         for (ts_u32 i = 0; i < a_width; i++) {
             // This does not change throughout the inner loop
             ts_f32 a_elem = a_data[(ts_u64)i + (ts_u64)y * a_width];
-            for (ts_u32 x = 0; x < shape.width; x++) {
-                out->data[(ts_u64)x + (ts_u64)y * shape.width] += a_elem * b_data[(ts_u64)x + (ts_u64)i * b_width];
+            for (ts_u32 x = 0; x < out->shape.width; x++) {
+                out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += a_elem * b_data[(ts_u64)x + (ts_u64)i * b_width];
             }
         }
     }
-
+    
     mga_scratch_release(scratch);
 
     return true;
@@ -278,8 +278,8 @@ ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape k
         return out_shape;
     }
 
-    out_shape.width = (in_shape.width - kernel_shape.width + 1) / stride_x;
-    out_shape.height = (in_shape.height - kernel_shape.height + 1) / stride_y;
+    out_shape.width = (in_shape.width - kernel_shape.width) / stride_x + 1;
+    out_shape.height = (in_shape.height - kernel_shape.height) / stride_y + 1;
 
     return out_shape;
 }
@@ -295,7 +295,7 @@ ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor
 
     if (out->alloc < out_alloc) {
         #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot add ts_tensor: not enough space in out\n");
+        fprintf(stderr, "Cannot conv ts_tensor: not enough space in out\n");
         #endif
 
         return false;
@@ -346,6 +346,88 @@ ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tens
 
     return out;
 }
+
+
+ts_b32 ts_tensor_im2row_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+    if (stride == 0) {
+        fprintf(stderr, "Cannot convert image to rows: stride is zero\n");
+
+        return false;
+    }
+    if (out->data == input->data) {
+        fprintf(stderr, "Cannot convert image to rows: out and input overlap");
+
+        return false;
+    }
+
+    // Number of kernels that fit in input on the x and y axes
+    ts_u32 x_kernels = (input->shape.width + padding * 2 - kernel_size) / stride + 1;
+    ts_u32 y_kernels = (input->shape.height + padding * 2 - kernel_size) / stride + 1;
+
+    ts_u32 height = x_kernels * y_kernels;
+
+    ts_tensor_shape shape = {
+        input->shape.depth * kernel_size * kernel_size,
+        height,
+        1
+    };
+
+    ts_u64 out_alloc = (ts_u64)shape.width * shape.height * shape.depth;
+    if (out->alloc < out_alloc) {
+        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
+        fprintf(stderr, "Cannot convert image to rows: not enough space in out\n");
+        #endif
+
+        return false;
+    }
+
+    for (ts_u32 z = 0; z < input->shape.depth; z++) {
+        for (ts_u32 k = 0; k < kernel_size * kernel_size; k++) {
+            // Offsets into kernel
+            ts_u32 x_off = k % kernel_size;
+            ts_u32 y_off = k / kernel_size;
+
+            for (ts_u32 y = 0; y < y_kernels; y++) {
+                for (ts_u32 x = 0; x < x_kernels; x++) {
+                    // Image posisitons
+                    ts_i64 im_x = (ts_i64)(x_off + x * stride) - padding;
+                    ts_i64 im_y = (ts_i64)(y_off + y * stride) - padding;
+
+                    ts_u64 out_index = ((ts_u64)x_off + (ts_u64)y_off * kernel_size + (ts_u64)z * kernel_size * kernel_size) + (ts_u64)(x + y) * shape.width;
+
+                    if (im_x < 0 || im_y < 0 || im_x >= input->shape.width || im_y >= input->shape.height)
+                        out->data[out_index] = 0.0f;
+                    else
+                        out->data[out_index] = input->data[(ts_u64)im_x + ((ts_u64)y + (ts_u64)z * input->shape.height) * input->shape.width];
+                }
+            }
+        }
+    }
+
+    return true;
+}
+ts_tensor* ts_tensor_im2row(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+    // Number of kernels that fit in input on the x and y axes
+    ts_u32 x_kernels = (input->shape.width + padding * 2 - kernel_size) / stride + 1;
+    ts_u32 y_kernels = (input->shape.height + padding * 2 - kernel_size) / stride + 1;
+
+    ts_u32 height = x_kernels * y_kernels;
+
+    ts_tensor_shape shape = {
+        input->shape.depth * kernel_size * kernel_size,
+        height,
+        1
+    };
+
+    ts_tensor* out = ts_tensor_create(arena, shape);
+
+    ts_tensor_im2row_ip(out, input, kernel_size, padding, stride);
+
+    return out;
+}
+
+ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_tensor* ts_tensor_row2im(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
 
 void ts_tensor_transpose_ip(ts_tensor* t) {
     if (t->shape.depth != 1) {

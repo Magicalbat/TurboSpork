@@ -6,24 +6,23 @@ void _layer_conv_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* 
     _layer_conv_2d_backend* conv = &out->conv_2d_backend;
 
     conv->kernel_size = cdesc->kernel_size;
-    conv->stride_x = cdesc->stride_x;
-    conv->stride_y = cdesc->stride_y;
+    conv->stride = cdesc->stride;
 
     conv->input_shape = prev_shape;
     conv->padded_shape = prev_shape;
 
     if (cdesc->padding) {
         // Padding so that out_shape == in_shape when stride is 1
-        conv->padded_shape.width += conv->kernel_size.width - 1;
-        conv->padded_shape.height += conv->kernel_size.height - 1;
+        conv->padded_shape.width += conv->kernel_size - 1;
+        conv->padded_shape.height += conv->kernel_size - 1;
     }
 
-    out->shape = ts_tensor_conv_shape(conv->padded_shape, conv->kernel_size, conv->stride_x, conv->stride_y);
+    out->shape = ts_tensor_conv_shape(conv->padded_shape, (ts_tensor_shape){ conv->kernel_size, conv->kernel_size, 1 }, conv->stride, conv->stride);
     out->shape.depth = cdesc->num_filters;
 
     // Have to collapse one dimension because ts_tensors are only 3d
     ts_tensor_shape kernels_shape = {
-        .width = conv->kernel_size.width * conv->kernel_size.height,
+        .width = conv->kernel_size * conv->kernel_size,
         .height = prev_shape.depth,
         .depth = cdesc->num_filters
     };
@@ -94,7 +93,7 @@ void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache*
     ts_tensor output_view = { 0 };
 
     // Stores individual kernel of each iteration
-    ts_tensor kernel_view = { .shape = conv->kernel_size };
+    ts_tensor kernel_view = { .shape = (ts_tensor_shape){ conv->kernel_size, conv->kernel_size, 1 } };
     ts_tensor_shape kernels_shape = conv->kernels->shape;
 
     // Used for storing a conv output before adding to output
@@ -109,7 +108,7 @@ void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache*
             ts_u64 kernel_index = (ts_u64)i_z * kernels_shape.width + (ts_u64)o_z * kernels_shape.width * kernels_shape.height;
             kernel_view.data = &conv->kernels->data[kernel_index];
 
-            ts_tensor_conv_ip(out_temp, &input_view, &kernel_view, conv->stride_x, conv->stride_y);
+            ts_tensor_conv_ip(out_temp, &input_view, &kernel_view, conv->stride, conv->stride);
 
             ts_tensor_add_ip(&output_view, &output_view, out_temp);
         }
@@ -137,8 +136,8 @@ void _layer_conv_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cac
     ts_tensor delta_view = { 0 };
 
     // Stores individual kernel and kernel change of each iteration
-    ts_tensor kernel_view = { .shape = conv->kernel_size };
-    ts_tensor kernel_change_view = { .shape = conv->kernel_size };
+    ts_tensor kernel_view = { .shape = (ts_tensor_shape){ conv->kernel_size, conv->kernel_size, 1 } };
+    ts_tensor kernel_change_view = { .shape = (ts_tensor_shape){ conv->kernel_size, conv->kernel_size, 1 } };
     ts_tensor_shape kernels_shape = conv->kernels->shape;
 
     // Input and Delta out pos: i_x, i_y, i_z
@@ -155,8 +154,8 @@ void _layer_conv_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cac
             kernel_view.data = &conv->kernels->data[kernel_index];
             kernel_change_view.data = &kernels_change->data[kernel_index];
 
-            for (ts_u32 d_y = 0, i_y = 0; d_y < delta_view.shape.height; d_y++, i_y += conv->stride_y) {
-                for (ts_u32 d_x = 0, i_x = 0; d_x < delta_view.shape.width; d_x++, i_x += conv->stride_x) {
+            for (ts_u32 d_y = 0, i_y = 0; d_y < delta_view.shape.height; d_y++, i_y += conv->stride) {
+                for (ts_u32 d_x = 0, i_x = 0; d_x < delta_view.shape.width; d_x++, i_x += conv->stride) {
                     ts_u64 delta_view_pos = (ts_u64)d_x + (ts_u64)d_y * delta_view.shape.width;
 
                     ts_f32 cur_orig_delta = delta_view.data[delta_view_pos];

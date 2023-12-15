@@ -37,15 +37,14 @@ typedef struct {
 } _layer_pooling_2d_backend;
 
 typedef struct {
-    ts_tensor_shape kernel_size;
+    ts_u32 kernel_size;
 
-    // Shape is (kernel_size.w * kernel_size.h, in_filters, out_filters)
+    // Shape is (kernel_size * kernel_size, in_filters, out_filters)
     ts_tensor* kernels;
     // Shape is out_shape
     ts_tensor* biases; 
 
-    ts_u32 stride_x;
-    ts_u32 stride_y;
+    ts_u32 stride;
 
     ts_tensor_shape input_shape;
     ts_tensor_shape padded_shape;

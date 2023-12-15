@@ -3,7 +3,7 @@ input:
 
 conv_2d:
    num_filters = 16;
-   kernel_size = (3, 3);
+   kernel_size = 3;
 
 activation:
     type = relu;
@@ -14,7 +14,7 @@ pooling_2d:
 
 conv_2d:
    num_filters = 32;
-   kernel_size = (3, 3);
+   kernel_size = 3;
 
 activation:
     type = relu;
