@@ -41,6 +41,9 @@ void _layer_conv_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* 
     }
 }
 
+// TODO: remove
+#include <stdio.h>
+#include <stdlib.h>
 void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache) {
     _layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
@@ -89,6 +92,24 @@ void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache*
     output->shape = l->shape;
     ts_tensor_fill(output, 0.0f);
 
+    // Article explaining how to turn conv into mat mul
+    // https://sahnimanas.github.io/post/anatomy-of-a-high-performance-convolution/
+
+#if 1
+
+    ts_tensor* input_cols = ts_tensor_im2col(scratch.arena, input, conv->kernel_size, 0, conv->stride);
+
+    ts_tensor k = *conv->kernels;
+    k.shape = (ts_tensor_shape){
+        k.shape.width * k.shape.height, k.shape.depth, 1
+    };
+
+    ts_tensor_dot_ip(output, &k, input_cols);
+
+    output->shape = l->shape;
+
+#else
+
     ts_tensor input_view = { 0 };
     ts_tensor output_view = { 0 };
 
@@ -113,6 +134,7 @@ void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache*
             ts_tensor_add_ip(&output_view, &output_view, out_temp);
         }
     }
+#endif
 
     ts_tensor_add_ip(output, output, conv->biases);
 

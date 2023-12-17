@@ -170,9 +170,12 @@ ts_tensor* ts_tensor_slice_size(mg_arena* arena, const ts_tensor* tensor, ts_ten
 void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* tensor, ts_u32 z);
 
 /**
- * @brief Computes the dot product of `a` and `b`. MUST BE 2D TENSORS (depth == 1)
+ * @brief Computes the dot product of `a` and `b`.
  *
- * @param out Output of dot product. Needs to be big enough
+ * `a` and `b` have to be 2D.
+ * `a.width` must equal `b.height`
+ *
+ * @param out Output of dot product. Needs to be big enough (i.e. (b.width, a.height, 1))
  * @param a First tensor
  * @param b Second tensor
  *
@@ -180,7 +183,7 @@ void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* tensor, ts_u32 z);
  */
 ts_b32 ts_tensor_dot_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
 /**
- * @brief Computes the dot product of `a` and `b`. MUST BE 2D TENSORS (depth == 1)
+ * @brief Computes the dot product of `a` and `b`. Must be 2D tensors (depth == 1)
  *
  * See `ts_tensor_dot_ip` for more
  */
@@ -194,7 +197,7 @@ ts_tensor* ts_tensor_dot(mg_arena* arena, const ts_tensor* a, const ts_tensor* b
 ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape kernel_shape, ts_u32 stride_x, ts_u32 stride_y);
 
 /**
- * @brief Computes the convolution of `input` and `kernel`. MUST BE 2D TENSORS (depth == 1)
+ * @brief Computes the convolution of `input` and `kernel`. Must be 2D tensors (depth == 1)
  *
  * Kernel is always completely within the input 
  *
@@ -208,14 +211,14 @@ ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape k
  */
 ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
 /**
- * @brief Computes the convolution of `input` and `kernel` and returns it. MUST BE 2D TENSORS (depth == 1)
+ * @brief Computes the convolution of `input` and `kernel` and returns it. Must be 2D tensors (depth == 1)
  *
  * See `ts_tensor_conv_ip` for more detail
  */
 ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
 
 /**
- * @brief Implements the `im2col` function, but `ts_tensor`s are row major, so it is im2row. In place version
+ * @brief Implements the famous `im2col` function. In place version
  *
  * Converts 3d sections of the input image into rows in the output image. <br>
  * `input` and `out` cannot be the same or overlap. <br>
@@ -229,16 +232,16 @@ ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tens
  *
  * @return true if `out` is big enough
  */
-ts_b32 ts_tensor_im2row_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
 /**
- * @brief Implements the `im2col` function, but `ts_tensor`s are row major, so it is im2row
+ * @brief Implements the `im2col` function
  *
- * See `ts_tensor_im2row_ip` for details
+ * See `ts_tensor_im2col_ip` for details
  */
-ts_tensor* ts_tensor_im2row(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
 
 /**
- * @brief Row major version of the `col2im` function. In place version
+ * @brief Implements the famous `col2im` function. In place version
  *
  * Converts rows of input matrix into an image. 
  * Used in convolution layers
@@ -252,14 +255,13 @@ ts_tensor* ts_tensor_im2row(mg_arena* arena, const ts_tensor* input, ts_u32 kern
  *
  * @return true if `out` is big enough
  */
-ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
 /**
- * @brief Row major version of the `col2im` function.
+ * @brief Implements the famour `col2im` function.
  *
- * See `ts_tensor_row2im` for details
+ * See `ts_tensor_col2im` for details
  */
-ts_tensor* ts_tensor_row2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
-
+ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
 
 /**
  * @brief Transposes a 2D tensor in place

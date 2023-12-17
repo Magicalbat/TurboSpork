@@ -347,14 +347,14 @@ ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tens
     return out;
 }
 
-ts_b32 ts_tensor_im2row_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
     if (stride == 0) {
-        fprintf(stderr, "Cannot convert image to rows: stride is zero\n");
+        fprintf(stderr, "Cannot convert image to cols: stride is zero\n");
 
         return false;
     }
     if (out->data == input->data) {
-        fprintf(stderr, "Cannot convert image to rows: out and input overlap");
+        fprintf(stderr, "Cannot convert image to cols: out and input overlap");
 
         return false;
     }
@@ -364,61 +364,77 @@ ts_b32 ts_tensor_im2row_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
     ts_u32 y_kernels = (input->shape.height + padding * 2 - kernel_size) / stride + 1;
 
     ts_tensor_shape shape = {
-        input->shape.depth * kernel_size * kernel_size,
         x_kernels * y_kernels,
+        input->shape.depth * kernel_size * kernel_size,
         1
     };
 
     ts_u64 out_alloc = (ts_u64)shape.width * shape.height * shape.depth;
     if (out->alloc < out_alloc) {
         #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot convert image to rows: not enough space in out\n");
+        fprintf(stderr, "Cannot convert image to cols: not enough space in out\n");
         #endif
 
         return false;
     }
 
-    ///out->shape = shape;
-    out->shape = (ts_tensor_shape){ 
+    out->shape = shape;
+    ts_tensor_fill(out, 0.0f);
+
+    for (ts_u32 z = 0; z < input->shape.depth; z++) {
+        for (ts_u32 k = 0; k < kernel_size * kernel_size; k++) {
+            ts_u32 x_off = k % kernel_size;
+            ts_u32 y_off = k / kernel_size;
+
+            for (ts_u32 y = 0; y < y_kernels; y++) {
+                for (ts_u32 x = 0; x < x_kernels; x++) {
+                    ts_u32 in_x = x_off + x * stride;
+                    ts_u32 in_y = y_off + y * stride;
+                    ts_u64 in_index = ((ts_u64)z * input->shape.height + in_y) * input->shape.width + in_x;
+
+                    ts_u32 out_x = y * x_kernels + x;
+                    ts_u32 out_y = (z * kernel_size * kernel_size) + k;
+                    ts_u64 out_index = (ts_u64)out_y * out->shape.width + out_x;
+
+
+                    if (in_x < 0 || in_y < 0 || in_x >= input->shape.width || in_y >= input->shape.height) {
+                        out->data[out_index] = 0.0f;
+                    } else {
+                        out->data[out_index] = input->data[in_index];
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
+}
+ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+    // Number of kernels that fit in input on the x and y axes
+    ts_u32 x_kernels = (input->shape.width + padding * 2 - kernel_size) / stride + 1;
+    ts_u32 y_kernels = (input->shape.height + padding * 2 - kernel_size) / stride + 1;
+
+    ts_tensor_shape shape = {
         x_kernels * y_kernels,
         input->shape.depth * kernel_size * kernel_size,
         1
     };
 
-    ts_tensor_fill(out, 0.0f);
-
-    // TODO: make function
-
-    return true;
-}
-ts_tensor* ts_tensor_im2row(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
-    // Number of kernels that fit in input on the x and y axes
-    ts_u32 x_kernels = (input->shape.width + padding * 2 - kernel_size) / stride + 1;
-    ts_u32 y_kernels = (input->shape.height + padding * 2 - kernel_size) / stride + 1;
-
-    ts_u32 height = x_kernels * y_kernels;
-
-    ts_tensor_shape shape = {
-        input->shape.depth * kernel_size * kernel_size,
-        height,
-        1
-    };
-
     ts_tensor* out = ts_tensor_create(arena, shape);
 
-    ts_tensor_im2row_ip(out, input, kernel_size, padding, stride);
+    ts_tensor_im2col_ip(out, input, kernel_size, padding, stride);
 
     return out;
 }
 
-ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
     if (stride == 0) {
-        fprintf(stderr, "Cannot convert rows to image: stride is zero\n");
+        fprintf(stderr, "Cannot convert cols to image: stride is zero\n");
 
         return false;
     }
     if (out->data == input->data) {
-        fprintf(stderr, "Cannot convert rows to image: out and input overlap");
+        fprintf(stderr, "Cannot convert cols to image: out and input overlap");
 
         return false;
     }
@@ -426,7 +442,7 @@ ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_sha
     ts_u64 out_alloc = (ts_u64)out_shape.width * out_shape.height * out_shape.depth;
     if (out->alloc < out_alloc) {
         #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot convert rows to image: not enough space in out\n");
+        fprintf(stderr, "Cannot convert cols to image: not enough space in out\n");
         #endif
 
         return false;
@@ -441,7 +457,7 @@ ts_b32 ts_tensor_row2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_sha
 
     return true;
 }
-ts_tensor* ts_tensor_row2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
 
 void ts_tensor_transpose_ip(ts_tensor* t) {
     if (t->shape.depth != 1) {
