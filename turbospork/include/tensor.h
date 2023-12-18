@@ -227,18 +227,18 @@ ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tens
  * @param out Output rows
  * @param input Input image
  * @param kernel_size Side length of kernel
- * @param padding Padding of image on each side of x and y
  * @param stride Stride of convolution
+ * @param padding Padding of image on each side of x and y
  *
  * @return true if `out` is big enough
  */
-ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding);
 /**
  * @brief Implements the `im2col` function
  *
  * See `ts_tensor_im2col_ip` for details
  */
-ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding);
 
 /**
  * @brief Implements the famous `col2im` function. In place version
@@ -250,18 +250,18 @@ ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kern
  * @param input 2D input matrix
  * @param out_shape Shape of output image (width, height, channels)
  * @param kernel_size Side length of kernel
- * @param padding Padding of image on each side of x and y
  * @param stride Stride of convolution
+ * @param padding Padding of image on each side of x and y
  *
  * @return true if `out` is big enough
  */
-ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding);
 /**
  * @brief Implements the famour `col2im` function.
  *
  * See `ts_tensor_col2im` for details
  */
-ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding);
 
 /**
  * @brief Transposes a 2D tensor in place

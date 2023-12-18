@@ -389,8 +389,8 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
                 arena,
                 "   num_filters = %u;\n"
                 "   kernel_size = %u;\n"
-                "   padding = %s;\n"
                 "   stride = %u;\n"
+                "   padding = %s;\n"
                 "   kernels_init = %s;\n"
                 "   bias_init = %s;\n",
 

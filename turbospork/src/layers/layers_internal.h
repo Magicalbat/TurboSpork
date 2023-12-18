@@ -45,9 +45,9 @@ typedef struct {
     ts_tensor* biases; 
 
     ts_u32 stride;
+    ts_u32 padding;
 
     ts_tensor_shape input_shape;
-    ts_tensor_shape padded_shape;
 
     // Training mode
     ts_param_change kernels_change;

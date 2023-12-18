@@ -7,17 +7,19 @@ void _layer_conv_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* 
 
     conv->kernel_size = cdesc->kernel_size;
     conv->stride = cdesc->stride;
-
     conv->input_shape = prev_shape;
-    conv->padded_shape = prev_shape;
 
     if (cdesc->padding) {
         // Padding so that out_shape == in_shape when stride is 1
-        conv->padded_shape.width += conv->kernel_size - 1;
-        conv->padded_shape.height += conv->kernel_size - 1;
+        conv->padding = (conv->kernel_size - 1) / 2;
     }
 
-    out->shape = ts_tensor_conv_shape(conv->padded_shape, (ts_tensor_shape){ conv->kernel_size, conv->kernel_size, 1 }, conv->stride, conv->stride);
+    ts_tensor_shape padded_shape = (ts_tensor_shape){
+        prev_shape.width + conv->padding * 2,
+        prev_shape.height + conv->padding * 2,
+        prev_shape.depth
+    };
+    out->shape = ts_tensor_conv_shape(padded_shape, (ts_tensor_shape){ conv->kernel_size, conv->kernel_size, 1 }, conv->stride, conv->stride);
     out->shape.depth = cdesc->num_filters;
 
     // Have to collapse one dimension because ts_tensors are only 3d
@@ -41,63 +43,26 @@ void _layer_conv_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* 
     }
 }
 
-// TODO: remove
-#include <stdio.h>
-#include <stdlib.h>
 void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache) {
     _layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     mga_temp scratch = { 0 };
-    mg_arena* input_arena = NULL;
     if (cache != NULL) {
         scratch = mga_scratch_get(&cache->arena, 1);
-        input_arena = cache->arena;
+
+        ts_tensor* input = ts_tensor_copy(cache->arena, in_out, false);
+        ts_layers_cache_push(cache, input);
     } else {
         scratch = mga_scratch_get(NULL, 0);
-        input_arena = scratch.arena;
     }
-
-    ts_tensor* input = NULL;
-    if (ts_tensor_shape_eq(in_out->shape, conv->padded_shape)){
-        input = ts_tensor_copy(input_arena, in_out, false);
-    } else {
-        // Create padded shape
-        input = ts_tensor_create(input_arena, conv->padded_shape);
-
-        ts_u32 x_off = (conv->padded_shape.width - in_out->shape.width) / 2;
-        ts_u32 y_off = (conv->padded_shape.height - in_out->shape.height) / 2;
-
-        for (ts_u32 z = 0; z < in_out->shape.depth; z++) {
-            for (ts_u32 y = 0; y < in_out->shape.height; y++) {
-                for (ts_u32 x = 0; x < in_out->shape.width; x++) {
-                    ts_u64 in_out_index = (ts_u64)x +
-                        (ts_u64)y * in_out->shape.width +
-                        (ts_u64)z * in_out->shape.width * in_out->shape.height;
-                    ts_u64 input_index = (ts_u64)x + x_off +
-                        (ts_u64)(y + y_off) * conv->padded_shape.width +
-                        (ts_u64)z * conv->padded_shape.width * conv->padded_shape.height;
-
-                    input->data[input_index] = in_out->data[in_out_index];
-                }
-            }
-        }
-    }
-
-    if (cache != NULL) {
-        ts_layers_cache_push(cache, input);
-    }
-
-    // Renaming for clarity
-    ts_tensor* output = in_out;
-    output->shape = l->shape;
-    ts_tensor_fill(output, 0.0f);
 
     // Article explaining how to turn conv into mat mul
     // https://sahnimanas.github.io/post/anatomy-of-a-high-performance-convolution/
 
-#if 1
+    // Renaming for clarity
+    ts_tensor* output = in_out;
 
-    ts_tensor* input_cols = ts_tensor_im2col(scratch.arena, input, conv->kernel_size, 0, conv->stride);
+    ts_tensor* input_cols = ts_tensor_im2col(scratch.arena, in_out, conv->kernel_size, conv->stride, conv->padding);
 
     ts_tensor k = *conv->kernels;
     k.shape = (ts_tensor_shape){
@@ -107,34 +72,6 @@ void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache*
     ts_tensor_dot_ip(output, &k, input_cols);
 
     output->shape = l->shape;
-
-#else
-
-    ts_tensor input_view = { 0 };
-    ts_tensor output_view = { 0 };
-
-    // Stores individual kernel of each iteration
-    ts_tensor kernel_view = { .shape = (ts_tensor_shape){ conv->kernel_size, conv->kernel_size, 1 } };
-    ts_tensor_shape kernels_shape = conv->kernels->shape;
-
-    // Used for storing a conv output before adding to output
-    ts_tensor* out_temp = ts_tensor_create(scratch.arena, (ts_tensor_shape){ output->shape.width, output->shape.height, 1 });
-
-    for (ts_u32 o_z = 0; o_z < output->shape.depth; o_z++) {
-        ts_tensor_2d_view(&output_view, output, o_z);
-
-        for (ts_u32 i_z = 0; i_z < input->shape.depth; i_z++) {
-            ts_tensor_2d_view(&input_view, input, i_z);
-
-            ts_u64 kernel_index = (ts_u64)i_z * kernels_shape.width + (ts_u64)o_z * kernels_shape.width * kernels_shape.height;
-            kernel_view.data = &conv->kernels->data[kernel_index];
-
-            ts_tensor_conv_ip(out_temp, &input_view, &kernel_view, conv->stride, conv->stride);
-
-            ts_tensor_add_ip(&output_view, &output_view, out_temp);
-        }
-    }
-#endif
 
     ts_tensor_add_ip(output, output, conv->biases);
 
@@ -199,13 +136,10 @@ void _layer_conv_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cac
         }
     }
 
-    if (ts_tensor_shape_eq(conv->input_shape, conv->padded_shape)) {
+    if (conv->padding == 0) {
         ts_tensor_copy_ip(delta, delta_out);
     } else {
         delta->shape = conv->input_shape;
-
-        ts_u32 x_off = (conv->padded_shape.width - conv->input_shape.width) / 2;
-        ts_u32 y_off = (conv->padded_shape.height - conv->input_shape.height) / 2;
 
         for (ts_u32 z = 0; z < delta->shape.depth; z++) {
             for (ts_u32 y = 0; y < delta->shape.height; y++) {
@@ -213,8 +147,9 @@ void _layer_conv_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cac
                     ts_u64 delta_pos = (ts_u64)x + 
                         (ts_u64)y * delta->shape.width + 
                         (ts_u64)z * delta->shape.width * delta->shape.height;
-                    ts_u64 padded_delta_pos = (ts_u64)(x + x_off) + 
-                        (ts_u64)(y + y_off) * delta_out->shape.width + 
+
+                    ts_u64 padded_delta_pos = (ts_u64)(x + conv->padding) + 
+                        (ts_u64)(y + conv->padding) * delta_out->shape.width + 
                         (ts_u64)z * delta_out->shape.width * delta_out->shape.height;
 
                     delta->data[delta_pos] = delta_out->data[padded_delta_pos];

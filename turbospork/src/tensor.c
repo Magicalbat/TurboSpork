@@ -347,7 +347,7 @@ ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tens
     return out;
 }
 
-ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
     if (stride == 0) {
         fprintf(stderr, "Cannot convert image to cols: stride is zero\n");
 
@@ -409,7 +409,13 @@ ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
 
     return true;
 }
-ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
+    if (stride == 0) {
+        fprintf(stderr, "Cannot convert image to cols: stride is zero\n");
+
+        return false;
+    }
+
     // Number of kernels that fit in input on the x and y axes
     ts_u32 x_kernels = (input->shape.width + padding * 2 - kernel_size) / stride + 1;
     ts_u32 y_kernels = (input->shape.height + padding * 2 - kernel_size) / stride + 1;
@@ -422,12 +428,12 @@ ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kern
 
     ts_tensor* out = ts_tensor_create(arena, shape);
 
-    ts_tensor_im2col_ip(out, input, kernel_size, padding, stride);
+    ts_tensor_im2col_ip(out, input, kernel_size, stride, padding);
 
     return out;
 }
 
-ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride) {
+ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
     if (stride == 0) {
         fprintf(stderr, "Cannot convert cols to image: stride is zero\n");
 
@@ -457,7 +463,7 @@ ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_sha
 
     return true;
 }
-ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 padding, ts_u32 stride);
+ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding);
 
 void ts_tensor_transpose_ip(ts_tensor* t) {
     if (t->shape.depth != 1) {
