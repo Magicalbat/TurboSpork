@@ -611,10 +611,6 @@ void ts_network_save_layout(const ts_network* nn, ts_string8 file_name) {
     mga_scratch_release(scratch);
 }
 
-ts_string8 ts_network_get_tpn_header(void) {
-    return _tpn_header;
-}
-
 /*
 File Format (*.tpn):
 
