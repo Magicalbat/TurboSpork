@@ -9,7 +9,6 @@ typedef struct {
 
 typedef struct {
     ts_tensor* weight;
-    ts_tensor* weight_transposed;
     ts_tensor* bias;
 
     // Training mode

@@ -28,14 +28,14 @@ void mga_on_error(mga_error err) {
 void mnist_main(void) {
     mga_desc desc = {
         .desired_max_size = MGA_MiB(256),
-        .desired_block_size = MGA_MiB(1),
+        .desired_block_size = MGA_MiB(16),
         .error_callback = mga_on_error
     };
     mg_arena* perm_arena = mga_create(&desc);
     mga_scratch_set_desc(&desc);
 
     u64 seeds[2] = { 0 };
-    //ts_get_entropy(seeds, sizeof(seeds));
+    ts_get_entropy(seeds, sizeof(seeds));
     ts_prng_seed(seeds[0], seeds[1]);
 
     dataset data = { 0 };
@@ -57,12 +57,12 @@ void mnist_main(void) {
     ts_network_summary(nn);
 
     ts_network_train_desc train_desc = {
-        .epochs = 1,
+        .epochs = 3,
         .batch_size = 100,
 
         .num_threads = 8,
 
-        .cost = TS_COST_MEAN_SQUARED_ERROR,
+        .cost = TS_COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (ts_optimizer){
             .type = TS_OPTIMIZER_ADAM,
             .learning_rate = 0.001f,

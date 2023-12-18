@@ -218,7 +218,7 @@ static void _softmax_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* de
         }
     }
 
-    ts_tensor_dot_ip(delta, delta, jacobian);
+    ts_tensor_dot_ip(delta, false, false, delta, jacobian);
 
     mga_scratch_release(scratch);
 }

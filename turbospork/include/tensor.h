@@ -176,18 +176,20 @@ void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* tensor, ts_u32 z);
  * `a.width` must equal `b.height`
  *
  * @param out Output of dot product. Needs to be big enough (i.e. (b.width, a.height, 1))
+ * @param transpose_a Whether or not to transpose a
+ * @param transpose_b Whether or not to transpose b
  * @param a First tensor
  * @param b Second tensor
  *
  * @return true if `out` was big enough, false otherwise
  */
-ts_b32 ts_tensor_dot_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
+ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b);
 /**
  * @brief Computes the dot product of `a` and `b`. Must be 2D tensors (depth == 1)
  *
  * See `ts_tensor_dot_ip` for more
  */
-ts_tensor* ts_tensor_dot(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
+ts_tensor* ts_tensor_dot(mg_arena* arena, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b);
 
 /**
  * @brief Computes the output shape of `ts_tensor_cov`

@@ -192,21 +192,90 @@ void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* ts_tensor, ts_u32 z) {
     out->data = &ts_tensor->data[start_i];
 }
 
-ts_b32 ts_tensor_dot_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) {
+// Varients of dot with different transposing
+// a_width is after transposing
+// lda and ldb are the widths of a and b, before transposing
+
+// Neither are transposed
+void _dot_nn(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
+    for (ts_u32 y = 0; y < out->shape.height; y++) {
+        for (ts_u32 i = 0; i < a_width; i++) {
+            // This does not change throughout the inner loop
+            ts_f32 a_elem = a_data[(ts_u64)i + (ts_u64)y * lda];
+            for (ts_u32 x = 0; x < out->shape.width; x++) {
+                out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += a_elem * b_data[(ts_u64)x + (ts_u64)i * ldb];
+            }
+        }
+    }
+}
+
+// b is transposed
+void _dot_nt(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
+    for (ts_u32 y = 0; y < out->shape.height; y++) {
+        for (ts_u32 x = 0; x < out->shape.width; x++) {
+            ts_f32 sum = 0.0f;
+            for (ts_u32 i = 0; i < a_width; i++) {
+                sum += a_data[(ts_u64)i + (ts_u64)y * lda] * b_data[(ts_u64)i + (ts_u64)x * ldb];
+            }
+            out->data[(ts_u64)x + (ts_u64)y * out->shape.width] = sum;
+        }
+    }
+}
+
+// a is transposed
+void _dot_tn(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
+    for (ts_u32 y = 0; y < out->shape.height; y++) {
+        for (ts_u32 i = 0; i < a_width; i++) {
+            ts_f32 a_elem = a_data[(ts_u64)y + (ts_u64)i * lda];
+            for (ts_u32 x = 0; x < out->shape.width; x++) {
+                out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += a_elem * b_data[(ts_u64)x + (ts_u64)i * ldb];
+            }
+        }
+    }
+}
+
+// Both are 
+void _dot_tt(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
+    for (ts_u32 y = 0; y < out->shape.height; y++) {
+        for (ts_u32 x = 0; x < out->shape.width; x++) {
+            ts_f32 sum = 0.0f;
+            for (ts_u32 i = 0; i < a_width; i++) {
+                 sum += a_data[(ts_u64)y + (ts_u64)i * lda] * b_data[(ts_u64)i + (ts_u64)x * ldb];
+            }
+            out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += sum;
+        }
+    }
+}
+
+ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b) {
     if (a->shape.depth != 1 || b->shape.depth != 1) {
         fprintf(stderr, "Cannot dot ts_tensor in 3 dimensions\n");
 
         return false;
     }
-    if (a->shape.width != b->shape.height) {
+
+    ts_tensor_shape a_shape = a->shape;
+    ts_tensor_shape b_shape = b->shape;
+    if (transpose_a) {
+        ts_u32 tmp = a_shape.width;
+        a_shape.width = a_shape.height;
+        a_shape.height = tmp;
+    }
+    if (transpose_b) {
+        ts_u32 tmp = b_shape.width;
+        b_shape.width = b_shape.height;
+        b_shape.height = tmp;
+    }
+
+    if (a_shape.width != b_shape.height) {
         fprintf(stderr, "Cannot dot ts_tensor: shapes do not align\n");
 
         return false;
     }
 
     ts_tensor_shape shape = {
-        .width = b->shape.width,
-        .height = a->shape.height,
+        .width = b_shape.width,
+        .height = a_shape.height,
         .depth = 1
     };
     ts_u64 data_size = (ts_u64)shape.width * shape.height;
@@ -241,30 +310,30 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     out->shape = shape;
     memset(out->data, 0, sizeof(ts_f32) * data_size);
 
-    for (ts_u32 y = 0; y < out->shape.height; y++) {
-        for (ts_u32 i = 0; i < a_width; i++) {
-            // This does not change throughout the inner loop
-            ts_f32 a_elem = a_data[(ts_u64)i + (ts_u64)y * a_width];
-            for (ts_u32 x = 0; x < out->shape.width; x++) {
-                out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += a_elem * b_data[(ts_u64)x + (ts_u64)i * b_width];
-            }
-        }
+    if (!transpose_a && !transpose_b) {
+        _dot_nn(out, a_shape.width, a_data, a_width, b_data, b_width);
+    } else if (!transpose_a && transpose_b) {
+        _dot_nt(out, a_shape.width, a_data, a_width, b_data, b_width);
+    } else if (transpose_a && !transpose_b) {
+        _dot_tn(out, a_shape.width, a_data, a_width, b_data, b_width);
+    } else {
+        _dot_tt(out, a_shape.width, a_data, a_width, b_data, b_width);
     }
     
     mga_scratch_release(scratch);
 
     return true;
 }
-ts_tensor* ts_tensor_dot(mg_arena* arena, const ts_tensor* a, const ts_tensor* b) {
+ts_tensor* ts_tensor_dot(mg_arena* arena, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b) {
     ts_tensor_shape shape = {
-        b->shape.width,
-        a->shape.height,
+        transpose_b ? b->shape.height : b->shape.width,
+        transpose_a ? a->shape.width : a->shape.height,
         1
     };
 
     ts_tensor* out = ts_tensor_create(arena, shape);
 
-    ts_tensor_dot_ip(out, a, b);
+    ts_tensor_dot_ip(out, transpose_a, transpose_b, a, b);
 
     return out;
 }
@@ -459,11 +528,38 @@ ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_sha
     ts_u32 x_kernels = (out_shape.width + padding * 2 - kernel_size) / stride + 1;
     ts_u32 y_kernels = (out_shape.height + padding * 2 - kernel_size) / stride + 1;
 
-    // TODO: make funciton
+    for (ts_u32 z = 0; z < out_shape.depth; z++) {
+        for (ts_u32 k = 0; k < kernel_size * kernel_size; k++) {
+            ts_u32 x_off = k % kernel_size;
+            ts_u32 y_off = k / kernel_size;
+
+            for (ts_u32 y = 0; y < y_kernels; y++) {
+                for (ts_u32 x = 0; x < x_kernels; x++) {
+                    ts_u32 in_x = y * x_kernels + x;
+                    ts_u32 in_y = (z * kernel_size * kernel_size) + k;
+                    ts_u64 in_index = (ts_u64)in_y * input->shape.width + in_x;
+
+                    ts_u32 out_x = x_off + x * stride;
+                    ts_u32 out_y = y_off + y * stride;
+                    ts_u64 out_index = ((ts_u64)z * out_shape.height + out_y) * out_shape.width + out_x;
+
+                    if (out_x >= 0 && out_x < out_shape.width && out_y >= 0 && out_y < out_shape.height) {
+                        out->data[out_index] += input->data[in_index];
+                    }
+                }
+            }
+        }
+    }
 
     return true;
 }
-ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding);
+ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
+    ts_tensor* out = ts_tensor_create(arena, out_shape);
+
+    ts_tensor_col2im_ip(out, input, out_shape, kernel_size, stride, padding);
+
+    return out;
+}
 
 void ts_tensor_transpose_ip(ts_tensor* t) {
     if (t->shape.depth != 1) {
