@@ -29,7 +29,7 @@ typedef uint32_t ts_u32;
 typedef uint64_t ts_u64;
 
 /// 32-bit boolean
-typedef ts_i32 ts_b32;
+typedef ts_i32 ts_b8;
 
 /// 32-bit floating point number
 typedef float  ts_f32;
