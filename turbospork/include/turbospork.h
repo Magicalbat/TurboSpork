@@ -9,6 +9,7 @@
 #include "mg/mg_arena.h"
 
 #include "base_defs.h"
+#include "err.h"
 #include "prng.h"
 #include "str.h"
 #include "tensor.h"
