@@ -48,6 +48,7 @@ For more detail, you can look at the [mg_arena.h github page](https://github.com
 
 ### Other
 
+- [Error Handling](@ref err.h)
 - [Base Types and Definitions](@ref base_defs.h)
 - [Length-Based Strings](@ref str.h)
 - [Pseudorandom Number Generation](@ref prng.h)

@@ -11,7 +11,7 @@ static const ts_string8 _error_strings[TS_ERR_COUNT] = {
 static void _default_error_callback(ts_error err) {
     ts_string8 code_str = ts_err_to_str(err.code);
 
-    fprintf(stderr, "TurboSpork %.*s: %.*s\n", (int)code_str.size, (char*)code_str.str, (int)err.msg.size, (char*)err.msg.str);
+    fprintf(stderr, "TurboSpork %.*s: \"%.*s\"\n", (int)code_str.size, (char*)code_str.str, (int)err.msg.size, (char*)err.msg.str);
 }
 
 static ts_error_callback* _error_callback = _default_error_callback;

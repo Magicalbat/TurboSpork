@@ -15,9 +15,19 @@
  * To use, define a macro X, insert the definition, and then undef the macro X
  */
 #define TS_ERROR_XLIST \
-    X(ERR_NULL)
+    X(ERR_NULL) \
+    X(ERR_INVALID_INPUT) \
+    X(ERR_ALLOC_SIZE) \
+    X(ERR_BAD_SHAPE) \
+    X(ERR_BUFFER_NOT_FILLED) \
+    X(ERR_CANNOT_PARSE) \
+    X(ERR_IO)
 
-/// Error codes
+/**
+ * @brief Error codes
+ *
+ * See `TS_ERROR_XLIST` for full list
+ */
 typedef enum {
 #define X(code) TS_##code,
     TS_ERROR_XLIST
@@ -45,6 +55,14 @@ typedef void (ts_error_callback)(ts_error err);
  * This is mainly meant for internal use
  */
 void ts_err(ts_error err);
+
+/**
+ * @brief Calls `ts_err`, converting the cstr to a `ts_string8`
+ *
+ * @param err_code Error code
+ * @param msg_cstr Error message as a c string
+ */
+#define TS_ERR(err_code, msg_cstr) ts_err((ts_error){ .code=err_code, .msg=TS_STR8(msg_cstr) })
 
 /**
  * @brief Sets the error callback

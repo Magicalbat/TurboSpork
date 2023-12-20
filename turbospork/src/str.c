@@ -4,11 +4,20 @@
 
 #include "base_defs.h"
 #include "str.h"
+#include "err.h"
 
 ts_string8 ts_str8_from_range(ts_u8* start, ts_u8* end) {
+    if (start == NULL || end == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot creates ts_string8 from NULL ptr");
+    }
+
     return (ts_string8){ (ts_u64)(end - start), start };
 }
 ts_string8 ts_str8_from_cstr(ts_u8* cstr) {
+    if (cstr == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create ts_string8 from NULL ptr");
+    }
+
     ts_u8* ptr = cstr;
     for(; *ptr != 0; ptr += 1);
     return ts_str8_from_range(cstr, ptr);
@@ -66,10 +75,15 @@ ts_b32 ts_str8_contains_char(ts_string8 str, ts_u8 c) {
         if (str.str[i] == c)
             return true;
     }
+
     return false;
 }
 
 ts_b32 ts_str8_index_of(ts_string8 str, ts_string8 sub, ts_u64* index) {
+    if (index == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot put index of ts_string8 into NULL ptr");
+    }
+
     for (ts_u64 i = 0; i < str.size; i++) {
         if (ts_str8_equals(ts_str8_substr(str, i, i + sub.size), sub)) {
             *index = i;
@@ -82,6 +96,10 @@ ts_b32 ts_str8_index_of(ts_string8 str, ts_string8 sub, ts_u64* index) {
 }
 
 ts_b32 ts_str8_index_of_char(ts_string8 str, ts_u8 c, ts_u64* index) {
+    if (index == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot put index of ts_string8 into NULL ptr");
+    }
+
     for (ts_u64 i = 0; i < str.size; i++) {
         if (str.str[i] == c) {
             *index = i;
@@ -128,12 +146,24 @@ ts_string8 ts_str8_remove_space(mg_arena* arena, ts_string8 str) {
 }
 
 void ts_str8_list_push_existing(ts_string8_list* list, ts_string8 str, ts_string8_node* node) {
+    if (list == NULL || node == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot push node to string list: list or node is NULL");
+
+        return;
+    }
+
     node->str = str;
     TS_SLL_PUSH_BACK(list->first, list->last, node);
     list->node_count++;
     list->total_size += str.size;
 }
 void ts_str8_list_push(mg_arena* arena, ts_string8_list* list, ts_string8 str) {
+    if (list == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot push string to list: list is NULL");
+
+        return;
+    }
+
     ts_string8_node* node = MGA_PUSH_ZERO_STRUCT(arena, ts_string8_node);
     ts_str8_list_push_existing(list, str, node);
 }

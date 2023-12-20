@@ -74,11 +74,11 @@ typedef struct {
 } ts_tensor_list;
 
 /**
- * @brief Whether or not to print errors if
+ * @brief Whether or not to error if
  *  there is not enough space in out in _ip functions
  */
-#ifndef TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-#define TS_TENSOR_PRINT_IP_ALLOC_ERRORS 1
+#ifndef TS_TENSOR_IP_ALLOC_ERRORS
+#define TS_TENSOR_IP_ALLOC_ERRORS 1
 #endif
 
 /// Returns true if the indices `a` and `b` are equal
@@ -269,8 +269,10 @@ ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_s
  * @brief Transposes a 2D tensor in place
  *
  * Must be 2D
+ *
+ * @return true on success, false otherwise
  */
-void ts_tensor_transpose_ip(ts_tensor* t);
+ts_b32 ts_tensor_transpose_ip(ts_tensor* t);
 /**
  * @brief Creates a transposed version of `t`
  */

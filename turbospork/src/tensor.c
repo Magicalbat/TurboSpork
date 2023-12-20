@@ -1,7 +1,9 @@
 #include "tensor.h"
 
 #include "os.h"
+#include "err.h"
 
+#include <float.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -22,7 +24,7 @@ ts_tensor* ts_tensor_create(mg_arena* arena, ts_tensor_shape shape) {
 }
 ts_tensor* ts_tensor_create_alloc(mg_arena* arena, ts_tensor_shape shape, ts_u64 alloc) {
     if (shape.width == 0) {
-        fprintf(stderr, "Unable to create ts_tensor of width 0\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot create ts_tensor of width 0");
         return NULL;
     }
 
@@ -31,7 +33,7 @@ ts_tensor* ts_tensor_create_alloc(mg_arena* arena, ts_tensor_shape shape, ts_u64
     
     ts_u64 min_alloc = (ts_u64)shape.width * shape.height * shape.depth;
     if (alloc < min_alloc) {
-        fprintf(stderr, "Cannot create ts_tensor, alloc is too small\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create ts_tensor, alloc is too small");
 
         return NULL;
     }
@@ -45,6 +47,12 @@ ts_tensor* ts_tensor_create_alloc(mg_arena* arena, ts_tensor_shape shape, ts_u64
     return out;
 }
 ts_tensor* ts_tensor_copy(mg_arena* arena, const ts_tensor* t, ts_b32 keep_alloc) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot copy NULL ts_tensor");
+
+        return NULL;
+    }
+
     ts_tensor_shape shape = t->shape;
     ts_u64 alloc = keep_alloc ? t->alloc : ((ts_u64)shape.width * shape.height * shape.depth);
 
@@ -59,10 +67,16 @@ ts_tensor* ts_tensor_copy(mg_arena* arena, const ts_tensor* t, ts_b32 keep_alloc
     return out;
 }
 ts_b32 ts_tensor_copy_ip(ts_tensor* out, const ts_tensor* t) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot copy NULL ts_tensor");
+
+        return false;
+    }
+
     ts_u64 size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
     if (out->alloc < size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot copy ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot copy ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -74,17 +88,27 @@ ts_b32 ts_tensor_copy_ip(ts_tensor* out, const ts_tensor* t) {
     return true;
 }
 
-void ts_tensor_fill(ts_tensor* ts_tensor, ts_f32 num) {
-    ts_tensor_shape shape = ts_tensor->shape;
+void ts_tensor_fill(ts_tensor* tensor, ts_f32 num) {
+    if (tensor == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot fill NULL ts_tensor");
+    }
+
+    ts_tensor_shape shape = tensor->shape;
     ts_u64 size = (ts_u64)shape.width * shape.height * shape.depth;
 
     for (ts_u64 i = 0; i < size; i++) {
-        ts_tensor->data[i] = num;
+        tensor->data[i] = num;
     }
 }
 
 ts_tensor_index ts_tensor_argmax(const ts_tensor* t) {
-    ts_f32 max_num = t->data[0];
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot get argmax of NULL ts_tensor");
+
+        return (ts_tensor_index){ 0 };
+    }
+
+    ts_f32 max_num = -FLT_MAX;
     ts_tensor_index max_index = { 0, 0, 0 };
 
     for (ts_u64 z = 0; z < t->shape.depth; z++) {
@@ -102,6 +126,12 @@ ts_tensor_index ts_tensor_argmax(const ts_tensor* t) {
 }
 
 ts_b32 ts_tensor_is_zero(const ts_tensor* t) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot test if NULL ts_tensor is zero");
+
+        return false;
+    }
+
     ts_b32 is_zero = true;
 
     ts_u64 size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
@@ -116,13 +146,19 @@ ts_b32 ts_tensor_is_zero(const ts_tensor* t) {
 }
 
 ts_tensor* ts_tensor_slice(mg_arena* arena, const ts_tensor* t, ts_tensor_index start, ts_tensor_index end) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot slice NULL ts_tensor");
+
+        return NULL;
+    }
+
     if (end.x > t->shape.width || end.y > t->shape.height || end.z > t->shape.depth) {
-        fprintf(stderr, "Cannot create slice past end of ts_tensor\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create slice past end of ts_tensor");
 
         return NULL;
     }
     if (start.x > end.x || start.y > end.y || start.z > end.z) {
-        fprintf(stderr, "Start of ts_tensor slice cannot exceed end\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Start of ts_tensor slice cannot exceed end");
 
         return NULL;
     }
@@ -134,7 +170,7 @@ ts_tensor* ts_tensor_slice(mg_arena* arena, const ts_tensor* t, ts_tensor_index 
     };
 
     if (slice_shape.width > t->shape.width || slice_shape.height > t->shape.height || slice_shape.depth > t->shape.depth) {
-        fprintf(stderr, "Cannot create slice greater than original ts_tensor\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create slice greater than original ts_tensor");
         
         return NULL;
     }
@@ -179,17 +215,23 @@ ts_tensor* ts_tensor_slice_size(mg_arena* arena, const ts_tensor* ts_tensor, ts_
 
     return ts_tensor_slice(arena, ts_tensor, start, end);
 }
-void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* ts_tensor, ts_u32 z) {
+void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* tensor, ts_u32 z) {
+    if (out == NULL || tensor == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create 2d view will NULL ts_tensor(s)");
+
+        return;
+    }
+
     out->shape = (ts_tensor_shape) {
-        .width = ts_tensor->shape.width,
-        .height = ts_tensor->shape.height,
+        .width = tensor->shape.width,
+        .height = tensor->shape.height,
         .depth = 1
     };
     out->alloc = (ts_u64)out->shape.width * out->shape.height;
 
-    ts_u64 start_i = (ts_u64)z * ts_tensor->shape.width * ts_tensor->shape.height;
+    ts_u64 start_i = (ts_u64)z * tensor->shape.width * tensor->shape.height;
 
-    out->data = &ts_tensor->data[start_i];
+    out->data = &tensor->data[start_i];
 }
 
 // Varients of dot with different transposing
@@ -248,8 +290,14 @@ void _dot_tt(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32*
 }
 
 ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b) {
+    if (out == NULL || a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot dot with NULL ts_tensor(s)");
+
+        return false;
+    }
+
     if (a->shape.depth != 1 || b->shape.depth != 1) {
-        fprintf(stderr, "Cannot dot ts_tensor in 3 dimensions\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot dot ts_tensor in 3 dimensions");
 
         return false;
     }
@@ -268,7 +316,7 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
     }
 
     if (a_shape.width != b_shape.height) {
-        fprintf(stderr, "Cannot dot ts_tensor: shapes do not align\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot dot ts_tensor: shapes do not align");
 
         return false;
     }
@@ -281,8 +329,8 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
     ts_u64 data_size = (ts_u64)shape.width * shape.height;
 
     if (out->alloc < data_size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot dot ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot dot ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -325,6 +373,12 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
     return true;
 }
 ts_tensor* ts_tensor_dot(mg_arena* arena, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b) {
+    if (a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot dot with NULL ts_tensor(s)");
+
+        return NULL;
+    }
+
     ts_tensor_shape shape = {
         transpose_b ? b->shape.height : b->shape.width,
         transpose_a ? a->shape.width : a->shape.height,
@@ -342,7 +396,7 @@ ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape k
     ts_tensor_shape out_shape = { 0, 0, 1 };
 
     if (stride_x == 0 || stride_y == 0) {
-        fprintf(stderr, "Cannot create conv shape: strides cannot be zero\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create conv shape with strides of zero");
 
         return out_shape;
     }
@@ -353,8 +407,14 @@ ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape k
     return out_shape;
 }
 ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y) {
+    if (out == NULL || input == NULL || kernel == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot conv NULL ts_tensor(s)");
+
+        return false;
+    }
+
     if (stride_x == 0 || stride_y == 0) {
-        fprintf(stderr, "Cannot conv tensors: strides cannot be zero\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot conv tensors with strides of zero");
 
         return false;
     }
@@ -363,8 +423,8 @@ ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor
     ts_u64 out_alloc = (ts_u64)out_shape.width * out_shape.height * out_shape.depth;
 
     if (out->alloc < out_alloc) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot conv ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot conv ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -407,23 +467,40 @@ ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor
     return true;
 }
 ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y) {
+    if (input == NULL || kernel == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot conv NULL ts_tensor(s)");
+
+        return false;
+    }
+
     ts_tensor_shape out_shape = ts_tensor_conv_shape(input->shape, kernel->shape, stride_x, stride_y);
 
+    mga_temp maybe_temp = mga_temp_begin(arena);
     ts_tensor* out = ts_tensor_create(arena, out_shape);
 
-    ts_tensor_conv_ip(out, input, kernel, stride_x, stride_y);
+    if (!ts_tensor_conv_ip(out, input, kernel, stride_x, stride_y)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
 
     return out;
 }
 
 ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
+    if (out == NULL || input == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot im2col with NULL ts_tensor(s)");
+
+        return false;
+    }
+
     if (stride == 0) {
-        fprintf(stderr, "Cannot convert image to cols: stride is zero\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert image to cols with stride of zero");
 
         return false;
     }
     if (out->data == input->data) {
-        fprintf(stderr, "Cannot convert image to cols: out and input overlap");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert image to cols when out and input overlap");
 
         return false;
     }
@@ -440,8 +517,8 @@ ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
 
     ts_u64 out_alloc = (ts_u64)shape.width * shape.height * shape.depth;
     if (out->alloc < out_alloc) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot convert image to cols: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot convert image to cols: not enough space in out");
         #endif
 
         return false;
@@ -479,8 +556,14 @@ ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
     return true;
 }
 ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
+    if (input == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert NULL ts_tensor to cols");
+
+        return NULL;
+    }
+
     if (stride == 0) {
-        fprintf(stderr, "Cannot convert image to cols: stride is zero\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert image to cols with stride of zero");
 
         return false;
     }
@@ -495,29 +578,40 @@ ts_tensor* ts_tensor_im2col(mg_arena* arena, const ts_tensor* input, ts_u32 kern
         1
     };
 
+    mga_temp maybe_temp = mga_temp_begin(arena);
     ts_tensor* out = ts_tensor_create(arena, shape);
 
-    ts_tensor_im2col_ip(out, input, kernel_size, stride, padding);
+    if (!ts_tensor_im2col_ip(out, input, kernel_size, stride, padding)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
 
     return out;
 }
 
 ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
+   if (out == NULL || input == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot col2im with NULL ts_tensor(s)");
+
+        return false;
+    }
+
     if (stride == 0) {
-        fprintf(stderr, "Cannot convert cols to image: stride is zero\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert cols to image with stride of zero");
 
         return false;
     }
     if (out->data == input->data) {
-        fprintf(stderr, "Cannot convert cols to image: out and input overlap");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert cols to image when out and input overlap");
 
         return false;
-    }
+    } 
 
     ts_u64 out_alloc = (ts_u64)out_shape.width * out_shape.height * out_shape.depth;
     if (out->alloc < out_alloc) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot convert cols to image: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot convert cols to image: not enough space in out");
         #endif
 
         return false;
@@ -554,18 +648,35 @@ ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_sha
     return true;
 }
 ts_tensor* ts_tensor_col2im(mg_arena* arena, const ts_tensor* input, ts_tensor_shape out_shape, ts_u32 kernel_size, ts_u32 stride, ts_u32 padding) {
+    if (input == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert NULL ts_tensor to image");
+
+        return NULL;
+    }
+
+    mga_temp maybe_temp = mga_temp_begin(arena);
     ts_tensor* out = ts_tensor_create(arena, out_shape);
 
-    ts_tensor_col2im_ip(out, input, out_shape, kernel_size, stride, padding);
+    if (!ts_tensor_col2im_ip(out, input, out_shape, kernel_size, stride, padding)) {
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
 
     return out;
 }
 
-void ts_tensor_transpose_ip(ts_tensor* t) {
-    if (t->shape.depth != 1) {
-        fprintf(stderr, "Cannot transpose ts_tensor with depth\n");
+ts_b32 ts_tensor_transpose_ip(ts_tensor* t) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot transpose NULL ts_tensor");
 
-        return;
+        return false;
+    }
+
+    if (t->shape.depth != 1) {
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot transpose ts_tensor with depth");
+
+        return false;
     }
 
     ts_u32 temp_width = t->shape.width;
@@ -574,7 +685,7 @@ void ts_tensor_transpose_ip(ts_tensor* t) {
 
     // If it is 1d, you do not need to move around the numbers
     if (t->shape.width == 1 || t->shape.height == 1) {
-        return;
+        return true;
     }
 
     // Creating temporary copy of data
@@ -593,10 +704,18 @@ void ts_tensor_transpose_ip(ts_tensor* t) {
     }
 
     mga_scratch_release(scratch);
+
+    return true;
 }
 ts_tensor* ts_tensor_transpose(mg_arena* arena, const ts_tensor* t) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot transpose NULL ts_tensor");
+
+        return NULL;
+    }
+
     if (t->shape.depth != 1) {
-        fprintf(stderr, "Cannot transpose ts_tensor with depth\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot transpose ts_tensor with depth");
 
         return NULL;
     }
@@ -613,16 +732,21 @@ ts_tensor* ts_tensor_transpose(mg_arena* arena, const ts_tensor* t) {
 }
 
 ts_b32 ts_tensor_add_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) {
+    if (out == NULL || a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot add NULL ts_tensor(s)");
+
+        return false;
+    }
     if (!ts_tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot add ts_tensor: shapes do not align\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot add ts_tensor: shapes do not align");
 
         return false;
     }
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot add ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot add ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -636,16 +760,21 @@ ts_b32 ts_tensor_add_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     return true;
 }
 ts_b32 ts_tensor_sub_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) {
+    if (out == NULL || a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot subtract NULL ts_tensor(s)");
+
+        return false;
+    }
     if (!ts_tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot subtract ts_tensor: shapes do not align\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot subtract ts_tensor: shapes do not align");
 
         return false;
     }
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot subtract ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot subtract ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -659,16 +788,21 @@ ts_b32 ts_tensor_sub_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     return true;
 }
 ts_b32 ts_tensor_component_mul_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) {
+    if (out == NULL || a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot component multiply NULL ts_tensor(s)");
+
+        return false;
+    }
     if (!ts_tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot multiply ts_tensor: shapes do not align\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot multiply ts_tensor: shapes do not align");
 
         return false;
     }
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot multiply ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot multiply ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -682,16 +816,21 @@ ts_b32 ts_tensor_component_mul_ip(ts_tensor* out, const ts_tensor* a, const ts_t
     return true;
 }
 ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) {
+    if (out == NULL || a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot component divide NULL ts_tensor(s)");
+
+        return false;
+    }
     if (!ts_tensor_shape_eq(a->shape, b->shape)) {
-        fprintf(stderr, "Cannot divide ts_tensor: shapes do not align\n");
+        TS_ERR(TS_ERR_BAD_SHAPE, "Cannot divide ts_tensor: shapes do not align");
 
         return false;
     }
     
     ts_u64 data_size = (ts_u64)a->shape.width * a->shape.height * a->shape.depth;
     if (out->alloc < data_size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot divide ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot divide ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -705,10 +844,15 @@ ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_t
     return true;
 }
 ts_b32 ts_tensor_scale_ip(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
+    if (out == NULL || t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot scale NULL ts_tensor(s)");
+
+        return false;
+    }
     ts_u64 data_size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
     if (out->alloc < data_size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot scale ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot scale ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -722,10 +866,15 @@ ts_b32 ts_tensor_scale_ip(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
     return true;
 }
 ts_b32 ts_tensor_sqrt_ip(ts_tensor* out, const ts_tensor* t) {
+    if (out == NULL || t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot sqrt NULL ts_tensor(s)");
+
+        return false;
+    }
     ts_u64 data_size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
     if (out->alloc < data_size) {
-        #if TS_TENSOR_PRINT_IP_ALLOC_ERRORS
-        fprintf(stderr, "Cannot sqrt ts_tensor: not enough space in out\n");
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot sqrt ts_tensor: not enough space in out");
         #endif
 
         return false;
@@ -740,6 +889,12 @@ ts_b32 ts_tensor_sqrt_ip(ts_tensor* out, const ts_tensor* t) {
 }
 
 ts_tensor* ts_tensor_add(mg_arena* arena, const ts_tensor* a, const ts_tensor* b) {
+    if (a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot add NULL ts_tensor(s)");
+
+        return NULL;
+    }
+
     mga_temp maybe_temp = mga_temp_begin(arena);
 
     ts_tensor* out = ts_tensor_create(arena, a->shape);
@@ -753,6 +908,12 @@ ts_tensor* ts_tensor_add(mg_arena* arena, const ts_tensor* a, const ts_tensor* b
     return out;
 }
 ts_tensor* ts_tensor_sub(mg_arena* arena, const ts_tensor* a, const ts_tensor* b) {
+    if (a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot sub NULL ts_tensor(s)");
+
+        return NULL;
+    }
+
     mga_temp maybe_temp = mga_temp_begin(arena);
 
     ts_tensor* out = ts_tensor_create(arena, a->shape);
@@ -766,6 +927,12 @@ ts_tensor* ts_tensor_sub(mg_arena* arena, const ts_tensor* a, const ts_tensor* b
     return out;
 }
 ts_tensor* ts_tensor_component_mul(mg_arena* arena, const ts_tensor* a, const ts_tensor* b) {
+    if (a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot component multiply NULL ts_tensor(s)");
+
+        return NULL;
+    }
+
     mga_temp maybe_temp = mga_temp_begin(arena);
 
     ts_tensor* out = ts_tensor_create(arena, a->shape);
@@ -779,6 +946,12 @@ ts_tensor* ts_tensor_component_mul(mg_arena* arena, const ts_tensor* a, const ts
     return out;
 }
 ts_tensor* ts_tensor_component_div(mg_arena* arena, const ts_tensor* a, const ts_tensor* b) {
+    if (a == NULL || b == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot component divide NULL ts_tensor(s)");
+
+        return NULL;
+    }
+
     mga_temp maybe_temp = mga_temp_begin(arena);
 
     ts_tensor* out = ts_tensor_create(arena, a->shape);
@@ -792,6 +965,12 @@ ts_tensor* ts_tensor_component_div(mg_arena* arena, const ts_tensor* a, const ts
     return out;
 }
 ts_tensor* ts_tensor_scale(mg_arena* arena, const ts_tensor* t, ts_f32 s) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot scale NULL ts_tensor");
+
+        return NULL;
+    }
+
     mga_temp maybe_temp = mga_temp_begin(arena);
 
     ts_tensor* out = ts_tensor_create(arena, t->shape);
@@ -805,6 +984,12 @@ ts_tensor* ts_tensor_scale(mg_arena* arena, const ts_tensor* t, ts_f32 s) {
     return out;
 }
 ts_tensor* ts_tensor_sqrt(mg_arena* arena, const ts_tensor* t) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot sqrt NULL ts_tensor");
+
+        return NULL;
+    }
+
     ts_tensor* out = ts_tensor_create(arena, t->shape);
 
     ts_tensor_sqrt_ip(out, t);
@@ -812,19 +997,37 @@ ts_tensor* ts_tensor_sqrt(mg_arena* arena, const ts_tensor* t) {
     return out;
 }
 
-void ts_tensor_list_push_existing(ts_tensor_list* list, ts_tensor* ts_tensor, ts_string8 name, ts_tensor_node* node) {
-    node->tensor = ts_tensor;
+void ts_tensor_list_push_existing(ts_tensor_list* list, ts_tensor* tensor, ts_string8 name, ts_tensor_node* node) {
+    if (list == NULL || tensor == NULL || node == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot push node to tensor list: list, node, or tensor is NULL");
+
+        return;
+    }
+
+    node->tensor = tensor;
     node->name = name;
 
     TS_SLL_PUSH_BACK(list->first, list->last, node);
 
     list->size++;
 }
-void ts_tensor_list_push(mg_arena* arena, ts_tensor_list* list, ts_tensor* ts_tensor, ts_string8 name) {
+void ts_tensor_list_push(mg_arena* arena, ts_tensor_list* list, ts_tensor* tensor, ts_string8 name) {
+    if (list == NULL || tensor == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot push tensor to list: list or tensor is NULL");
+
+        return;
+    }
+
     ts_tensor_node* node = MGA_PUSH_ZERO_STRUCT(arena, ts_tensor_node);
-    ts_tensor_list_push_existing(list, ts_tensor, name, node);
+    ts_tensor_list_push_existing(list, tensor, name, node);
 }
 ts_tensor* ts_tensor_list_get(const ts_tensor_list* list, ts_string8 name) {
+    if (list == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot get tensor from NULL list");
+
+        return NULL;
+    }
+    
     ts_tensor* out = NULL;
 
     for (ts_tensor_node* node = list->first; node != NULL; node = node->next) {
@@ -866,6 +1069,12 @@ ts_string8 ts_tensor_get_tpt_header(void) {
     } while (0)
 
 ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
+    if (list == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot convert NULL tensor list to string");
+
+        return (ts_string8){ 0 };
+    }
+
     ts_u64 str_size = 0;
     ts_u8* str_buf = NULL;
 
@@ -883,11 +1092,6 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
     }
 
     str_buf = MGA_PUSH_ARRAY(arena, ts_u8, str_size);
-    if (str_buf == NULL) {
-        fprintf(stderr, "Cannot create ts_tensor string: failed to create buffer on arena\n");
-
-        return (ts_string8){ 0 };
-    }
     ts_u8* str_buf_ptr = str_buf;
 
     _WRITE_DATA(_tpt_header.size, _tpt_header.str);
@@ -909,7 +1113,7 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
     }
 
     if (str_size != (ts_u64)(str_buf_ptr - str_buf)) {
-        fprintf(stderr, "Cannnot create ts_tensor string: buffer was not filled\n");
+        TS_ERR(TS_ERR_BUFFER_NOT_FILLED, "Cannnot create ts_tensor string: buffer was not filled");
 
         return (ts_string8){ 0 };
     }
@@ -928,7 +1132,7 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
 
 ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
     if (!ts_str8_equals(_tpt_header, ts_str8_substr(str, 0, _tpt_header.size))) {
-        fprintf(stderr, "Cannot read ts_tensor string: ts_tensor header not found\n");
+        TS_ERR(TS_ERR_CANNOT_PARSE, "Cannot read ts_tensor string: ts_tensor header not found");
         
         return (ts_tensor_list){ 0 };
     }
@@ -967,13 +1171,19 @@ ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
     }
 
     if (pos > str.size) {
-        fprintf(stderr, "Could not load all ts_tensors: cannot read outisde string bounds\n");
+        TS_ERR(TS_ERR_CANNOT_PARSE, "Could not load all ts_tensors: cannot read outisde string bounds");
     }
 
     return out;
 }
 
 void ts_tensor_list_save(const ts_tensor_list* list, ts_string8 file_name) {
+    if (list == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot save NULL list");
+
+        return;
+    }
+
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     ts_string8 file_str = ts_tensor_list_to_str(scratch.arena, list);
@@ -995,7 +1205,7 @@ ts_tensor_list ts_tensor_list_load(mg_arena* arena, ts_string8 file_name) {
 
     ts_string8 file = ts_file_read(scratch.arena, file_name);
     if (file.size == 0) {
-        fprintf(stderr, "Cannot load ts_tensors: failed to read file\n");
+        TS_ERR(TS_ERR_IO, "Cannot load ts_tensors: failed to read file");
         
         mga_scratch_release(scratch);
         return (ts_tensor_list){ 0 };
