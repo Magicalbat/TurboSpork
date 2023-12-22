@@ -21,7 +21,9 @@
     X(ERR_BAD_SHAPE) \
     X(ERR_BUFFER_NOT_FILLED) \
     X(ERR_CANNOT_PARSE) \
-    X(ERR_IO)
+    X(ERR_IO) \
+    X(ERR_OS) \
+    X(ERR_THREADING)
 
 /**
  * @brief Error codes

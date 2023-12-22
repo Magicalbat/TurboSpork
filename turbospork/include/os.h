@@ -112,10 +112,10 @@ void ts_get_entropy(void* data, ts_u64 size);
 ts_mutex* ts_mutex_create(mg_arena* arena);
 /// Destroys the mutex
 void ts_mutex_destroy(ts_mutex* mutex);
-/// Locks the mutex
-void ts_mutex_lock(ts_mutex* mutex);
-/// Unlocks the mutex
-void ts_mutex_unlock(ts_mutex* mutex);
+/// Locks the mutex, returns true on success
+ts_b32 ts_mutex_lock(ts_mutex* mutex);
+/// Unlocks the mutex, returns true on success
+ts_b32 ts_mutex_unlock(ts_mutex* mutex);
 
 /**
  * @brief Creates a `ts_thread_pool`
@@ -130,12 +130,16 @@ ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u3
 void ts_thread_pool_destroy(ts_thread_pool* tp);
 /**
  * @brief Adds task to the thread pool's task queue
+ *
+ * @return true if task was added successfully
  */
-void ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task);
+ts_b32 ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task);
 /**
  * @brief Waits until all thread tasks are finished
+ *
+ * @return ture if waiting was successful
  */
-void ts_thread_pool_wait(ts_thread_pool* tp);
+ts_b32 ts_thread_pool_wait(ts_thread_pool* tp);
 
 #endif // OS_H
 
