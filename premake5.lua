@@ -102,9 +102,8 @@ project "Examples"
         linkoptions { "-g" }
         
     filter { "action:not vs*", "configurations:debug" }
-    	buildoptions { "-fsanitize=address" }
+        buildoptions { "-fsanitize=address" }
     	linkoptions { "-fsanitize=address" }
-
 
     filter "configurations:debug"
         symbols "On"

@@ -325,6 +325,10 @@ ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u3
                 pthread_cancel(tp->threads[j]);
             }
 
+            pthread_cond_destroy(&tp->active_cond_var);
+            pthread_mutex_destroy(&tp->mutex);
+            pthread_cond_destroy(&tp->queue_cond_var);
+
             mga_temp_end(maybe_temp);
 
             return NULL;

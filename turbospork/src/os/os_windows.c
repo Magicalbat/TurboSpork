@@ -1,4 +1,5 @@
 #include "os.h"
+#include "err.h"
 
 #ifdef TS_PLATFORM_WIN32
 
@@ -28,6 +29,13 @@ static _string16 _utf16_from_utf8(mg_arena* arena, ts_string8 str) {
 
     ts_i32 size_written = MultiByteToWideChar(CP_UTF8, MB_PRECOMPOSED, (LPCCH)str.str, str.size, tmp_out, tmp_size);
 
+    if (size_written == 0) {
+        TS_ERR(TS_ERR_OS, "Failed to convert utf8 to utf16 for win32");
+
+        mga_scratch_release(scratch);
+        return (_string16){ 0 };
+    }
+
     ts_u16* out = MGA_PUSH_ARRAY(scratch.arena, ts_u16, size_written);
     memcpy(out, tmp_out, sizeof(ts_u16) * size_written);
 
@@ -36,42 +44,12 @@ static _string16 _utf16_from_utf8(mg_arena* arena, ts_string8 str) {
     return (_string16){ .str = out, .size = size_written };
 }
 
-static ts_string8 _error_string(mg_arena* arena) {
-    DWORD err = GetLastError();
-    if (err == 0) {
-        return (ts_string8){ 0 };
-    }
-
-    LPSTR msg_buf = NULL;
-    DWORD msg_size = FormatMessageA(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
-        (LPSTR)&msg_buf, // Very intuitive win32
-        0, NULL
-    );
-
-    ts_string8 out;
-    out.size = (ts_u64)msg_size - 3;
-    out.str = MGA_PUSH_ZERO_ARRAY(arena, ts_u8, (ts_u64)msg_size - 3);
-
-    memcpy(out.str, msg_buf, msg_size);
-
-    LocalFree(msg_buf);
-
-    return out;
-}
-
-#define _w32_error(msg, ...) do {\
-        mga_temp scratch = mga_scratch_get(NULL, 0); \
-        ts_string8 err_str = _error_string(scratch.arena); \
-        fprintf(stderr, msg ", Win32 Error: %.*s\n", __VA_ARGS__, (int)err_str.size, (char*)err_str.str); \
-        mga_scratch_release(scratch); \
-    } while (0)
-
 void ts_time_init(void) {
     LARGE_INTEGER perf_freq;
     if (QueryPerformanceFrequency(&perf_freq)) {
         _ticks_per_sec = ((ts_u64)perf_freq.HighPart << 32) | perf_freq.LowPart;
+    } else {
+        TS_ERR(TS_ERR_OS, "Failed to initialize time: could not get performance frequency");
     }
 }
 
@@ -98,6 +76,8 @@ ts_u64 ts_now_usec(void) {
     if (QueryPerformanceCounter(&perf_count)) {
         ts_u64 ticks = ((ts_u64)perf_count.HighPart << 32) | perf_count.LowPart;
         out = ticks * 1000000 / _ticks_per_sec;
+    } else {
+        TS_ERR(TS_ERR_OS, "Failed to retrive time in micro seconds");
     }
     return out;
 }
@@ -123,7 +103,7 @@ ts_string8 ts_file_read(mg_arena* arena, ts_string8 path) {
     mga_scratch_release(scratch);
 
     if (file_handle == INVALID_HANDLE_VALUE) {
-        _w32_error("Failed to open file \"%.*s\"", (int)path.size, (char*)path.str);
+        TS_ERR(TS_ERR_IO, "Failed to open file for reading");
 
         return (ts_string8){ 0 };
     }
@@ -145,9 +125,9 @@ ts_string8 ts_file_read(mg_arena* arena, ts_string8 path) {
 
         DWORD bytes_read = 0;
         if (ReadFile(file_handle, buffer + total_read, to_read, &bytes_read, 0) == FALSE) {
-            _w32_error("Failed to read to file \"%.*s\"", (int)path.size, (char*)path.str);
-            mga_temp_end(possible_temp);
+            TS_ERR(TS_ERR_IO, "Failed to read from file");
 
+            mga_temp_end(possible_temp);
             return (ts_string8){ 0 };
         }
 
@@ -200,7 +180,7 @@ ts_b32 ts_file_write(ts_string8 path, ts_string8_list str_list) {
     mga_scratch_release(scratch);
 
     if (file_handle == INVALID_HANDLE_VALUE) {
-        _w32_error("Failed to open file \"%.*s\"", (int)path.size, (char*)path.str);
+        TS_ERR(TS_ERR_IO, "Failed to open file for writing");
 
         return false;
     }
@@ -208,7 +188,7 @@ ts_b32 ts_file_write(ts_string8 path, ts_string8_list str_list) {
     ts_b32 out = true;
 
     if (!_file_write_impl(file_handle, str_list)) {
-        _w32_error("Failed to write to file \"%.*s\"", (int)path.size, (char*)path.str);
+        TS_ERR(TS_ERR_IO, "Failed to write to file");
 
         out = false;
     }
@@ -227,7 +207,7 @@ ts_file_stats ts_file_get_stats(ts_string8 path) {
 
     WIN32_FILE_ATTRIBUTE_DATA attribs = { 0 };
     if (GetFileAttributesEx((LPCWSTR)path16.str, GetFileExInfoStandard, &attribs) == FALSE) {
-        _w32_error("Failed to get stats for file \"%.*s\"",  (int)path.size, (char*)path.str);
+        TS_ERR(TS_ERR_IO, "Failed to get stats for file");
     }
 
     mga_scratch_release(scratch);
@@ -263,11 +243,19 @@ ts_mutex* ts_mutex_create(mg_arena* arena) {
 void ts_mutex_destroy(ts_mutex* mutex) {
     DeleteCriticalSection(&mutex->cs);
 }
-void ts_mutex_lock(ts_mutex* mutex) {
+
+// These two do not return any error information
+// It looks like win32 will throw an exception if they fail
+// For my purposes, I am always going to return true
+ts_b32 ts_mutex_lock(ts_mutex* mutex) {
     EnterCriticalSection(&mutex->cs);
+
+    return true;
 }
-void ts_mutex_unlock(ts_mutex* mutex) {
+ts_b32 ts_mutex_unlock(ts_mutex* mutex) {
     LeaveCriticalSection(&mutex->cs);
+
+    return true;
 }
 
 typedef struct _ts_thread_pool {
@@ -332,15 +320,27 @@ ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u3
     tp->num_threads = num_threads;
     tp->threads = MGA_PUSH_ZERO_ARRAY(arena, HANDLE, num_threads);
     for (ts_u32 i = 0; i < num_threads; i++) {
-        tp->threads[i] = CreateThread(
-            NULL, 0, _thread_start, tp, 0, NULL
-        );
+        tp->threads[i] = CreateThread(NULL, 0, _thread_start, tp, 0, NULL);
+
+        if (tp->threads[i] == NULL) {
+            TS_ERR(TS_ERR_THREADING, "Failed to create thread in thread pool");
+
+            for (ts_u32 j = 0; j < i; j++) {
+                TerminateThread(tp->threads[j], 0);
+                CloseHandle(tp->threads[j]);
+            }
+
+            DeleteCriticalSection(&tp->mutex);
+
+            return NULL;
+        }
     }
 
     return tp;
 }
 void ts_thread_pool_destroy(ts_thread_pool* tp) {
     for (ts_u32 i = 0; i < tp->num_threads; i++) {
+        // TODO: is it okay to use TerminateThread here?
         TerminateThread(tp->threads[i], 0);
         CloseHandle(tp->threads[i]);
     }
@@ -348,22 +348,26 @@ void ts_thread_pool_destroy(ts_thread_pool* tp) {
     DeleteCriticalSection(&tp->mutex);
 }
 
-void ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task) {
+ts_b32 ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task) {
     EnterCriticalSection(&tp->mutex);
 
     if ((ts_u64)tp->num_tasks + 1 >= (ts_u64)tp->max_tasks) {
         LeaveCriticalSection(&tp->mutex);
-        fprintf(stderr, "Thread pool exceeded max tasks\n");
-        return;
+
+        TS_ERR(TS_ERR_THREADING, "Thread pool exceeded max tasks");
+        return false;
     }
 
     tp->task_queue[tp->num_tasks++] = task;
 
     LeaveCriticalSection(&tp->mutex);
     WakeConditionVariable(&tp->queue_cond_var);
+
+    return true;
 }
-void ts_thread_pool_wait(ts_thread_pool* tp) {
+ts_b32 ts_thread_pool_wait(ts_thread_pool* tp) {
     EnterCriticalSection(&tp->mutex);
+
     while (true) {
         if (tp->num_active != 0 || tp->num_tasks != 0) {
             SleepConditionVariableCS(&tp->active_cond_var, &tp->mutex, INFINITE);
@@ -371,7 +375,10 @@ void ts_thread_pool_wait(ts_thread_pool* tp) {
             break;
         }
     }
+
     LeaveCriticalSection(&tp->mutex);
+
+    return true;
 }
 
 #endif // PLATFORM_WIN32
