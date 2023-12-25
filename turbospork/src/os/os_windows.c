@@ -241,6 +241,12 @@ ts_mutex* ts_mutex_create(mg_arena* arena) {
     return mutex;
 }
 void ts_mutex_destroy(ts_mutex* mutex) {
+    if (mutex == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot destroy NULL mutex");
+
+        return;
+    }
+
     DeleteCriticalSection(&mutex->cs);
 }
 
@@ -248,11 +254,23 @@ void ts_mutex_destroy(ts_mutex* mutex) {
 // It looks like win32 will throw an exception if they fail
 // For my purposes, I am always going to return true
 ts_b32 ts_mutex_lock(ts_mutex* mutex) {
+    if (mutex == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot lock NULL mutex");
+
+        return false;
+    }
+
     EnterCriticalSection(&mutex->cs);
 
     return true;
 }
 ts_b32 ts_mutex_unlock(ts_mutex* mutex) {
+    if (mutex == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot unlock NULL mutex");
+
+        return false;
+    }
+
     LeaveCriticalSection(&mutex->cs);
 
     return true;
@@ -339,6 +357,12 @@ ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u3
     return tp;
 }
 void ts_thread_pool_destroy(ts_thread_pool* tp) {
+    if (tp == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot destroy NULL thread pool");
+
+        return;
+    }
+
     for (ts_u32 i = 0; i < tp->num_threads; i++) {
         // TODO: is it okay to use TerminateThread here?
         TerminateThread(tp->threads[i], 0);
@@ -349,6 +373,12 @@ void ts_thread_pool_destroy(ts_thread_pool* tp) {
 }
 
 ts_b32 ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task) {
+    if (tp == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot add task to NULL thread pool");
+
+        return false;
+    }
+
     EnterCriticalSection(&tp->mutex);
 
     if ((ts_u64)tp->num_tasks + 1 >= (ts_u64)tp->max_tasks) {
@@ -366,6 +396,12 @@ ts_b32 ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task) {
     return true;
 }
 ts_b32 ts_thread_pool_wait(ts_thread_pool* tp) {
+    if (tp == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot wait for NULL thread pool");
+
+        return false;
+    }
+
     EnterCriticalSection(&tp->mutex);
 
     while (true) {

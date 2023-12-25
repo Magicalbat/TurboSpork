@@ -185,7 +185,7 @@ typedef struct _ts_mutex {
     pthread_mutex_t mutex;
 } ts_mutex;
 
-// TODO: error handling here
+// TODO: check mutex for NULL
 ts_mutex* ts_mutex_create(mg_arena* arena) {
     pthread_mutex_t pmutex = PTHREAD_MUTEX_INITIALIZER;
 

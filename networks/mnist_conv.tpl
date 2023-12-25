@@ -4,7 +4,6 @@ input:
 conv_2d:
    num_filters = 16;
    kernel_size = 3;
-   padding = true;
 
 activation:
     type = relu;

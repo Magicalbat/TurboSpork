@@ -1,4 +1,5 @@
 #include "layers.h"
+#include "err.h"
 #include "layers_internal.h"
 #include "prng.h"
 
@@ -125,16 +126,23 @@ static _layer_func_defs _layer_funcs[TS_LAYER_COUNT] = {
     }
 };
 
-#define _TYPE_CHECK(err_msg) do { \
+#define _ERR_CHECK(err_msg) do { \
+        if (l == NULL) { \
+            TS_ERR(TS_ERR_INVALID_INPUT, err_msg ": layer is NULL"); \
+            return; \
+        } \
         if (l->type >= TS_LAYER_COUNT) { \
-            fprintf(stderr, err_msg); \
+            TS_ERR(TS_ERR_INVALID_ENUM, err_msg ": invalid layer type"); \
             return; \
         } \
     } while (0);
 
 ts_layer* ts_layer_create(mg_arena* arena, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
+    if (desc == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create layer with NULL desc");
+    }
     if (desc->type >= TS_LAYER_COUNT) {
-        fprintf(stderr, "Cannot create layer: invalid type\n");
+        TS_ERR(TS_ERR_INVALID_ENUM, "Cannot create layer: invalid type");
         return NULL;
     }
 
@@ -148,32 +156,32 @@ ts_layer* ts_layer_create(mg_arena* arena, const ts_layer_desc* desc, ts_tensor_
     return out;
 }
 void ts_layer_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache) {
-    _TYPE_CHECK("Cannot feedforward layer: invalid type\n");
+    _ERR_CHECK("Cannot feedforward layer");
 
     _layer_funcs[l->type].feedforward(l, in_out, cache);
 }
 void ts_layer_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cache) {
-    _TYPE_CHECK("Cannot backprop layer: invalid type\n");
+    _ERR_CHECK("Cannot backprop layer");
 
     _layer_funcs[l->type].backprop(l, delta, cache);
 }
 void ts_layer_apply_changes(ts_layer* l, const ts_optimizer* optim) {
-    _TYPE_CHECK("Cannot apply changes in layer: invalid type\n");
+    _ERR_CHECK("Cannot apply changes in layer");
 
     _layer_funcs[l->type].apply_changes(l, optim);
 }
 void ts_layer_delete(ts_layer* l) {
-    _TYPE_CHECK("Cannot delete layer: invalid type\n");
+    _ERR_CHECK("Cannot delete layer");
 
     _layer_funcs[l->type].delete(l);
 }
 void ts_layer_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index) {
-    _TYPE_CHECK("Cannot save layer: invalid type\n");
+    _ERR_CHECK("Cannot save layer");
 
     _layer_funcs[l->type].save(arena, l, list, index);
 }
 void ts_layer_load(ts_layer* l, const ts_tensor_list* list, ts_u32 index) {
-    _TYPE_CHECK("Cannot load layer: invalid type\n");
+    _ERR_CHECK("Cannot load layer");
 
     _layer_funcs[l->type].load(l, list, index);
 }
@@ -209,7 +217,7 @@ static const ts_layer_desc _default_descs[TS_LAYER_COUNT] = {
 
 ts_layer_desc ts_layer_desc_default(ts_layer_type type) {
     if (type >= TS_LAYER_COUNT) {
-        fprintf(stderr, "Cannot get default layer desc: invalid layer type\n");
+        TS_ERR(TS_ERR_INVALID_ENUM, "Cannot get default layer desc: invalid layer type");
 
         return (ts_layer_desc){ 0 };
     }
@@ -218,8 +226,13 @@ ts_layer_desc ts_layer_desc_default(ts_layer_type type) {
 }
 #define _PARAM_DEFAULT(p, d) (p = p == 0 ? d : p)
 ts_layer_desc ts_layer_desc_apply_default(const ts_layer_desc* desc) {
+    if (desc == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot apply defaults of NULL desc");
+
+        return (ts_layer_desc){ 0 };
+    }
     if (desc->type >= TS_LAYER_COUNT) {
-        fprintf(stderr, "Cannot apply defaults to layer desc: invalid layer type\n");
+        TS_ERR(TS_ERR_INVALID_ENUM, "Cannot apply defaults to layer desc: invalid layer type");
 
         return (ts_layer_desc){ 0 };
     }
@@ -294,8 +307,11 @@ layer_type:
 
 */
 void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_desc* desc) {
+    if (list == NULL || desc == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot save desc: list or desc is NULL");
+    }
     if (desc->type >= TS_LAYER_COUNT) {
-        fprintf(stderr, "Cannot save desc: invalid layer type\n");
+        TS_ERR(TS_ERR_INVALID_ENUM, "Cannot save desc: invalid layer type");
 
         return;
     }
@@ -331,7 +347,7 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
             ts_string8 size_str = ts_str8_pushf(arena, "    size = %u;\n", desc->dense.size);
 
             if (desc->dense.bias_init >= TS_PARAM_INIT_COUNT || desc->dense.weight_init >= TS_PARAM_INIT_COUNT) {
-                fprintf(stderr, "Cannot save desc: invalid init type in dense\n");
+                TS_ERR(TS_ERR_INVALID_ENUM, "Cannot save desc: invalid init type in dense");
                 break;
             }
 
@@ -348,8 +364,7 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
         } break;
         case TS_LAYER_ACTIVATION: {
             if (desc->activation.type >= TS_ACTIVATION_COUNT) {
-                fprintf(stderr, "Cannot save desc: invalid activation type\n");
-
+                TS_ERR(TS_ERR_INVALID_ENUM, "Cannot save desc: invalid activation type");
                 break;
             }
 
@@ -364,8 +379,7 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
         } break;
         case TS_LAYER_POOLING_2D: {
             if (desc->pooling_2d.type >= TS_POOLING_COUNT) {
-                fprintf(stderr, "Cannot save desc: invalid pooling type\n");
-
+                TS_ERR(TS_ERR_INVALID_ENUM, "Cannot save desc: invalid pooling type");
                 break;
             }
 
@@ -381,7 +395,7 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
             const ts_layer_conv_2d_desc* cdesc = &desc->conv_2d;
 
             if (cdesc->kernels_init >= TS_PARAM_INIT_COUNT || cdesc->biases_init >= TS_PARAM_INIT_COUNT) {
-                fprintf(stderr, "Cannot save desc: invalid init type in conv_2d\n");
+                TS_ERR(TS_ERR_INVALID_ENUM, "Cannot save desc: invalid init type in conv_2d");
                 break;
             }
 
@@ -579,12 +593,12 @@ _parse_res _parse_ts_f32(ts_f32* out, ts_string8 value) {
 }
 
 #define _PARSE_RES_ERR_CHECK(res) if (res.error) { \
-        fprintf(stderr, "%s\n", res.err_msg); \
+        TS_ERR(TS_ERR_PARSE, res.err_msg); \
         break; \
     }
 
 ts_layer_desc ts_layer_desc_load(ts_string8 str) {
-    ts_layer_desc out = { };
+    ts_layer_desc out = { 0 };
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
@@ -592,10 +606,9 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
 
     ts_u64 colon_index = 0;
     if (!ts_str8_index_of_char(stripped_str, (ts_u8)':', &colon_index)) {
-        fprintf(stderr, "Cannot load layer desc: Invalid string\n");
+        TS_ERR(TS_ERR_PARSE, "Cannot load layer desc: Invalid string");
 
         mga_scratch_release(scratch);
-
         return out;
     }
 
@@ -611,7 +624,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
 
         ts_u64 eq_index = 0;
         if (!ts_str8_index_of_char(cur_str, (ts_u8)'=', &eq_index)) {
-            fprintf(stderr, "Cannot load layer desc: Invalid field (no '=')\n");
+            TS_ERR(TS_ERR_PARSE, "Cannot load layer desc: Invalid field (no '=')");
             break;
         }
         
@@ -628,7 +641,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
         cur_str.size -= semi_index + 1;
 
         if (key.size == 0 || value.size == 0) {
-            fprintf(stderr, "Cannot load layer desc: Invalid key/value\n");
+            TS_ERR(TS_ERR_PARSE, "Cannot load layer desc: Invalid key or value");
 
             break;
         }
@@ -661,7 +674,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
                     out.dense.bias_init = bias_init;
 
                     if (res.error || out.dense.bias_init == TS_PARAM_INIT_NULL) {
-                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                        TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
                     }
                 } else if (ts_str8_equals(key, TS_STR8("weight_init"))) {
                     out.dense.weight_init = TS_PARAM_INIT_NULL;
@@ -671,7 +684,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
                     out.dense.weight_init = weight_init;
 
                     if (res.error || out.dense.weight_init == TS_PARAM_INIT_NULL) {
-                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                        TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
                     }
                 }
             } break;
@@ -684,7 +697,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
                     out.activation.type = activ_type;
 
                     if (res.error || out.activation.type == TS_ACTIVATION_NULL) {
-                        fprintf(stderr, "Invalid activation type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                        TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid activation type");
                     }
                 }
             } break;
@@ -704,7 +717,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
                     out.pooling_2d.type = pool_type;
 
                     if (res.error || out.pooling_2d.type == TS_POOLING_NULL) {
-                        fprintf(stderr, "Invalid pooling type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                        TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid pooling type");
                     }
                 } else if (ts_str8_equals(key, TS_STR8("pool_size"))) {
                     _parse_res res = _parse_ts_tensor_shape(&out.pooling_2d.pool_size, value);
@@ -737,7 +750,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
                     out.conv_2d.kernels_init = kernels_init;
 
                     if (res.error || out.dense.bias_init == TS_PARAM_INIT_NULL) {
-                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                        TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
                     }
                 } else if (ts_str8_equals(key, TS_STR8("biases_init"))) {
                     out.conv_2d.biases_init = TS_PARAM_INIT_NULL;
@@ -747,7 +760,7 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
                     out.conv_2d.biases_init = biases_init;
 
                     if (res.error || out.dense.bias_init == TS_PARAM_INIT_NULL) {
-                        fprintf(stderr, "Invalid param init type \"%.*s\"\n", (int)value.size, (char*)value.str);
+                        TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
                     }
                 }
             }
@@ -777,6 +790,11 @@ void _param_init_normal(ts_tensor* param, ts_f32 mean, ts_f32 std_dev) {
 }
 
 void ts_param_init(ts_tensor* param, ts_param_init_type input_type, ts_u64 in_size, ts_u64 out_size) {
+    if (param == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot init NULL param");
+        return;
+    }
+
     switch (input_type) {
         case TS_PARAM_INIT_ZEROS: {
             ts_tensor_fill(param, 0.0f);
@@ -805,12 +823,22 @@ void ts_param_init(ts_tensor* param, ts_param_init_type input_type, ts_u64 in_si
 }
 
 void ts_layers_cache_push(ts_layers_cache* cache, ts_tensor* t) {
+    if (cache == NULL || t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot push tensor to layers cache: cache or tensor is NULL");
+        return;
+    }
+
     ts_layers_cache_node* node = MGA_PUSH_ZERO_STRUCT(cache->arena, ts_layers_cache_node);
     node->t = t;
 
     TS_SLL_PUSH_FRONT(cache->first, cache->last, node);
 }
 ts_tensor* ts_layers_cache_pop(ts_layers_cache* cache) {
+    if (cache == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot pop tensor from NULL cache");
+        return NULL;
+    }
+
     ts_tensor* out = cache->first->t;
 
     TS_SLL_POP_FRONT(cache->first, cache->last);

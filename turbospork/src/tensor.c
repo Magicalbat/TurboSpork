@@ -1132,7 +1132,7 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
 
 ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
     if (!ts_str8_equals(_tpt_header, ts_str8_substr(str, 0, _tpt_header.size))) {
-        TS_ERR(TS_ERR_CANNOT_PARSE, "Cannot read ts_tensor string: ts_tensor header not found");
+        TS_ERR(TS_ERR_PARSE, "Cannot read ts_tensor string: ts_tensor header not found");
         
         return (ts_tensor_list){ 0 };
     }
@@ -1171,7 +1171,7 @@ ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
     }
 
     if (pos > str.size) {
-        TS_ERR(TS_ERR_CANNOT_PARSE, "Could not load all ts_tensors: cannot read outisde string bounds");
+        TS_ERR(TS_ERR_PARSE, "Could not load all ts_tensors: cannot read outisde string bounds");
     }
 
     return out;

@@ -57,7 +57,7 @@ void mnist_main(void) {
     ts_network_summary(nn);
 
     ts_network_train_desc train_desc = {
-        .epochs = 3,
+        .epochs = 2,
         .batch_size = 100,
 
         .num_threads = 8,
