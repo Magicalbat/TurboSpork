@@ -89,7 +89,7 @@ static ts_f32 cce_func(const ts_tensor* in, const ts_tensor* desired_out) {
 static void cce_grad(ts_tensor* in_out, const ts_tensor* desired_out) {
     ts_u64 size = (ts_u64)in_out->shape.width * in_out->shape.height * in_out->shape.depth;
     for (ts_u64 i = 0; i < size; i++) {
-        in_out->data[i] = -desired_out->data[i] / (in_out->data[i] + 1e-8);
+        in_out->data[i] = -desired_out->data[i] / (in_out->data[i] + 1e-8f);
     }
 }
 

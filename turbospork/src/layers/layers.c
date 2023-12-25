@@ -187,11 +187,11 @@ void ts_layer_load(ts_layer* l, const ts_tensor_list* list, ts_u32 index) {
 }
 
 static const ts_layer_desc _default_descs[TS_LAYER_COUNT] = {
-    [TS_LAYER_NULL] = { },
-    [TS_LAYER_INPUT] = { },
-    [TS_LAYER_RESHAPE] = { },
+    [TS_LAYER_NULL] = { 0 },
+    [TS_LAYER_INPUT] = { 0 },
+    [TS_LAYER_RESHAPE] = { 0 },
     [TS_LAYER_DENSE] = {
-        .dense = (ts_layer_dense_desc){
+        .dense = {
             .bias_init = TS_PARAM_INIT_ZEROS,
             .weight_init = TS_PARAM_INIT_XAVIER_UNIFORM
         }
@@ -199,15 +199,15 @@ static const ts_layer_desc _default_descs[TS_LAYER_COUNT] = {
     [TS_LAYER_ACTIVATION] = {
         .activation.type = TS_ACTIVATION_RELU
     },
-    [TS_LAYER_DROPOUT] = { },
-    [TS_LAYER_FLATTEN] = { },
+    [TS_LAYER_DROPOUT] = { 0 },
+    [TS_LAYER_FLATTEN] = { 0 },
     [TS_LAYER_POOLING_2D] = {
-        .pooling_2d = (ts_layer_pooling_2d_desc){
+        .pooling_2d = {
             .type = TS_POOLING_MAX
         }
     },
     [TS_LAYER_CONV_2D] = {
-        .conv_2d = (ts_layer_conv_2d_desc) {
+        .conv_2d = {
             .stride = 1,
             .kernels_init = TS_PARAM_INIT_HE_NORMAL,
             .biases_init = TS_PARAM_INIT_ZEROS
@@ -508,7 +508,7 @@ _parse_res _parse_ts_tensor_shape(ts_tensor_shape* out, ts_string8 value) {
     ts_u8* num2_cstr = ts_str8_to_cstr(scratch.arena, num2_str);
     ts_u8* num3_cstr = ts_str8_to_cstr(scratch.arena, num3_str);
 
-    ts_tensor_shape shape = {};
+    ts_tensor_shape shape = { 0 };
     char* end_ptr = NULL;
 
     shape.width = strtol((char*)num1_cstr, &end_ptr, 10);
