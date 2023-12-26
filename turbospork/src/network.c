@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-ts_u32 _network_max_layer_size(ts_network* nn) {
+ts_u32 _network_max_layer_size(const ts_network* nn) {
     ts_u64 max_layer_size = 0;
     for (ts_u32 i = 0; i < nn->num_layers; i++) {
         ts_tensor_shape s = nn->layers[i]->shape;
@@ -20,6 +20,42 @@ ts_u32 _network_max_layer_size(ts_network* nn) {
     }
 
     return max_layer_size;
+}
+
+// Checks that each layer outputs the correct shape
+// Called after input layer check and max_layer_size
+ts_b32 _network_shape_checks(const ts_network* nn) {
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    // Performing a mock feedforward and backprop to check shapes
+    ts_tensor* in_out = ts_tensor_create_alloc(scratch.arena, nn->layers[0]->shape, nn->max_layer_size);
+    ts_layers_cache cache = { .arena = scratch.arena };
+
+    for (ts_u32 i = 0; i < nn->num_layers; i++) {
+        ts_layer_feedforward(nn->layers[i], in_out, &cache);
+
+        if (!ts_tensor_shape_eq(in_out->shape, nn->layers[i]->shape)) {
+            goto fail;
+        }
+    }
+
+    // Renaming for clarity
+    ts_tensor* delta = in_out;
+
+    for (ts_i64 i = nn->num_layers - 1; i >= 0; i--) {
+        ts_layer_backprop(nn->layers[i], delta, &cache);
+
+        if (!ts_tensor_shape_eq(delta->shape, nn->layers[TS_MAX(0, i-1)]->shape)) {
+            goto fail;
+        }
+    }
+
+    mga_scratch_release(scratch);
+    return true;
+
+fail:
+    mga_scratch_release(scratch);
+    return false;
 }
 
 ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer_desc* layer_descs, ts_b32 training_mode) {
@@ -48,16 +84,29 @@ ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer
         if (nn->layers[i] == NULL) {
             TS_ERR(TS_ERR_CREATE, "Cannot create network: failed to create layer");
 
-            mga_temp_end(maybe_temp);
-            return NULL;
+            goto error;
         }
 
         prev_shape = nn->layers[i]->shape;
     }
 
+    if (nn->layers[0]->type != TS_LAYER_INPUT) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "First layer of network must be input");
+        goto error;
+    }
+
     nn->max_layer_size = _network_max_layer_size(nn); 
 
+    if (!_network_shape_checks(nn)) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create network: layer shapes do not align");
+        goto error;
+    }
+
     return nn;
+
+error:
+    mga_temp_end(maybe_temp);
+    return NULL;
 }
 
 // Inits layers from stripped tpl string
@@ -128,9 +177,20 @@ static ts_b32 _ts_network_load_layout_impl(mg_arena* arena, ts_network* nn, ts_s
         prev_shape = nn->layers[i]->shape;
     }
 
+    if (nn->layers[0]->type != TS_LAYER_INPUT) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "First layer of network must be input");
+
+        goto error;
+    }
+
     nn->max_layer_size = _network_max_layer_size(nn); 
 
     mga_scratch_release(scratch);
+
+    if (!_network_shape_checks(nn)) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create network: layer shapes do not align");
+        goto error;
+    }
 
     return true;
 
@@ -239,6 +299,15 @@ void ts_network_feedforward(const ts_network* nn, ts_tensor* out, const ts_tenso
         return;
     }
 
+    ts_u64 input_size = (ts_u64)input->shape.width * input->shape.height * input->shape.depth;
+    ts_tensor_shape nn_shape = nn->layers[0]->shape;
+    ts_u64 nn_input_size = (ts_u64)nn_shape.width * nn_shape.height * nn_shape.depth;
+
+    if (input_size != nn_input_size) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Input must be as big as the network input layer");
+        return;
+    }
+
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     ts_tensor* in_out = ts_tensor_create_alloc(scratch.arena, (ts_tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
@@ -344,6 +413,38 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
     if (!nn->training_mode) {
         TS_ERR(TS_ERR_INVALID_INPUT, "Cannot train network that is not in training mode");
         return;
+    }
+
+    // Size checks
+    {
+        ts_tensor_shape nn_shape = nn->layers[0]->shape;
+        ts_u64 nn_input_size = (ts_u64)nn_shape.width * nn_shape.height * nn_shape.depth;
+        nn_shape = nn->layers[nn->num_layers - 1]->shape;
+        ts_u64 nn_out_size = (ts_u64)nn_shape.width * nn_shape.height * nn_shape.depth;
+
+        ts_u64 input_size = (ts_u64)desc->train_inputs->shape.width * desc->train_inputs->shape.height;
+        if (input_size != nn_input_size) {
+            TS_ERR(TS_ERR_INVALID_INPUT, "Training inputs must be the same size as the network input layer");
+            return;
+        }
+        ts_u64 out_size = (ts_u64)desc->train_outputs->shape.width * desc->train_outputs->shape.height;
+        if (out_size != nn_out_size) {
+            TS_ERR(TS_ERR_INVALID_INPUT, "Training outpus must be the same size as the network output layer");
+            return;
+        }
+
+        if (desc->accuracy_test) {
+            input_size = (ts_u64)desc->test_inputs->shape.width * desc->test_inputs->shape.height;
+            if (input_size != nn_input_size) {
+                TS_ERR(TS_ERR_INVALID_INPUT, "Testing inputs must be the same size as the network input layer");
+                return;
+            }
+            out_size = (ts_u64)desc->test_outputs->shape.width * desc->test_outputs->shape.height;
+            if (out_size != nn_out_size) {
+                TS_ERR(TS_ERR_INVALID_INPUT, "Testing outpus must be the same size as the network output layer");
+                return;
+            }
+        }
     }
 
     ts_optimizer optim = desc->optim;
