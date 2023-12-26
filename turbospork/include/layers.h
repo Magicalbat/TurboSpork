@@ -365,7 +365,6 @@ void ts_layer_apply_changes(ts_layer* l, const ts_optimizer* optim);
  * @param l Layer to delete
  */
 void ts_layer_delete(ts_layer* l);
-// Saves layer params, not anything that would be in the desc
 /** 
  * @brief Saves any trainable params of the layer
  *
@@ -377,8 +376,6 @@ void ts_layer_delete(ts_layer* l);
  * @param index Index of the layer in neural network. To make names in the list unique
  */
 void ts_layer_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index);
-// Loads layer params, not anything that would be in the desc
-// Layer needs to be created with the correct type
 /**
  * @brief Loads trainable params of the layer
  *
@@ -416,9 +413,12 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
 /**
  * @brief Loads the layer desc from the `ts_string8`
  * 
+ * @param out Output layer desc
  * @param str A valid layer desc str
+ *
+ * @return true if loading was successful
  */
-ts_layer_desc ts_layer_desc_load(ts_string8 str);
+ts_b32 ts_layer_desc_load(ts_layer_desc* out, ts_string8 str);
 
 /**
  * @brief Initializes `param` based on the init type

@@ -16,15 +16,16 @@
  */
 #define TS_ERROR_XLIST \
     X(ERR_NULL) \
+    X(ERR_GENERAL) \
     X(ERR_INVALID_INPUT) \
     X(ERR_ALLOC_SIZE) \
     X(ERR_BAD_SHAPE) \
-    X(ERR_BUFFER_NOT_FILLED) \
     X(ERR_PARSE) \
     X(ERR_IO) \
     X(ERR_OS) \
     X(ERR_THREADING) \
-    X(ERR_INVALID_ENUM)
+    X(ERR_INVALID_ENUM) \
+    X(ERR_CREATE)
 
 /**
  * @brief Error codes

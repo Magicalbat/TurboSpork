@@ -1,5 +1,6 @@
 #include "network.h"
 #include "layers/layers_internal.h"
+#include "err.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -22,6 +23,13 @@ ts_u32 _network_max_layer_size(ts_network* nn) {
 }
 
 ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer_desc* layer_descs, ts_b32 training_mode) {
+    if (layer_descs == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create network with NULL layer_descs");
+
+        return NULL;
+    }
+
+    mga_temp maybe_temp = mga_temp_begin(arena);
     ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
 
     nn->training_mode = training_mode;
@@ -36,6 +44,14 @@ ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer
         nn->layer_descs[i].training_mode = training_mode;
 
         nn->layers[i] = ts_layer_create(arena, &nn->layer_descs[i], prev_shape);
+
+        if (nn->layers[i] == NULL) {
+            TS_ERR(TS_ERR_CREATE, "Cannot create network: failed to create layer");
+
+            mga_temp_end(maybe_temp);
+            return NULL;
+        }
+
         prev_shape = nn->layers[i]->shape;
     }
 
@@ -46,9 +62,7 @@ ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer
 
 // Inits layers from stripped tpl string
 // See ts_network_save_layout for more detail
-static void _ts_network_load_layout_impl(mg_arena* arena, ts_network* nn, ts_string8 file, ts_b32 training_mode) {
-    // TODO: Error checking for missing semicolons
-
+static ts_b32 _ts_network_load_layout_impl(mg_arena* arena, ts_network* nn, ts_string8 file, ts_b32 training_mode) {
     mga_temp scratch = mga_scratch_get(&arena, 1);
 
     // Each string in list is a layer_desc save str
@@ -98,21 +112,36 @@ static void _ts_network_load_layout_impl(mg_arena* arena, ts_network* nn, ts_str
     ts_string8_node* n = desc_str_list.first;
     ts_tensor_shape prev_shape = { 0 };
     for (ts_u32 i = 0; i < nn->num_layers; i++, n = n->next) {
-        ts_layer_desc desc = ts_layer_desc_load(n->str);
-        nn->layer_descs[i] = ts_layer_desc_apply_default(&desc);
+        if (!ts_layer_desc_load(&nn->layer_descs[i], n->str)) {
+            goto error;
+        }
+
+        nn->layer_descs[i] = ts_layer_desc_apply_default(&nn->layer_descs[i]);
         nn->layer_descs[i].training_mode = training_mode;
 
         nn->layers[i] = ts_layer_create(arena, &nn->layer_descs[i], prev_shape);
+
+        if (nn->layers[i] == NULL) {
+            goto error;
+        }
+
         prev_shape = nn->layers[i]->shape;
     }
 
     nn->max_layer_size = _network_max_layer_size(nn); 
 
     mga_scratch_release(scratch);
+
+    return true;
+
+error:
+    mga_scratch_release(scratch);
+    return false;
 }
 
 // Creates ts_network from layout file (*.tpl)
 ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode) {
+    mga_temp maybe_temp = mga_temp_begin(arena);
     ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
 
     nn->training_mode = training_mode;
@@ -122,7 +151,12 @@ ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32
     ts_string8 raw_file = ts_file_read(scratch.arena, file_name);
     ts_string8 file = ts_str8_remove_space(scratch.arena, raw_file);
 
-    _ts_network_load_layout_impl(arena, nn, file, training_mode);
+    if (!_ts_network_load_layout_impl(arena, nn, file, training_mode)) {
+        mga_temp_end(maybe_temp);
+        mga_scratch_release(scratch);
+
+        return NULL;
+    }
 
     mga_scratch_release(scratch);
 
@@ -132,11 +166,12 @@ ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32
 // This is also used in ts_network_save
 static const ts_string8 _tpn_header = {
     .size = 10,
-    .str = (ts_u8*)"TP_ts_network"
+    .str = (ts_u8*)"TS_network"
 };
 
 // Creates ts_network from ts_network file (*.tpn)
 ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode) {
+    mga_temp maybe_temp = mga_temp_begin(arena);
     ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
 
     nn->training_mode = training_mode;
@@ -146,24 +181,26 @@ ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 traini
     ts_string8 file = ts_file_read(scratch.arena, file_name);
 
     if (!ts_str8_equals(_tpn_header, ts_str8_substr(file, 0, _tpn_header.size))) {
-        fprintf(stderr, "Cannot load ts_network: not tpn file\n");
+        TS_ERR(TS_ERR_PARSE, "Cannot load ts_network: not tpn file");
 
-        goto end;
+        goto error;
     }
 
     file = ts_str8_substr(file, _tpn_header.size, file.size);
 
     ts_u64 tpt_index = 0;
     if (!ts_str8_index_of(file, ts_tensor_get_tpt_header(), &tpt_index)) {
-        fprintf(stderr, "Cannot load ts_network: invalid tpn file\n");
+        TS_ERR(TS_ERR_PARSE, "Cannot load ts_network: invalid tpn file");
 
-        goto end;
+        goto error;
     }
 
     ts_string8 layout_str = ts_str8_substr(file, 0, tpt_index);
     ts_string8 ts_tensors_str = ts_str8_substr(file, tpt_index, file.size);
 
-    _ts_network_load_layout_impl(arena, nn, layout_str, training_mode);
+    if (!_ts_network_load_layout_impl(arena, nn, layout_str, training_mode)) {
+        goto error;
+    }
 
     ts_tensor_list params = ts_tensor_list_from_str(scratch.arena, ts_tensors_str);
 
@@ -171,19 +208,37 @@ ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 traini
         ts_layer_load(nn->layers[i], &params, i);
     }
 
-    // Using goto so that scratch arena always gets released
-end:
     mga_scratch_release(scratch);
     return nn;
+
+error:
+    mga_temp_end(maybe_temp);
+    mga_scratch_release(scratch);
+
+    return NULL;
 }
 
 void ts_network_delete(ts_network* nn) {
+    if (nn == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot delete NULL network");
+        return;
+    }
+
     for (ts_u32 i = 0; i < nn->num_layers; i++) {
         ts_layer_delete(nn->layers[i]);
     }
 }
 
 void ts_network_feedforward(const ts_network* nn, ts_tensor* out, const ts_tensor* input) {
+    if (nn == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot feedforward NULL network");
+        return;
+    }
+    if (out == NULL || input == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot feedforward with NULL input and/or output");
+        return;
+    }
+
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     ts_tensor* in_out = ts_tensor_create_alloc(scratch.arena, (ts_tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
@@ -208,8 +263,6 @@ ts_u32 _num_digits (ts_u32 n) {
     if (n < 10000000) return 7;
     if (n < 100000000) return 8;
     if (n < 1000000000) return 9;
-    /*      2147483647 is 2^31-1 - add more ifs as needed
-       and adjust this final return as well. */
     return 10;
 }
 
@@ -284,9 +337,12 @@ void _ts_network_test_thread(void* args) {
 
 #define _BAR_SIZE 20
 void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
+    if (nn == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot train NULL network");
+        return;
+    }
     if (!nn->training_mode) {
-        fprintf(stderr, "Cannot train ts_network that is not in training mode\n");
-
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot train network that is not in training mode");
         return;
     }
 
@@ -503,6 +559,11 @@ activation  (10, 1, 1)
 -------------------------
 */
 void ts_network_summary(const ts_network* nn) {
+    if (nn == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot print summary of NULL network");
+        return;
+    }
+
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     ts_string8 header = ts_str8_pushf(scratch.arena, "network (%u layers)", nn->num_layers);
@@ -619,6 +680,11 @@ ts_network Layout (tpl)
 ts_tensor List of layer params
 */
 void ts_network_save(const ts_network* nn, ts_string8 file_name) {
+    if (nn == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot save NULL network");
+        return;
+    }
+
     mga_temp scratch = mga_scratch_get(NULL, 0);
     ts_string8 layout_str = { 0 };
 

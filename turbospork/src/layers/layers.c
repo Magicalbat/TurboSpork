@@ -140,6 +140,7 @@ static _layer_func_defs _layer_funcs[TS_LAYER_COUNT] = {
 ts_layer* ts_layer_create(mg_arena* arena, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
     if (desc == NULL) {
         TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create layer with NULL desc");
+        return NULL;
     }
     if (desc->type >= TS_LAYER_COUNT) {
         TS_ERR(TS_ERR_INVALID_ENUM, "Cannot create layer: invalid type");
@@ -592,13 +593,17 @@ _parse_res _parse_ts_f32(ts_f32* out, ts_string8 value) {
     return (_parse_res){ .error = false };
 }
 
-#define _PARSE_RES_ERR_CHECK(res) if (res.error) { \
-        TS_ERR(TS_ERR_PARSE, res.err_msg); \
-        break; \
+#define _PARSE_RES_ERR_CHECK(res) \
+    if (res.error) { \
+        ts_err((ts_error){ TS_ERR_PARSE, ts_str8_from_cstr((ts_u8*)res.err_msg) }); \
+        goto error; \
     }
 
-ts_layer_desc ts_layer_desc_load(ts_string8 str) {
-    ts_layer_desc out = { 0 };
+ts_b32 ts_layer_desc_load(ts_layer_desc* out, ts_string8 str) {
+    if (out == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "cannot load into NULL layer desc");
+        return false;
+    }
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
@@ -608,13 +613,12 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
     if (!ts_str8_index_of_char(stripped_str, (ts_u8)':', &colon_index)) {
         TS_ERR(TS_ERR_PARSE, "Cannot load layer desc: Invalid string");
 
-        mga_scratch_release(scratch);
-        return out;
+        goto error;
     }
 
     ts_string8 type_str = ts_str8_substr(stripped_str, 0, colon_index);
 
-    out.type = ts_layer_from_name(type_str);
+    out->type = ts_layer_from_name(type_str);
 
     ts_string8 cur_str = ts_str8_substr(stripped_str, type_str.size + 1, stripped_str.size + 1);
 
@@ -625,13 +629,13 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
         ts_u64 eq_index = 0;
         if (!ts_str8_index_of_char(cur_str, (ts_u8)'=', &eq_index)) {
             TS_ERR(TS_ERR_PARSE, "Cannot load layer desc: Invalid field (no '=')");
-            break;
+            goto error;
         }
         
         ts_u64 semi_index = 0;
         if (!ts_str8_index_of_char(cur_str, (ts_u8)';', &semi_index)) {
-            fprintf(stderr, "Cannot load layer desc: Invalid field (no ';')\n");
-            break;
+            TS_ERR(TS_ERR_PARSE, "Cannot load layer desc: Invalid field (no ';')\n");
+            goto error;
         }
 
         ts_string8 key = ts_str8_substr(cur_str, 0, eq_index);
@@ -642,125 +646,130 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
 
         if (key.size == 0 || value.size == 0) {
             TS_ERR(TS_ERR_PARSE, "Cannot load layer desc: Invalid key or value");
-
-            break;
+            goto error;
         }
 
-        switch (out.type) {
+        switch (out->type) {
             case TS_LAYER_INPUT: {
                 if (ts_str8_equals(key, TS_STR8("shape"))) {
-                    _parse_res res = _parse_ts_tensor_shape(&out.input.shape, value);
+                    _parse_res res = _parse_ts_tensor_shape(&out->input.shape, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case TS_LAYER_RESHAPE: {
                 if (ts_str8_equals(key, TS_STR8("shape"))) {
-                    _parse_res res = _parse_ts_tensor_shape(&out.reshape.shape, value);
+                    _parse_res res = _parse_ts_tensor_shape(&out->reshape.shape, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case TS_LAYER_DENSE: {
                 if (ts_str8_equals(key, TS_STR8("size"))) {
-                    _parse_res res = _parse_ts_u32(&out.dense.size, value);
+                    _parse_res res = _parse_ts_u32(&out->dense.size, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("bias_init"))) {
-                    out.dense.bias_init = TS_PARAM_INIT_NULL;
+                    out->dense.bias_init = TS_PARAM_INIT_NULL;
                     ts_u32 bias_init = 0;
 
                     _parse_res res = _parse_enum(&bias_init, value, _param_init_names, TS_PARAM_INIT_COUNT);
-                    out.dense.bias_init = bias_init;
+                    out->dense.bias_init = bias_init;
 
-                    if (res.error || out.dense.bias_init == TS_PARAM_INIT_NULL) {
+                    if (res.error || out->dense.bias_init == TS_PARAM_INIT_NULL) {
                         TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
+                        goto error;
                     }
                 } else if (ts_str8_equals(key, TS_STR8("weight_init"))) {
-                    out.dense.weight_init = TS_PARAM_INIT_NULL;
+                    out->dense.weight_init = TS_PARAM_INIT_NULL;
                     ts_u32 weight_init = 0;
 
                     _parse_res res = _parse_enum(&weight_init, value, _param_init_names, TS_PARAM_INIT_COUNT);
-                    out.dense.weight_init = weight_init;
+                    out->dense.weight_init = weight_init;
 
-                    if (res.error || out.dense.weight_init == TS_PARAM_INIT_NULL) {
+                    if (res.error || out->dense.weight_init == TS_PARAM_INIT_NULL) {
                         TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
+                        goto error;
                     }
                 }
             } break;
             case TS_LAYER_ACTIVATION: {
                 if (ts_str8_equals(key, TS_STR8("type"))) {
-                    out.activation.type = TS_ACTIVATION_NULL;
+                    out->activation.type = TS_ACTIVATION_NULL;
                     ts_u32 activ_type = 0;
 
                     _parse_res res = _parse_enum(&activ_type, value, _activ_names, TS_ACTIVATION_COUNT);
-                    out.activation.type = activ_type;
+                    out->activation.type = activ_type;
 
-                    if (res.error || out.activation.type == TS_ACTIVATION_NULL) {
+                    if (res.error || out->activation.type == TS_ACTIVATION_NULL) {
                         TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid activation type");
+                        goto error;
                     }
                 }
             } break;
             case TS_LAYER_DROPOUT: {
                 if (ts_str8_equals(key, TS_STR8("keep_rate"))) {
-                    _parse_res res = _parse_ts_f32(&out.dropout.keep_rate, value);
+                    _parse_res res = _parse_ts_f32(&out->dropout.keep_rate, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case TS_LAYER_POOLING_2D: {
                 if (ts_str8_equals(key, TS_STR8("type"))) {
-                    out.pooling_2d.type = TS_POOLING_NULL;
+                    out->pooling_2d.type = TS_POOLING_NULL;
                     ts_u32 pool_type = 0;
 
                     _parse_res res = _parse_enum(&pool_type, value, _pooling_names, TS_POOLING_COUNT);
-                    out.pooling_2d.type = pool_type;
+                    out->pooling_2d.type = pool_type;
 
-                    if (res.error || out.pooling_2d.type == TS_POOLING_NULL) {
+                    if (res.error || out->pooling_2d.type == TS_POOLING_NULL) {
                         TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid pooling type");
+                        goto error;
                     }
                 } else if (ts_str8_equals(key, TS_STR8("pool_size"))) {
-                    _parse_res res = _parse_ts_tensor_shape(&out.pooling_2d.pool_size, value);
+                    _parse_res res = _parse_ts_tensor_shape(&out->pooling_2d.pool_size, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case TS_LAYER_CONV_2D: {
                 if (ts_str8_equals(key, TS_STR8("num_filters"))) {
-                    _parse_res res = _parse_ts_u32(&out.conv_2d.num_filters, value);
+                    _parse_res res = _parse_ts_u32(&out->conv_2d.num_filters, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("kernel_size"))) {
-                    _parse_res res = _parse_ts_u32(&out.conv_2d.kernel_size, value);
+                    _parse_res res = _parse_ts_u32(&out->conv_2d.kernel_size, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("padding"))) {
-                    _parse_res res = _parse_ts_b32(&out.conv_2d.padding, value);
+                    _parse_res res = _parse_ts_b32(&out->conv_2d.padding, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("stride"))) {
-                    _parse_res res = _parse_ts_u32(&out.conv_2d.stride, value);
+                    _parse_res res = _parse_ts_u32(&out->conv_2d.stride, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("kernels_init"))) {
-                    out.conv_2d.kernels_init = TS_PARAM_INIT_NULL;
+                    out->conv_2d.kernels_init = TS_PARAM_INIT_NULL;
                     ts_u32 kernels_init = 0;
 
                     _parse_res res = _parse_enum(&kernels_init, value, _param_init_names, TS_PARAM_INIT_COUNT);
-                    out.conv_2d.kernels_init = kernels_init;
+                    out->conv_2d.kernels_init = kernels_init;
 
-                    if (res.error || out.dense.bias_init == TS_PARAM_INIT_NULL) {
+                    if (res.error || out->dense.bias_init == TS_PARAM_INIT_NULL) {
                         TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
+                        goto error;
                     }
                 } else if (ts_str8_equals(key, TS_STR8("biases_init"))) {
-                    out.conv_2d.biases_init = TS_PARAM_INIT_NULL;
+                    out->conv_2d.biases_init = TS_PARAM_INIT_NULL;
                     ts_u32 biases_init = 0;
 
                     _parse_res res = _parse_enum(&biases_init, value, _param_init_names, TS_PARAM_INIT_COUNT);
-                    out.conv_2d.biases_init = biases_init;
+                    out->conv_2d.biases_init = biases_init;
 
-                    if (res.error || out.dense.bias_init == TS_PARAM_INIT_NULL) {
+                    if (res.error || out->dense.bias_init == TS_PARAM_INIT_NULL) {
                         TS_ERR(TS_ERR_PARSE, "Cannot load desc: Invalid param init type");
+                        goto error;
                     }
                 }
             }
@@ -769,8 +778,13 @@ ts_layer_desc ts_layer_desc_load(ts_string8 str) {
     }
 
     mga_scratch_release(scratch);
+    return true;
 
-    return out;
+error:
+    mga_scratch_release(scratch);
+
+    *out = (ts_layer_desc){ 0 };
+    return false;
 }
 
 void _param_init_uniform(ts_tensor* param, ts_f32 lower, ts_f32 upper) {

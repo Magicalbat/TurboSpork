@@ -1056,7 +1056,7 @@ File Format (*.tpt):
 
 static const ts_string8 _tpt_header = {
     .size = 10,
-    .str = (ts_u8*)"TP_tensors"
+    .str = (ts_u8*)"TS_tensors"
 };
 
 ts_string8 ts_tensor_get_tpt_header(void) {
@@ -1113,7 +1113,7 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
     }
 
     if (str_size != (ts_u64)(str_buf_ptr - str_buf)) {
-        TS_ERR(TS_ERR_BUFFER_NOT_FILLED, "Cannnot create ts_tensor string: buffer was not filled");
+        TS_ERR(TS_ERR_GENERAL, "Cannnot create ts_tensor string: buffer was not filled");
 
         return (ts_string8){ 0 };
     }
@@ -1189,7 +1189,7 @@ void ts_tensor_list_save(const ts_tensor_list* list, ts_string8 file_name) {
     ts_string8 file_str = ts_tensor_list_to_str(scratch.arena, list);
 
     if (file_str.size == 0) {
-        fprintf(stderr, "Cannnot write ts_tensor file: string was not created\n");
+        TS_ERR(TS_ERR_GENERAL, "Cannnot write ts_tensor file: string was not created");
     } else {
         ts_string8_list output_list = { 0 };
         ts_str8_list_push(scratch.arena, &output_list, file_str);
