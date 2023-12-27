@@ -1,4 +1,5 @@
 #include "costs.h"
+#include "err.h"
 
 #include <stdio.h>
 #include <math.h>
@@ -25,27 +26,39 @@ static _cost _costs[TS_COST_COUNT] = {
 };
 
 ts_f32 ts_cost_func(ts_cost_type type, const ts_tensor* in, const ts_tensor* desired_out) {
+    // Checks
     if (type >= TS_COST_COUNT) {
-        fprintf(stderr, "Invalid cost function\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Invalid cost function type");
         return 0.0f;
     }
-
     if (!ts_tensor_shape_eq(in->shape, desired_out->shape)) {
-        fprintf(stderr, "Invalid input to cost function: shapes must align\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Input and desired output must align in cost function");
+        return 0.0f;
+    }
+    if (in == NULL || desired_out == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot compute cost: in and/or desired_out is NULL");
         return 0.0f;
     }
 
+    // Actual cost function
     return _costs[type].func(in, desired_out);
 }
 void ts_cost_grad(ts_cost_type type, ts_tensor* in_out, const ts_tensor* desired_out) {
-    if (type >= TS_COST_COUNT) { fprintf(stderr, "Invalid cost gradient\n");
+    // Checks
+    if (type >= TS_COST_COUNT) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Invalid cost function type");
         return;
     }
     if (!ts_tensor_shape_eq(in_out->shape, desired_out->shape)) {
-        fprintf(stderr, "Invalid input to cost gradient: shapes must align\n");
+        TS_ERR(TS_ERR_INVALID_INPUT, "Input and desired output must align in cost function");
+        return;
+    }
+    if (in_out == NULL || desired_out == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot compute cost: in and/or desired_out is NULL");
         return;
     }
 
+    // Actual gradient
     _costs[type].grad(in_out, desired_out);
 }
 

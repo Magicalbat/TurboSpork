@@ -108,6 +108,8 @@ void ts_get_entropy(void* data, ts_u64 size);
 
 /**
  * @brief Creates a `ts_mutex`
+ *
+ * @return Pointer to mutex on success, NULL on failure
  */
 ts_mutex* ts_mutex_create(mg_arena* arena);
 /// Destroys the mutex
@@ -124,6 +126,8 @@ ts_b32 ts_mutex_unlock(ts_mutex* mutex);
  * @param num_threads Number of threads in pool.
  *  It should not be much higher than the number of threads on your computer
  * @param max_tasks Maximum number of tasks that can be active at one time
+ *
+ * @return Pointer to thread pool on success, NULL on failure
  */
 ts_thread_pool* ts_thread_pool_create(mg_arena* arena, ts_u32 num_threads, ts_u32 max_tasks);
 /// Destroys the thread pool

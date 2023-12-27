@@ -93,7 +93,7 @@ typedef struct {
     /**
      * @brief Output path of save interval
      *
-     * Output file is `{save_path}{epoch}.tpn`
+     * Output file is `{save_path}{epoch}.tsn`
      */
     ts_string8 save_path;
 
@@ -138,20 +138,24 @@ typedef struct {
  * @param layer_descs List of layer descriptions
  * @param training_mode Whether or not to initialize the network in training mode.
  *  This overrides the training mode in the layer descs
+ *
+ * @return Pointer to network on success, NULL on failure
  */
 ts_network* ts_network_create(mg_arena* arena, ts_u32 num_layers, const ts_layer_desc* layer_descs, ts_b32 training_mode);
 /**
- * @brief Creates a network from a layout file (.tpl)
+ * @brief Creates a network from a layout file (.tsl)
  *
  * Layout files can be created by hand or by `ts_network_save_layout`
  *
  * @param arena Arena to create network on
  * @param file_name File to load
  * @param training_mode Whether or not to initalize the network in training mode
+ *
+ * @return Pointer to network on success, NULL on failure
  */
 ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode);
 /**
- * @brief Creates a network from a network file (.tpn)
+ * @brief Creates a network from a network file (.tsn)
  *
  * Network files are created by `ts_network_save`,
  * and they include the parameters of the neural network.
@@ -160,6 +164,8 @@ ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32
  * @param arena Arena to create network on
  * @param file_name File to load
  * @param training_mode Whether or not to initalize the network in training mode
+ *
+ * @return Pointer to network on success, NULL on failure
  */
 ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode);
 
@@ -197,7 +203,7 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc);
 void ts_network_summary(const ts_network* nn);
 
 /**
- * @brief Saves the layout of the network into a .tpl file
+ * @brief Saves the layout of the network into a .tsl file
  *
  * Saves any information stored in the layer descriptions
  *
@@ -207,7 +213,7 @@ void ts_network_summary(const ts_network* nn);
 void ts_network_save_layout(const ts_network* nn, ts_string8 file_name);
 
 /**
- * @brief Saves the network into a .tpn file
+ * @brief Saves the network into a .tsn file
  *
  * Saves layout and parameter information.
  * Usually used during or after training the network

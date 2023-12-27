@@ -362,7 +362,7 @@ ts_tensor* ts_tensor_list_get(const ts_tensor_list* list, ts_string8 name);
 /**
  * @brief Serializes a `ts_tensor_list` to a `ts_string8`
  *
- * Serializes according to the .tpt format. 
+ * Serializes according to the .tst format. 
  * See `ts_tensor_list_save` in `tensor.c` for more
  *
  * @param arena Arena to create `ts_string8` on
@@ -381,11 +381,11 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list);
  */
 ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str);
 
-/// Returns the .tpt file header 
-ts_string8 ts_tensor_get_tpt_header(void);
+/// Returns the .tst file header 
+ts_string8 ts_tensor_get_tst_header(void);
 
 /**
- * @brief Serializes a `ts_tensor_list` into a file according to the .tpt file format
+ * @brief Serializes a `ts_tensor_list` into a file according to the .tst file format
  *
  * See `tensor.c` for more about the format
  *

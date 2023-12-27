@@ -1042,8 +1042,8 @@ ts_tensor* ts_tensor_list_get(const ts_tensor_list* list, ts_string8 name) {
 /*
 TODO: Figure out how to make it endian independent
 
-File Format (*.tpt):
-- Header "TP_tensors"
+File Format (*.tst):
+- Header "TS_tensors"
 - ts_u32 num_tensors
 - List of ts_tensors
     - Name
@@ -1054,13 +1054,13 @@ File Format (*.tpt):
         - ts_f32* data (of length width*height*depth)
 */
 
-static const ts_string8 _tpt_header = {
+static const ts_string8 _tst_header = {
     .size = 10,
     .str = (ts_u8*)"TS_tensors"
 };
 
-ts_string8 ts_tensor_get_tpt_header(void) {
-    return _tpt_header;
+ts_string8 ts_tensor_get_tst_header(void) {
+    return _tst_header;
 }
 
 #define _WRITE_DATA(size, data) do { \
@@ -1078,7 +1078,7 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
     ts_u64 str_size = 0;
     ts_u8* str_buf = NULL;
 
-    str_size += _tpt_header.size;
+    str_size += _tst_header.size;
     str_size += sizeof(ts_u32); // for number of ts_tensors
 
     for (ts_tensor_node* node = list->first; node != NULL; node = node->next) {
@@ -1094,7 +1094,7 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
     str_buf = MGA_PUSH_ARRAY(arena, ts_u8, str_size);
     ts_u8* str_buf_ptr = str_buf;
 
-    _WRITE_DATA(_tpt_header.size, _tpt_header.str);
+    _WRITE_DATA(_tst_header.size, _tst_header.str);
     _WRITE_DATA(sizeof(ts_u32), &list->size);
 
     for (ts_tensor_node* node = list->first; node != NULL; node = node->next) {
@@ -1131,13 +1131,13 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
     } while (0)
 
 ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
-    if (!ts_str8_equals(_tpt_header, ts_str8_substr(str, 0, _tpt_header.size))) {
+    if (!ts_str8_equals(_tst_header, ts_str8_substr(str, 0, _tst_header.size))) {
         TS_ERR(TS_ERR_PARSE, "Cannot read ts_tensor string: ts_tensor header not found");
         
         return (ts_tensor_list){ 0 };
     }
 
-    ts_u64 pos = _tpt_header.size;
+    ts_u64 pos = _tst_header.size;
 
     ts_tensor_list out = { 0 };
     

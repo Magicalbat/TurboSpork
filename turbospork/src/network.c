@@ -109,7 +109,7 @@ error:
     return NULL;
 }
 
-// Inits layers from stripped tpl string
+// Inits layers from stripped tsl string
 // See ts_network_save_layout for more detail
 static ts_b32 _ts_network_load_layout_impl(mg_arena* arena, ts_network* nn, ts_string8 file, ts_b32 training_mode) {
     mga_temp scratch = mga_scratch_get(&arena, 1);
@@ -199,7 +199,7 @@ error:
     return false;
 }
 
-// Creates ts_network from layout file (*.tpl)
+// Creates ts_network from layout file (*.tsl)
 ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode) {
     mga_temp maybe_temp = mga_temp_begin(arena);
     ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
@@ -224,12 +224,12 @@ ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32
 }
 
 // This is also used in ts_network_save
-static const ts_string8 _tpn_header = {
+static const ts_string8 _tsn_header = {
     .size = 10,
     .str = (ts_u8*)"TS_network"
 };
 
-// Creates ts_network from ts_network file (*.tpn)
+// Creates ts_network from ts_network file (*.tsn)
 ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode) {
     mga_temp maybe_temp = mga_temp_begin(arena);
     ts_network* nn = MGA_PUSH_ZERO_STRUCT(arena, ts_network);
@@ -240,17 +240,17 @@ ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 traini
 
     ts_string8 file = ts_file_read(scratch.arena, file_name);
 
-    if (!ts_str8_equals(_tpn_header, ts_str8_substr(file, 0, _tpn_header.size))) {
-        TS_ERR(TS_ERR_PARSE, "Cannot load ts_network: not tpn file");
+    if (!ts_str8_equals(_tsn_header, ts_str8_substr(file, 0, _tsn_header.size))) {
+        TS_ERR(TS_ERR_PARSE, "Cannot load ts_network: not tsn file");
 
         goto error;
     }
 
-    file = ts_str8_substr(file, _tpn_header.size, file.size);
+    file = ts_str8_substr(file, _tsn_header.size, file.size);
 
     ts_u64 tpt_index = 0;
     if (!ts_str8_index_of(file, ts_tensor_get_tpt_header(), &tpt_index)) {
-        TS_ERR(TS_ERR_PARSE, "Cannot load ts_network: invalid tpn file");
+        TS_ERR(TS_ERR_PARSE, "Cannot load ts_network: invalid tsn file");
 
         goto error;
     }
@@ -554,7 +554,7 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
         if (desc->save_interval != 0 && ((epoch + 1) % desc->save_interval) == 0) {
             mga_temp save_temp = mga_temp_begin(scratch.arena);
 
-            ts_string8 path = ts_str8_pushf(save_temp.arena, "%.*s%.4u.tpn", (int)desc->save_path.size, desc->save_path.str, epoch + 1);
+            ts_string8 path = ts_str8_pushf(save_temp.arena, "%.*s%.4u.tsn", (int)desc->save_path.size, desc->save_path.str, epoch + 1);
 
             ts_network_save(nn, path);
 
@@ -647,7 +647,7 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
 Sample Summary:
 
 -------------------------
-    ts_network (5 layers)
+  ts_network (5 layers)
 
 type        shape
 ----        -----
@@ -702,7 +702,7 @@ void ts_network_summary(const ts_network* nn) {
         }
     }
 
-    // Spacing before, between, and after items
+    // Spacing added before, between, and after items
     ts_u64 row_width = 1 + max_type_width + 2 + max_shape_width + 1;
     row_width = TS_MAX(row_width, header.size + 2);
 
@@ -750,7 +750,7 @@ void ts_network_summary(const ts_network* nn) {
 }
 
 /*
-File Format (*.tpl):
+File Format (*.tsl):
 
 List of layer_desc saves
 See layer_desc_save
@@ -774,10 +774,10 @@ void ts_network_save_layout(const ts_network* nn, ts_string8 file_name) {
 }
 
 /*
-File Format (*.tpn):
+File Format (*.tsn):
 
 Header
-ts_network Layout (tpl)
+ts_network Layout (tsl)
 ts_tensor List of layer params
 */
 void ts_network_save(const ts_network* nn, ts_string8 file_name) {
@@ -812,7 +812,7 @@ void ts_network_save(const ts_network* nn, ts_string8 file_name) {
     ts_string8 param_str = ts_tensor_list_to_str(scratch.arena, &param_list);
 
     ts_string8_list save_list = { 0 };
-    ts_str8_list_push(scratch.arena, &save_list, _tpn_header);
+    ts_str8_list_push(scratch.arena, &save_list, _tsn_header);
     ts_str8_list_push(scratch.arena, &save_list, layout_str);
     ts_str8_list_push(scratch.arena, &save_list, param_str);
 
