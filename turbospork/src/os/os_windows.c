@@ -36,7 +36,8 @@ static _string16 _utf16_from_utf8(mg_arena* arena, ts_string8 str) {
         return (_string16){ 0 };
     }
 
-    ts_u16* out = MGA_PUSH_ARRAY(scratch.arena, ts_u16, size_written);
+    // +1 for null terminator
+    ts_u16* out = MGA_PUSH_ZERO_ARRAY(scratch.arena, ts_u16, size_written + 1);
     memcpy(out, tmp_out, sizeof(ts_u16) * size_written);
 
     mga_scratch_release(scratch);
@@ -181,6 +182,8 @@ ts_b32 ts_file_write(ts_string8 path, ts_string8_list str_list) {
 
     if (file_handle == INVALID_HANDLE_VALUE) {
         TS_ERR(TS_ERR_IO, "Failed to open file for writing");
+
+        printf("%lu\n", GetLastError());
 
         return false;
     }

@@ -40,7 +40,7 @@ void mnist_main(void) {
 
     dataset data = { 0 };
 
-    ts_tensor_list mnist = ts_tensor_list_load(perm_arena, TS_STR8("data/mnist.tpt"));
+    ts_tensor_list mnist = ts_tensor_list_load(perm_arena, TS_STR8("data/mnist.tst"));
     data.train_imgs = ts_tensor_list_get(&mnist, TS_STR8("training_images"));
     data.train_labels = ts_tensor_list_get(&mnist, TS_STR8("training_labels"));
     data.test_imgs = ts_tensor_list_get(&mnist, TS_STR8("testing_images"));
@@ -48,11 +48,8 @@ void mnist_main(void) {
 
     dataset* cur_data = &data;
 
-    //network* nn = network_create(perm_arena, sizeof(descs) / sizeof(layer_desc), descs, true);
-    //network_save_layout(nn, STR8("networks/mnist_conv.tpl"));
-
-    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tpl"), true);
-    //network* nn = network_load(perm_arena, STR8("training_nets/network_0001.tpn"), false);
+    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tsl"), true);
+    //network* nn = network_load(perm_arena, STR8("training_nets/network_0001.tsn"), false);
 
     ts_network_summary(nn);
 
@@ -74,8 +71,8 @@ void mnist_main(void) {
             }
         },
 
-        //.save_interval = 1,
-        //.save_path = STR8("training_nets/network_"),
+        .save_interval = 1,
+        .save_path = TS_STR8("training_nets/network_"),
 
         .train_inputs = cur_data->train_imgs,
         .train_outputs = cur_data->train_labels,

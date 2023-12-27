@@ -411,8 +411,8 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
 
                 cdesc->num_filters,
                 cdesc->kernel_size, 
-                cdesc->padding ? "true" : "false",
                 cdesc->stride,
+                cdesc->padding ? "true" : "false",
                 _param_init_names[cdesc->kernels_init],
                 _param_init_names[cdesc->biases_init]
             );

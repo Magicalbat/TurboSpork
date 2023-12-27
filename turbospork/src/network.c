@@ -248,15 +248,15 @@ ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 traini
 
     file = ts_str8_substr(file, _tsn_header.size, file.size);
 
-    ts_u64 tpt_index = 0;
-    if (!ts_str8_index_of(file, ts_tensor_get_tpt_header(), &tpt_index)) {
+    ts_u64 tst_index = 0;
+    if (!ts_str8_index_of(file, ts_tensor_get_tst_header(), &tst_index)) {
         TS_ERR(TS_ERR_PARSE, "Cannot load ts_network: invalid tsn file");
 
         goto error;
     }
 
-    ts_string8 layout_str = ts_str8_substr(file, 0, tpt_index);
-    ts_string8 ts_tensors_str = ts_str8_substr(file, tpt_index, file.size);
+    ts_string8 layout_str = ts_str8_substr(file, 0, tst_index);
+    ts_string8 ts_tensors_str = ts_str8_substr(file, tst_index, file.size);
 
     if (!_ts_network_load_layout_impl(arena, nn, layout_str, training_mode)) {
         goto error;
