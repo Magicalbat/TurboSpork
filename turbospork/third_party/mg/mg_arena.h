@@ -536,6 +536,7 @@ void* mga_push(mg_arena* arena, mga_u64 size) {
         last_error.msg = "Arena ran out of memory";
         arena->_last_error = last_error;
         arena->error_callback(last_error);
+
         return NULL;
     }
 

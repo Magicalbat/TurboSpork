@@ -45,7 +45,7 @@ ts_b32 _network_shape_checks(const ts_network* nn) {
     for (ts_i64 i = nn->num_layers - 1; i >= 0; i--) {
         ts_layer_backprop(nn->layers[i], delta, &cache);
 
-        if (!ts_tensor_shape_eq(delta->shape, nn->layers[TS_MAX(0, i-1)]->shape)) {
+        if (i != 0 && !ts_tensor_shape_eq(delta->shape, nn->layers[i-1]->shape)) {
             goto fail;
         }
     }
