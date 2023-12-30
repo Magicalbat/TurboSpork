@@ -57,16 +57,23 @@ def main():
             f.write(len(name).to_bytes(8, byteorder="little", signed=False))
             f.write(bytes(name, "utf-8"))
 
-            elem_size = math.prod(data[0].shape)
+            elem_shape = data[0].shape
+            elem_size = math.prod(elem_shape)
             data_shape = (elem_size, 1, len(data))
 
             f.write(data_shape[0].to_bytes(4, byteorder="little", signed=False))
             f.write(data_shape[1].to_bytes(4, byteorder="little", signed=False))
             f.write(data_shape[2].to_bytes(4, byteorder="little", signed=False))
 
-            for elem in data:
-                elem = elem.astype("float32")
-                elem.tofile(f)
+            if len(elem_shape) == 3:
+                for elem in data:
+                    for i in range(elem_shape[2]):
+                        slice = elem[:,:,i].astype("float32")
+                        slice.tofile(f)
+            else:
+                for elem in data:
+                    elem = elem.astype("float32")
+                    elem.tofile(f)
 
 if __name__ == "__main__":
     main()

@@ -534,14 +534,13 @@ ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
 
             for (ts_u32 y = 0; y < y_kernels; y++) {
                 for (ts_u32 x = 0; x < x_kernels; x++) {
-                    ts_u32 in_x = x_off + x * stride;
-                    ts_u32 in_y = y_off + y * stride;
+                    ts_u32 in_x = x_off + x * stride - padding;
+                    ts_u32 in_y = y_off + y * stride - padding;
                     ts_u64 in_index = ((ts_u64)z * input->shape.height + in_y) * input->shape.width + in_x;
 
                     ts_u32 out_x = y * x_kernels + x;
                     ts_u32 out_y = (z * kernel_size * kernel_size) + k;
                     ts_u64 out_index = (ts_u64)out_y * out->shape.width + out_x;
-
 
                     if (in_x < 0 || in_y < 0 || in_x >= input->shape.width || in_y >= input->shape.height) {
                         out->data[out_index] = 0.0f;
@@ -633,8 +632,8 @@ ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_sha
                     ts_u32 in_y = (z * kernel_size * kernel_size) + k;
                     ts_u64 in_index = (ts_u64)in_y * input->shape.width + in_x;
 
-                    ts_u32 out_x = x_off + x * stride;
-                    ts_u32 out_y = y_off + y * stride;
+                    ts_u32 out_x = x_off + x * stride - padding;
+                    ts_u32 out_y = y_off + y * stride - padding;
                     ts_u64 out_index = ((ts_u64)z * out_shape.height + out_y) * out_shape.width + out_x;
 
                     if (out_x >= 0 && out_x < out_shape.width && out_y >= 0 && out_y < out_shape.height) {

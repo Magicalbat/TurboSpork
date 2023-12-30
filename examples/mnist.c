@@ -27,7 +27,7 @@ void mga_on_error(mga_error err) {
 
 void mnist_main(void) {
     mga_desc desc = {
-        .desired_max_size = MGA_MiB(256),
+        .desired_max_size = MGA_MiB(1024),
         .desired_block_size = MGA_MiB(16),
         .error_callback = mga_on_error
     };
@@ -40,7 +40,7 @@ void mnist_main(void) {
 
     dataset data = { 0 };
 
-    ts_tensor_list mnist = ts_tensor_list_load(perm_arena, TS_STR8("data/mnist-new.tst"));
+    ts_tensor_list mnist = ts_tensor_list_load(perm_arena, TS_STR8("data/mnist.tst"));
     data.train_imgs = ts_tensor_list_get(&mnist, TS_STR8("train_inputs"));
     data.train_labels = ts_tensor_list_get(&mnist, TS_STR8("train_labels"));
     data.test_imgs = ts_tensor_list_get(&mnist, TS_STR8("test_inputs"));

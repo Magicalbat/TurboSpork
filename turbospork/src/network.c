@@ -399,8 +399,8 @@ void _ts_network_test_thread(void* args) {
         *targs->num_correct += 1;
 
         ts_mutex_unlock(targs->num_correct_mutex);
-    }
-    
+    }    
+
     mga_scratch_release(scratch);
 }
 
@@ -601,7 +601,7 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
 
                         .nn = nn,
                         .input_view = input_view,
-                        .output_argmax = output_argmax
+                        .output_argmax = output_argmax,
                     };
 
                     ts_thread_pool_add_task(
