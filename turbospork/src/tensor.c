@@ -67,8 +67,8 @@ ts_tensor* ts_tensor_copy(mg_arena* arena, const ts_tensor* t, ts_b32 keep_alloc
     return out;
 }
 ts_b32 ts_tensor_copy_ip(ts_tensor* out, const ts_tensor* t) {
-    if (t == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot copy NULL ts_tensor");
+    if (out == NULL || t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot copy ts_tensor: out and/or tensor is NULL");
 
         return false;
     }
@@ -83,7 +83,9 @@ ts_b32 ts_tensor_copy_ip(ts_tensor* out, const ts_tensor* t) {
     }
 
     out->shape = t->shape;
-    memcpy(out->data, t->data, size * sizeof(ts_f32));
+    if (out->data != t->data) {
+        memcpy(out->data, t->data, size * sizeof(ts_f32));
+    }
 
     return true;
 }

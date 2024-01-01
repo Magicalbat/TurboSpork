@@ -25,7 +25,8 @@
     X(ERR_OS) \
     X(ERR_THREADING) \
     X(ERR_INVALID_ENUM) \
-    X(ERR_CREATE)
+    X(ERR_CREATE) \
+    X(ERR_MATH)
 
 /**
  * @brief Error codes

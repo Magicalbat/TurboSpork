@@ -4,8 +4,8 @@
 #include "os.h"
 
 int main(void) {
-    //mnist_main();
-    cifar10_main();
+    mnist_main();
+    //cifar10_main();
 
     return 0;
 }

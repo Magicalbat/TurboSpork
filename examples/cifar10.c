@@ -33,45 +33,10 @@ void cifar10_main(void) {
     ts_tensor* test_inputs = ts_tensor_list_get(&cifar10, TS_STR8("test_inputs"));
     ts_tensor* test_labels = ts_tensor_list_get(&cifar10, TS_STR8("test_labels"));
     
-#if 0
-    ts_tensor img = { 0 };
-    ts_tensor label = { 0 };
-
-    for (ts_u32 j = 0; j < 5; j++) {
-        ts_tensor_2d_view(&img, train_inputs, j);
-        ts_tensor_2d_view(&label, train_labels, j);
-
-        img.shape = (ts_tensor_shape){ 32, 32, 3 };
-
-        printf("[ ");
-        for (ts_u32 i = 0; i < label.shape.width; i++) {
-            printf("%f ", label.data[i]);
-        }
-        printf("]\n");
-
-        draw_img(&img);
-    }
-#endif
-
     ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/cifar10.tsl"), true);
     //ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/cifar_0001.tsn"), true);
 
     ts_network_summary(nn);
-
-    for (int j = 0; j < 1; j++) {
-        ts_tensor img = { 0 };
-        ts_tensor label = { 0 };
-        ts_tensor_2d_view(&img, test_inputs, j);
-        ts_tensor_2d_view(&label, test_labels, j);
-
-        ts_tensor* out = ts_tensor_create(perm_arena, (ts_tensor_shape){ 10, 1, 1 });
-        ts_network_feedforward(nn, out, &img);
-
-        for (ts_u32 i = 0; i < 10; i++) {
-            printf("%f ", out->data[i]);
-        }
-        printf("\n");
-    }
 
     ts_network_train_desc train_desc = {
         .epochs = 8,
@@ -111,18 +76,6 @@ void cifar10_main(void) {
     ts_u64 end = ts_now_usec();
 
     printf("Train Time: %f\n", (ts_f64)(end - start) / 1e6);
-
-    for (ts_u32 j = 0; j < 10; j++) {
-        ts_tensor img = { 0 };
-        ts_tensor_2d_view(&img, train_inputs, j);
-        ts_tensor* out = ts_tensor_create(perm_arena, (ts_tensor_shape){ 10, 1, 1 });
-        ts_network_feedforward(nn, out, &img);
-
-        for (ts_u32 i = 0; i < 10; i++) {
-            printf("%f ", out->data[i]);
-        }
-        printf("\n");
-    }
 
     ts_network_delete(nn);
 
