@@ -52,7 +52,7 @@ void mnist_main(void) {
     ts_network_summary(nn);
 
     ts_network_train_desc train_desc = {
-        .epochs = 4,
+        .epochs = 32,
         .batch_size = 100,
 
         .num_threads = 8,
@@ -69,8 +69,20 @@ void mnist_main(void) {
             }
         },
 
-        //.save_interval = 1,
-        //.save_path = TS_STR8("training_nets/network_"),
+        .random_transforms = true,
+        .transforms = (ts_network_transforms) {
+            .min_translation = -2.0f,
+            .max_translation =  2.0f,
+
+            .min_scale = 0.9f,
+            .max_scale = 1.1f,
+
+            .min_angle = -3.14159265 / 16.0f,
+            .max_angle =  3.14159265 / 16.0f,
+        },
+
+        .save_interval = 4,
+        .save_path = TS_STR8("training_nets/mnist_"),
 
         .train_inputs = data.train_imgs,
         .train_outputs = data.train_labels,

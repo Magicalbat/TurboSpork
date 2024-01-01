@@ -3,23 +3,24 @@
 #include "prng.h"
 
 #include <math.h>
+#include <string.h>
 
 typedef struct {
     ts_f32 x, y;
 } _vec2;
 
 // Returns zero if out of bounds
-#define _GET_PIXEL(img, x, y, z) \
-    ((x) < 0 || (x) >= img->shape.width || (y) < 0 || (y) >= img->shape.height) ? \
-    0 : img->data[((ts_u64)(z) * img->shape.height + (y)) * img->shape.width + (x)]
+#define _GET_PIXEL(x, y, z) \
+    ((x) < 0 || (x) >= width || (y) < 0 || (y) >= height) ? \
+    0 : img_data[((ts_u64)(z) * height + (y)) * width + (x)]
 
-ts_f32 _sample_img(const ts_tensor* img, _vec2 pos, ts_u32 z, ts_img_sample_type sample_type) {
+ts_f32 _sample_img(ts_f32* img_data, ts_u32 width, ts_u32 height, _vec2 pos, ts_u32 z, ts_img_sample_type sample_type) {
     switch (sample_type) {
         case TS_SAMPLE_NEAREST: {
             ts_i64 x = floorf(pos.x);
             ts_i64 y = floorf(pos.y);
 
-            return _GET_PIXEL(img, x, y, z);
+            return _GET_PIXEL(x, y, z);
         } break;
         case TS_SAMPLE_BILINEAR: {
             //pos.x -= 0.5f;
@@ -28,10 +29,10 @@ ts_f32 _sample_img(const ts_tensor* img, _vec2 pos, ts_u32 z, ts_img_sample_type
             ts_i64 x = floorf(pos.x);
             ts_i64 y = floorf(pos.y);
 
-            ts_f32 p0 = _GET_PIXEL(img, x    , y    , z);
-            ts_f32 p1 = _GET_PIXEL(img, x + 1, y    , z);
-            ts_f32 p2 = _GET_PIXEL(img, x    , y + 1, z);
-            ts_f32 p3 = _GET_PIXEL(img, x + 1, y + 1, z);
+            ts_f32 p0 = _GET_PIXEL(x    , y    , z);
+            ts_f32 p1 = _GET_PIXEL(x + 1, y    , z);
+            ts_f32 p2 = _GET_PIXEL(x    , y + 1, z);
+            ts_f32 p3 = _GET_PIXEL(x + 1, y + 1, z);
 
             // Lerping, where t is the decimal part of the x pos
             ts_f32 top_p = p0 + (p1 - p0) * (pos.x - x);
@@ -102,6 +103,17 @@ ts_b32 ts_img_transform_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample
 
     out->shape = input->shape;
 
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+
+    // Checking if out and input overlap
+    // Copying the data if they do
+    ts_f32* img_data = input->data;
+    if (out->data == input->data) {
+        ts_u64 data_size = (ts_u64)input->shape.width * input->shape.height * input->shape.depth;
+        img_data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
+        memcpy(img_data, input->data, data_size * sizeof(ts_f32));
+    }
+
     _vec2 offset = {
         (ts_f32)input->shape.width / 2,
         (ts_f32)input->shape.height / 2
@@ -127,10 +139,12 @@ ts_b32 ts_img_transform_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample
                 out_pos.y += offset.y;
 
                 ts_u64 index = ((ts_u64)z * out->shape.height + y) * out->shape.width + x;
-                out->data[index] = _sample_img(input, out_pos, z, sample_type);
+                out->data[index] = _sample_img(img_data, input->shape.width, input->shape.height, out_pos, z, sample_type);
             }
         }
     }
+
+    mga_scratch_release(scratch);
 
     return true;
 }

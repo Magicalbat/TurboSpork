@@ -41,9 +41,25 @@ typedef struct {
     ts_u64 max_layer_size;
 } ts_network;
 
-/**
- * @brief Info for epoch callback
- */
+/// Information about random transformations in the network training inputs
+typedef struct {
+    /// Minimum random translation, inclusize. Applied on both axes
+    ts_f32 min_translation;
+    /// Maximum random translation, exclusize. Applied on both axes
+    ts_f32 max_translation;
+
+    /// Minimum random scale, inclusive. Applied on both axes
+    ts_f32 min_scale;
+    /// Maximum random scale, exclusive. Applied on both axes
+    ts_f32 max_scale;
+
+    /// Minimum random angle in radians, inclusive
+    ts_f32 min_angle;
+    /// Maximum random angle in radians, exclusive
+    ts_f32 max_angle;
+} ts_network_transforms;
+
+/// Info for epoch callback
 typedef struct {
     /// Epoch number. Starts at 0
     ts_u32 epoch;
@@ -78,9 +94,13 @@ typedef struct {
      */
     ts_optimizer optim;
 
-    /**
-     * @brief Callback function called after each epoch. Can be NULL 
-     */
+    /// Whether or not to randomly transform the training inputs
+    ts_b32 random_transforms;
+    /// Random transforms to be applied to training inputs
+    ts_network_transforms transforms;
+
+
+    /// Callback function called after each epoch. Can be NULL 
     ts_network_epoch_callback* epoch_callback;
 
     /**

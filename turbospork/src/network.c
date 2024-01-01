@@ -1,6 +1,8 @@
 #include "network.h"
 #include "layers/layers_internal.h"
 #include "err.h"
+#include "img.h"
+#include "prng.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -337,8 +339,12 @@ ts_u32 _num_digits (ts_u32 n) {
 
 typedef struct {
     ts_network* nn;
+    ts_b32 apply_transforms;
+    const ts_network_transforms* transforms;
+
     ts_tensor input_view;
     ts_tensor output_view;
+
     ts_cost_type cost;
 } _ts_network_backprop_args;
 
@@ -353,6 +359,35 @@ void _ts_network_backprop_thread(void* args) {
 
     ts_tensor* in_out = ts_tensor_create_alloc(scratch.arena, (ts_tensor_shape){ 1, 1, 1 }, nn->max_layer_size);
     ts_tensor_copy_ip(in_out, &bargs->input_view);
+
+    // Setting input shape to input layer shape
+    // This should all be okay because of the checks when creating a network
+    in_out->shape = nn->layers[0]->shape;
+
+    if (bargs->apply_transforms) {
+        const ts_network_transforms* t = bargs->transforms;
+
+        ts_f32 x_off = t->min_translation + ts_prng_rand_f32() * (t->max_translation - t->min_translation);
+        ts_f32 y_off = t->min_translation + ts_prng_rand_f32() * (t->max_translation - t->min_translation);
+
+        ts_f32 x_scale = t->min_scale + ts_prng_rand_f32() * (t->max_scale - t->min_scale);
+        ts_f32 y_scale = t->min_scale + ts_prng_rand_f32() * (t->max_scale - t->min_scale);
+
+        ts_f32 angle = t->min_angle + ts_prng_rand_f32() * (t->max_angle - t->min_angle);
+        ts_f32 sin_a = sinf(angle);
+        ts_f32 cos_a = cosf(angle);
+
+        ts_img_mat3 mat = {
+            .m = {
+                x_scale * cos_a, y_scale * -sin_a, x_off,
+                x_scale * sin_a, y_scale *  cos_a, y_off,
+                0, 0, 1
+            }
+        };
+
+        ts_img_transform_ip(in_out, in_out, TS_SAMPLE_BILINEAR, &mat);
+    }
+
     ts_tensor* output = ts_tensor_copy(scratch.arena, &bargs->output_view, false);
 
     for (ts_u32 i = 0; i < nn->num_layers; i++) {
@@ -525,6 +560,8 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
 
                 backprop_args[i] = (_ts_network_backprop_args){ 
                     .nn = nn,
+                    .apply_transforms = desc->random_transforms,
+                    .transforms = &desc->transforms,
                     .input_view = input_view,
                     .output_view = output_view,
                     .cost = desc->cost,

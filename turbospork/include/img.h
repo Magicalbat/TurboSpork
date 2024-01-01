@@ -21,7 +21,7 @@ typedef enum {
     TS_SAMPLE_BILINEAR
 } ts_img_sample_type;
 
-// Row major 3d matrix
+/// Row major 3d matrix
 typedef struct {
     ts_f32 m[9];
 } ts_img_mat3;

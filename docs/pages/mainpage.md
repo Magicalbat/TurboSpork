@@ -53,4 +53,5 @@ For more detail, you can look at the [mg_arena.h github page](https://github.com
 - [Length-Based Strings](@ref str.h)
 - [Pseudorandom Number Generation](@ref prng.h)
 - [OS Functions](@ref os.h)
+- [Image Processing](@ref img.h)
 

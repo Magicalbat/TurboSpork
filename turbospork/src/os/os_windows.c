@@ -1,5 +1,6 @@
 #include "os.h"
 #include "err.h"
+#include "prng.h"
 
 #ifdef TS_PLATFORM_WIN32
 
@@ -297,6 +298,11 @@ typedef struct _ts_thread_pool {
 static DWORD _thread_start(void* arg) {
     ts_thread_pool* tp = (ts_thread_pool*)arg;
     ts_thread_task task = { 0 };
+
+    // Init prng
+    ts_u64 seeds[2] = { 0 };
+    ts_get_entropy(seeds, sizeof(seeds));
+    ts_prng_seed(seeds[0], seeds[1]);
 
     while (true) {
         EnterCriticalSection(&tp->mutex);
