@@ -3,8 +3,8 @@
  * @brief Includes all other turbospork headers
  */
 
-#ifndef TURBOSPORK_H
-#define TURBOSPORK_H
+#ifndef TS_TURBOSPORK_H
+#define TS_TURBOSPORK_H
 
 #include "mg/mg_arena.h"
 
@@ -20,4 +20,4 @@
 #include "layers.h"
 #include "network.h"
 
-#endif // TURBOSPORK_H
+#endif // TS_TURBOSPORK_H

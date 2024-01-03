@@ -3,8 +3,8 @@
  * @brief Defines some basic types and macros
  */
 
-#ifndef BASE_DEFS_H
-#define BASE_DEFS_H
+#ifndef TS_BASE_DEFS_H
+#define TS_BASE_DEFS_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -112,5 +112,5 @@ static_assert(sizeof(ts_f64) == 8, "f64 size");
     ((f) = (l) = 0) :                     \
     ((f) = (f)->next))                    \
 
-#endif // BASE_DEFS_H
+#endif // TS_BASE_DEFS_H
 

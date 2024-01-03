@@ -7,8 +7,8 @@
  * Values out of bounds in each image are assumed to be zero
  */ 
 
-#ifndef IMG_H
-#define IMG_H
+#ifndef TS_IMG_H
+#define TS_IMG_H
 
 #include "base_defs.h"
 #include "tensor.h"
@@ -162,4 +162,5 @@ ts_tensor* ts_img_shear(mg_arena* arena, const ts_tensor* input, ts_img_sample_t
  */
 ts_tensor* ts_img_add_noise(mg_arena* arena, const ts_tensor* input, ts_f32 noise_rate);
 
-#endif // IMG_H
+#endif // TS_IMG_H
+

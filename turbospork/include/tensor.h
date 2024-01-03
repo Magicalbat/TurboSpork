@@ -3,8 +3,8 @@
  * @brief 3D tensors
  */
 
-#ifndef TENSOR_H
-#define TENSOR_H
+#ifndef TS_TENSOR_H
+#define TS_TENSOR_H
 
 #include "base_defs.h"
 #include "str.h"
@@ -403,5 +403,5 @@ void ts_tensor_list_save(const ts_tensor_list* list, ts_string8 file_name);
  */
 ts_tensor_list ts_tensor_list_load(mg_arena* arena, ts_string8 file_name);
 
-#endif // TENSOR_H
+#endif // TS_TENSOR_H
 

@@ -3,8 +3,8 @@
  * @brief Neural network layers
  */
 
-#ifndef LAYERS_H
-#define LAYERS_H
+#ifndef TS_LAYERS_H
+#define TS_LAYERS_H
 
 #include "mg/mg_arena.h"
 
@@ -439,5 +439,5 @@ void ts_layers_cache_push(ts_layers_cache* cache, ts_tensor* t);
  */
 ts_tensor* ts_layers_cache_pop(ts_layers_cache* cache);
 
-#endif // LAYERS_H
+#endif // TS_LAYERS_H
 

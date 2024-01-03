@@ -41,14 +41,16 @@ ts_b32 _network_shape_checks(const ts_network* nn) {
         }
     }
 
-    // Renaming for clarity
-    ts_tensor* delta = in_out;
+    if (nn->training_mode) {
+        // Renaming for clarity
+        ts_tensor* delta = in_out;
 
-    for (ts_i64 i = nn->num_layers - 1; i >= 0; i--) {
-        ts_layer_backprop(nn->layers[i], delta, &cache);
+        for (ts_i64 i = nn->num_layers - 1; i >= 0; i--) {
+            ts_layer_backprop(nn->layers[i], delta, &cache);
 
-        if (i != 0 && !ts_tensor_shape_eq(delta->shape, nn->layers[i-1]->shape)) {
-            goto fail;
+            if (i != 0 && !ts_tensor_shape_eq(delta->shape, nn->layers[i-1]->shape)) {
+                goto fail;
+            }
         }
     }
 

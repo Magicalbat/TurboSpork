@@ -3,8 +3,8 @@
  * @brief Costs of neural networks
  */
 
-#ifndef COST_H
-#define COST_H
+#ifndef TS_COST_H
+#define TS_COST_H
 
 #include "base_defs.h"
 #include "tensor.h"
@@ -59,4 +59,4 @@ ts_f32 ts_cost_func(ts_cost_type type, const ts_tensor* in, const ts_tensor* des
  */
 void ts_cost_grad(ts_cost_type type, ts_tensor* in_out, const ts_tensor* desired_out);
 
-#endif // COST_H
+#endif // TS_COST_H

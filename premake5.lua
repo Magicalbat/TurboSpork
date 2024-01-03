@@ -27,6 +27,7 @@ project "TurboSpork"
     toolset "clang"
 
     filter "system:linux"
+        pic "On"
         links {
             "m", "pthread"
         }

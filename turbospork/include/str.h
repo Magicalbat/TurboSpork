@@ -5,8 +5,8 @@
  * This is heavily based on the string header in the [Mr 4th programming series](https://www.youtube.com/@Mr4thProgramming)
  */
 
-#ifndef STR_H
-#define STR_H
+#ifndef TS_STR_H
+#define TS_STR_H
 
 #include <stdarg.h>
 
@@ -140,5 +140,5 @@ ts_string8 ts_str8_pushfv(mg_arena* arena, const char* fmt, va_list args);
  */
 ts_string8 ts_str8_pushf(mg_arena* arena, const char* fmt, ...);
 
-#endif // BASE_STR_H
+#endif // TS_STR_H
 

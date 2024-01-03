@@ -5,8 +5,8 @@
  * Based on code from https://www.pcg-random.org
  */
 
-#ifndef PRNG_H
-#define PRNG_H
+#ifndef TS_PRNG_H
+#define TS_PRNG_H
 
 #include "base_defs.h"
 
@@ -72,4 +72,4 @@ ts_f32 ts_prng_std_norm_r(ts_prng* rng);
  */
 ts_f32 ts_prng_std_norm(void);
 
-#endif // PRNG_H
+#endif // TS_PRNG_H

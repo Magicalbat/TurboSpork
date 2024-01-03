@@ -47,7 +47,7 @@ void mnist_main(void) {
     data.test_labels = ts_tensor_list_get(&mnist, TS_STR8("test_labels"));
 
     ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tsl"), true);
-    //network* nn = network_load(perm_arena, STR8("training_nets/network_0001.tsn"), false);
+    //ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/mnist_0048.tsn"), true);
 
     ts_network_summary(nn);
 

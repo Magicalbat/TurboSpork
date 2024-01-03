@@ -3,8 +3,8 @@
  * @brief Neural networks
  */
 
-#ifndef NETWORK_H
-#define NETWORK_H
+#ifndef TS_NETWORK_H
+#define TS_NETWORK_H
 
 #include "base_defs.h"
 #include "str.h"
@@ -243,5 +243,5 @@ void ts_network_save_layout(const ts_network* nn, ts_string8 file_name);
  */
 void ts_network_save(const ts_network* nn, ts_string8 file_name);
 
-#endif // NETWORK_H
+#endif // TS_NETWORK_H
 

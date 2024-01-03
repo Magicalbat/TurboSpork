@@ -3,8 +3,8 @@
  * @brief Operating system specific functions
  */
 
-#ifndef OS_H
-#define OS_H
+#ifndef TS_OS_H
+#define TS_OS_H
 
 #include "base_defs.h"
 #include "str.h"
@@ -145,5 +145,5 @@ ts_b32 ts_thread_pool_add_task(ts_thread_pool* tp, ts_thread_task task);
  */
 ts_b32 ts_thread_pool_wait(ts_thread_pool* tp);
 
-#endif // OS_H
+#endif // TS_OS_H
 

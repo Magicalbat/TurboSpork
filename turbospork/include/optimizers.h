@@ -3,8 +3,8 @@
  * @brief Parameter optimizers for the neural networks
  */
 
-#ifndef OPTIMIZERS_H
-#define OPTIMIZERS_H
+#ifndef TS_OPTIMIZERS_H
+#define TS_OPTIMIZERS_H
 
 #include "base_defs.h"
 #include "os.h"
@@ -169,5 +169,5 @@ void ts_param_change_apply(const ts_optimizer* optim, ts_tensor* param, ts_param
  */
 void ts_param_change_delete(ts_param_change* param_change);
 
-#endif // OPTIMIZERS_H
+#endif // TS_OPTIMIZERS_H
 

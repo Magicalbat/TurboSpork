@@ -3,8 +3,8 @@
  * @brief Error handling
  */
 
-#ifndef ERR_H
-#define ERR_H
+#ifndef TS_ERR_H
+#define TS_ERR_H
 
 #include "base_defs.h"
 #include "str.h"
@@ -87,5 +87,5 @@ ts_string8 ts_err_to_str(ts_error_code code);
 /// Converst a `ts_string8` to `ts_error_code` 
 ts_error_code ts_err_from_str(ts_string8 str);
 
-#endif // ERR_H
+#endif // TS_ERR_H
 
