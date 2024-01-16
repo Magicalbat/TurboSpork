@@ -3,7 +3,7 @@
 
 void _layer_conv_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
     const ts_layer_conv_2d_desc* cdesc = &desc->conv_2d;
-    _layer_conv_2d_backend* conv = &out->conv_2d_backend;
+    ts_layer_conv_2d_backend* conv = &out->conv_2d_backend;
 
     conv->kernel_size = cdesc->kernel_size;
     conv->stride = cdesc->stride;
@@ -44,7 +44,7 @@ void _layer_conv_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* 
 }
 
 void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache) {
-    _layer_conv_2d_backend* conv = &l->conv_2d_backend;
+    ts_layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     mga_temp scratch = { 0 };
     mg_arena* col_arena = NULL;
@@ -78,7 +78,7 @@ void _layer_conv_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache*
 }
 
 void _layer_conv_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cache) {
-    _layer_conv_2d_backend* conv = &l->conv_2d_backend;
+    ts_layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     // Biases change is just delta
     ts_param_change_add(&conv->biases_change, delta);
@@ -122,13 +122,13 @@ void _layer_conv_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cac
     mga_scratch_release(scratch);
 }
 void _layer_conv_2d_apply_changes(ts_layer* l, const ts_optimizer* optim) {
-    _layer_conv_2d_backend* conv = &l->conv_2d_backend;
+    ts_layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     ts_param_change_apply(optim, conv->kernels, &conv->kernels_change);
     ts_param_change_apply(optim, conv->biases, &conv->biases_change);
 }
 void _layer_conv_2d_delete(ts_layer* l) {
-    _layer_conv_2d_backend* conv = &l->conv_2d_backend;
+    ts_layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     if (l->training_mode) {
         ts_param_change_delete(&conv->kernels_change);
@@ -136,7 +136,7 @@ void _layer_conv_2d_delete(ts_layer* l) {
     }
 }
 void _layer_conv_2d_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index) {
-    _layer_conv_2d_backend* conv = &l->conv_2d_backend;
+    ts_layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     ts_string8 kernels_name = ts_str8_pushf(arena, "conv_2d_kernels_%u", index);
     ts_string8 biases_name = ts_str8_pushf(arena, "conv_2d_biases_%u", index);
@@ -145,7 +145,7 @@ void _layer_conv_2d_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_
     ts_tensor_list_push(arena, list, conv->biases, biases_name);
 }
 void _layer_conv_2d_load(ts_layer* l, const ts_tensor_list* list, ts_u32 index) {
-    _layer_conv_2d_backend* conv = &l->conv_2d_backend;
+    ts_layer_conv_2d_backend* conv = &l->conv_2d_backend;
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 

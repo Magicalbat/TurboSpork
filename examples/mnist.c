@@ -81,8 +81,8 @@ void mnist_main(void) {
             .max_angle =  3.14159265 / 16.0f,
         },
 
-        .save_interval = 4,
-        .save_path = TS_STR8("training_nets/mnist_"),
+        //.save_interval = 4,
+        //.save_path = TS_STR8("training_nets/mnist_"),
 
         .train_inputs = data.train_imgs,
         .train_outputs = data.train_labels,

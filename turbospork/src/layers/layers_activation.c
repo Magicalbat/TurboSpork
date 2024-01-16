@@ -42,7 +42,7 @@ static _activation _activations[TS_ACTIVATION_COUNT] = {
 void _layer_activation_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
     TS_UNUSED(arena);
 
-    _layer_activation_backend* activ = &out->activation_backend;
+    ts_layer_activation_backend* activ = &out->activation_backend;
 
     activ->type = desc->activation.type;
 
@@ -55,7 +55,7 @@ void _layer_activation_create(mg_arena* arena, ts_layer* out, const ts_layer_des
     out->shape = prev_shape;
 }
 void _layer_activation_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache) {
-    _layer_activation_backend* activ = &l->activation_backend;
+    ts_layer_activation_backend* activ = &l->activation_backend;
 
     ts_b32 use_cache = cache != NULL && l->training_mode;
 
@@ -75,7 +75,7 @@ void _layer_activation_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cac
     }
 }
 void _layer_activation_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cache) {
-    _layer_activation_backend* activ = &l->activation_backend;
+    ts_layer_activation_backend* activ = &l->activation_backend;
 
     ts_tensor* prev_input = NULL;
     ts_tensor* prev_output = NULL;

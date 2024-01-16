@@ -19,7 +19,7 @@ _pooling_func* _pooling_funcs[TS_POOLING_COUNT] = {
 void _layer_pooling_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
     TS_UNUSED(arena);
 
-    _layer_pooling_2d_backend* pooling = &out->pooling_2d_backend;
+    ts_layer_pooling_2d_backend* pooling = &out->pooling_2d_backend;
 
     if (desc->pooling_2d.type >= TS_POOLING_COUNT) {
         fprintf(stderr, "Invalid type for pooling layer\n");
@@ -42,7 +42,7 @@ void _layer_pooling_2d_create(mg_arena* arena, ts_layer* out, const ts_layer_des
 
 // TODO: Type check here and in activation?
 void _layer_pooling_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache) {
-    _layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
+    ts_layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
 
     ts_tensor* delta = NULL;
 
@@ -88,7 +88,7 @@ void _layer_pooling_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cac
 
 
 void _layer_pooling_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cache) {
-    _layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
+    ts_layer_pooling_2d_backend* pooling = &l->pooling_2d_backend;
 
     // Expanding delta to input shape
     {

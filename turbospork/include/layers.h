@@ -23,6 +23,11 @@ typedef enum {
     TS_LAYER_INPUT,
     /// Reshapes input of layer and delta of backprop
     TS_LAYER_RESHAPE,
+
+    // TODO: this
+    /// Custom layer, user provided functions
+    //TS_LAYER_CUSTOM,
+
     /// Fully connected layer
     TS_LAYER_DENSE,
     /// Applies activation function to input and multiplies activation gradient with delta
@@ -107,6 +112,79 @@ typedef enum {
     TS_POOLING_COUNT
 } ts_layer_pooling_type;
 
+struct ts_layer;
+struct ts_layer_desc;
+struct ts_layers_cache;
+
+/**
+ * @brief Layer creation function type
+ * 
+ * @param arena Arena to initialize layer parameters
+ * @param out Layer to initialize. out->shape needs to be set
+ * @param desc Layer description
+ * @param prev_shape Shape of previous layer in network
+ */
+typedef void (ts_layer_create_func)(mg_arena* arena, struct ts_layer* out, const struct ts_layer_desc* desc, ts_tensor_shape prev_shape);
+/**
+ * @brief Layer feedforward function type
+ *
+ * @param l Layer
+ * @param in_out Input and output tensor. The layer should put
+ *  the output of the feedforward into this tensor at the end
+ * @param cache Tensor cache for backpropagation. This will be NULL sometimes.
+ *  If the layer needs to cache values for backpropagation, they should be stored in the cache.
+ *  This is necessary because the training takes place on multiple threads
+ */
+typedef void (ts_layer_feedforward_func)(struct ts_layer* l, ts_tensor* in_out, struct ts_layers_cache* cache);
+/**
+ * @brief Backpropagation function type
+ *
+ * @param l Layer
+ * @param delta Current delta in backpropagation. This should be updated
+ *  by the layer if necessary
+ * @param cache Tensor cache, will not be NULL
+ */
+typedef void (ts_layer_backprop_func)(struct ts_layer* l, ts_tensor* delta, struct ts_layers_cache* cache);
+/**
+ * @brief Apply changes function type
+ *
+ * Layers should apply any changes accumulated during training in this function.
+ * Changes should be stored using a `ts_param_change`
+ *
+ * @param l Layer
+ * @param optim Training optimizer, passed into the function `ts_param_change_apply`
+ */
+typedef void (ts_layer_apply_changes_func)(struct ts_layer* l, const ts_optimizer* optim);
+/**
+ * @beirf Delete function type
+ *
+ * @param l Layer to delete
+ */
+typedef void (ts_layer_delete_func)(struct ts_layer* l);
+/**
+ * @brief Save layer function type
+ *
+ * Layers should only save trainable parameters. 
+ * See layers_dense.c for an example
+ *
+ * @param arena Arena to use to push onto tensor list
+ * @param l Layer to save
+ * @param list Tensor list to save parameters to
+ * @param index Index of the current layer.
+ *  Should be used to make the name of the tensor in the list unique
+ */
+typedef void (ts_layer_save_func)(mg_arena* arena, struct ts_layer* l, ts_tensor_list* list, ts_u32 index);
+/**
+ * @brief Load layer function
+ *
+ * Loads any trainable parameters in the layer. 
+ * See layers_dense.c for an example
+ *
+ * @param l Layer to load to
+ * @param list List to load parameters from
+ * @param index Index of layer
+ */
+typedef void (ts_layer_load_func)(struct ts_layer* l, const ts_tensor_list* list, ts_u32 index);
 
 /// Input layer description 
 typedef struct {
@@ -127,6 +205,27 @@ typedef struct {
      */
     ts_tensor_shape shape;
 } ts_layer_reshape_desc;
+
+// TODO: include save and load? custom layer descs?????
+/**
+ * @brief Custom layer description
+ */
+typedef struct {
+    /// Creation function or NULL
+    ts_layer_create_func* create;
+    /// Feedforward function or NULL
+    ts_layer_feedforward_func* feedforward;
+    /// Backprop function or NULL
+    ts_layer_backprop_func* backprop;
+    /// Apply changes function or NULL
+    ts_layer_apply_changes_func* apply_changes;
+    /// Delete function or NULL
+    ts_layer_delete_func* delete;
+    /// Parameters save function or NULL
+    ts_layer_save_func* save;
+    /// Parameters load or NULL
+    ts_layer_load_func* load;
+} ts_layer_custom_desc;
 
 /**
  * @brief Dense layer description
@@ -242,7 +341,7 @@ typedef struct {
 /**
  * @brief Full layer description
  */ 
-typedef struct {
+typedef struct ts_layer_desc {
     /**
      * @brief Type of layer
      *
@@ -295,7 +394,7 @@ typedef struct ts_layers_cache_node {
  * Layers use the cache if they need to transfer data from the feedforward to the backprop. <br>
  * This is necessary because of the multithreading.
  */
-typedef struct {
+typedef struct ts_layers_cache {
     /**
      * @brief Arena used for the cache
      * 
@@ -309,6 +408,83 @@ typedef struct {
     /// Last node of SLL
     ts_layers_cache_node* last;
 } ts_layers_cache;
+
+/// Reshape layer backend
+typedef struct {
+    ts_tensor_shape prev_shape;
+} ts_layer_reshape_backend;
+
+/// Dense layer backend
+typedef struct {
+    ts_tensor* weight;
+    ts_tensor* bias;
+
+    // Training mode
+    ts_param_change weight_change;
+    ts_param_change bias_change;
+} ts_layer_dense_backend;
+
+/// Activation layer backend
+typedef struct {
+    ts_layer_activation_type type;
+} ts_layer_activation_backend;
+
+/// Dropout layer backend
+typedef struct {
+    ts_f32 keep_rate;
+} ts_layer_dropout_backend;
+
+/// Flatten layer backend
+typedef struct {
+    ts_tensor_shape prev_shape;
+} ts_layer_flatten_backend;
+
+/// Pooling layer backend
+typedef struct {
+    ts_tensor_shape input_shape;
+
+    ts_tensor_shape pool_size;
+    ts_layer_pooling_type type;
+} ts_layer_pooling_2d_backend;
+
+/// 2D convolutional layer backend
+typedef struct {
+    ts_u32 kernel_size;
+
+    // Shape is (kernel_size * kernel_size, in_filters, out_filters)
+    ts_tensor* kernels;
+    // Shape is out_shape
+    ts_tensor* biases; 
+
+    ts_u32 stride;
+    ts_u32 padding;
+
+    ts_tensor_shape input_shape;
+
+    // Training mode
+    ts_param_change kernels_change;
+    ts_param_change biases_change;
+} ts_layer_conv_2d_backend;
+
+/// Layer structure. You usually do not have to worry about the internals of these
+typedef struct ts_layer {
+    /// Initialized in layer_create
+    ts_layer_type type;
+    ts_b32 training_mode;
+
+    /// Should be set by layer in create function
+    ts_tensor_shape shape;
+
+    union {
+        ts_layer_reshape_backend reshape_backend;
+        ts_layer_dense_backend dense_backend;
+        ts_layer_activation_backend activation_backend;
+        ts_layer_dropout_backend dropout_backend;
+        ts_layer_flatten_backend flatten_backend;
+        ts_layer_pooling_2d_backend pooling_2d_backend;
+        ts_layer_conv_2d_backend conv_2d_backend;
+    };
+} ts_layer;
 
 /**
  * @brief Gets the name of a layer from the type

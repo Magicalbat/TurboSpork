@@ -8,7 +8,7 @@
 void _layer_dropout_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
     TS_UNUSED(arena);
 
-    _layer_dropout_backend* dropout = &out->dropout_backend;
+    ts_layer_dropout_backend* dropout = &out->dropout_backend;
 
     dropout->keep_rate = desc->dropout.keep_rate;
 
