@@ -1,4 +1,5 @@
 workspace "TurboSpork"
+    architecture "x64"
     configurations { "debug", "release" }
     startproject "TurboSpork"
 
