@@ -12,6 +12,8 @@ pooling_2d:
     type = max;
     pool_size = (2, 2);
 
+norm: 
+
 conv_2d:
    num_filters = 32;
    kernel_size = 3;
@@ -22,6 +24,8 @@ activation:
 pooling_2d:
     type = max;
     pool_size = (2, 2);
+
+norm: 
 
 flatten:
 

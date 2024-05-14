@@ -24,7 +24,7 @@ premake5 vs2022
 Getting Started
 ---------------
 
-TODO: make other instruction pages
+[Getting Started](@ref gettingstarted)
 
 Reference
 ---------

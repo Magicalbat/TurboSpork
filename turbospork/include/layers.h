@@ -41,6 +41,9 @@ typedef enum {
     /// 2D convolution layer
     TS_LAYER_CONV_2D,
 
+    /// Layer normalization
+    TS_LAYER_NORM,
+
     /// Number of layers
     TS_LAYER_COUNT
 } ts_layer_type;
@@ -339,6 +342,18 @@ typedef struct {
 } ts_layer_conv_2d_desc;
 
 /**
+ * @brief Layer normalization
+ */
+typedef struct {
+    /**
+     * @brief Parameter for numerical stability
+     *
+     * out = (in - mean) / sqrt(std_dev**2 + epsilon)
+     */
+    ts_f32 epsilon;
+} ts_layer_norm_desc;
+
+/**
  * @brief Full layer description
  */ 
 typedef struct ts_layer_desc {
@@ -371,6 +386,8 @@ typedef struct ts_layer_desc {
         ts_layer_pooling_2d_desc pooling_2d;
         /// Convolutional2D desc
         ts_layer_conv_2d_desc conv_2d;
+        /// Layer normalization desc
+        ts_layer_norm_desc norm;
     };
 } ts_layer_desc;
 
@@ -466,6 +483,12 @@ typedef struct {
     ts_param_change biases_change;
 } ts_layer_conv_2d_backend;
 
+/// Layer normalization backend
+typedef struct {
+    /// For numerical stability
+    ts_f32 epsilon;
+} ts_layer_norm_backend;
+
 /// Layer structure. You usually do not have to worry about the internals of these
 typedef struct ts_layer {
     /// Initialized in layer_create
@@ -483,6 +506,7 @@ typedef struct ts_layer {
         ts_layer_flatten_backend flatten_backend;
         ts_layer_pooling_2d_backend pooling_2d_backend;
         ts_layer_conv_2d_backend conv_2d_backend;
+        ts_layer_norm_backend norm_backend;
     };
 } ts_layer;
 

@@ -19,6 +19,7 @@ static const char* _layer_names[TS_LAYER_COUNT] = {
     [TS_LAYER_FLATTEN] = "flatten",
     [TS_LAYER_POOLING_2D] = "pooling_2d",
     [TS_LAYER_CONV_2D] = "conv_2d",
+    [TS_LAYER_NORM] = "norm"
 };
 
 ts_string8 ts_layer_get_name(ts_layer_type type) {
@@ -123,6 +124,15 @@ static _layer_func_defs _layer_funcs[TS_LAYER_COUNT] = {
         _layer_conv_2d_delete,
         _layer_conv_2d_save,
         _layer_conv_2d_load,
+    },
+    [TS_LAYER_NORM] = {
+        _layer_norm_create,
+        _layer_norm_feedforward,
+        _layer_norm_backprop,
+        _layer_null_apply_changes,
+        _layer_null_delete,
+        _layer_null_save,
+        _layer_null_load,
     }
 };
 
@@ -214,6 +224,11 @@ static const ts_layer_desc _default_descs[TS_LAYER_COUNT] = {
             .biases_init = TS_PARAM_INIT_ZEROS
         }
     },
+    [TS_LAYER_NORM] = {
+        .norm = {
+            .epsilon = 1e-5
+        }
+    }
 };
 
 ts_layer_desc ts_layer_desc_default(ts_layer_type type) {
@@ -266,6 +281,9 @@ ts_layer_desc ts_layer_desc_apply_default(const ts_layer_desc* desc) {
             _PARAM_DEFAULT(out_c->kernels_init, def_c->kernels_init);
             _PARAM_DEFAULT(out_c->biases_init, def_c->biases_init);
 
+        } break;
+        case TS_LAYER_NORM: {
+            _PARAM_DEFAULT(out.norm.epsilon, def->norm.epsilon);
         } break;
         default: break;
     }
@@ -418,7 +436,12 @@ void ts_layer_desc_save(mg_arena* arena, ts_string8_list* list, const ts_layer_d
             );
 
             ts_str8_list_push(arena, list, conv_2d_str);
-        }
+        } break;
+        case TS_LAYER_NORM: {
+            ts_string8 epsilon_str = ts_str8_pushf(arena, "    epsilon = %e;\n", desc->norm.epsilon);
+
+            ts_str8_list_push(arena, list, epsilon_str);
+        } break;
 
         default: break;
     }
@@ -440,7 +463,7 @@ _parse_res _parse_enum(ts_u32* out, ts_string8 value, const char* enum_names[], 
 
     return (_parse_res){ .error = false };
 }
-_parse_res _parse_ts_b32(ts_b32* out, ts_string8 value) {
+_parse_res _parse_b32(ts_b32* out, ts_string8 value) {
     if (ts_str8_equals(value, TS_STR8("true"))) {
         *out = true;
     } else if (ts_str8_equals(value, TS_STR8("false"))) {
@@ -454,7 +477,7 @@ _parse_res _parse_ts_b32(ts_b32* out, ts_string8 value) {
 
     return (_parse_res){ .error = false };
 }
-_parse_res _parse_ts_tensor_shape(ts_tensor_shape* out, ts_string8 value) {
+_parse_res _parse_tensor_shape(ts_tensor_shape* out, ts_string8 value) {
     // Parsing (w, h) or (w, h, d)
 
     // Comma indices
@@ -528,7 +551,7 @@ _parse_res _parse_ts_tensor_shape(ts_tensor_shape* out, ts_string8 value) {
 
     return (_parse_res){ .error = false };
 }
-_parse_res _parse_ts_u32(ts_u32* out, ts_string8 value) {
+_parse_res _parse_u32(ts_u32* out, ts_string8 value) {
     // Checking if the string is made of valid characters
     ts_b32 is_num = true;
 
@@ -560,7 +583,7 @@ _parse_res _parse_ts_u32(ts_u32* out, ts_string8 value) {
 
     return (_parse_res){ .error = false };
 }
-_parse_res _parse_ts_f32(ts_f32* out, ts_string8 value) {
+_parse_res _parse_f32(ts_f32* out, ts_string8 value) {
     // Checking if the string is made of valid characters
     ts_b32 is_num = true;
 
@@ -652,21 +675,21 @@ ts_b32 ts_layer_desc_load(ts_layer_desc* out, ts_string8 str) {
         switch (out->type) {
             case TS_LAYER_INPUT: {
                 if (ts_str8_equals(key, TS_STR8("shape"))) {
-                    _parse_res res = _parse_ts_tensor_shape(&out->input.shape, value);
+                    _parse_res res = _parse_tensor_shape(&out->input.shape, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case TS_LAYER_RESHAPE: {
                 if (ts_str8_equals(key, TS_STR8("shape"))) {
-                    _parse_res res = _parse_ts_tensor_shape(&out->reshape.shape, value);
+                    _parse_res res = _parse_tensor_shape(&out->reshape.shape, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case TS_LAYER_DENSE: {
                 if (ts_str8_equals(key, TS_STR8("size"))) {
-                    _parse_res res = _parse_ts_u32(&out->dense.size, value);
+                    _parse_res res = _parse_u32(&out->dense.size, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("bias_init"))) {
@@ -709,7 +732,7 @@ ts_b32 ts_layer_desc_load(ts_layer_desc* out, ts_string8 str) {
             } break;
             case TS_LAYER_DROPOUT: {
                 if (ts_str8_equals(key, TS_STR8("keep_rate"))) {
-                    _parse_res res = _parse_ts_f32(&out->dropout.keep_rate, value);
+                    _parse_res res = _parse_f32(&out->dropout.keep_rate, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
@@ -727,26 +750,26 @@ ts_b32 ts_layer_desc_load(ts_layer_desc* out, ts_string8 str) {
                         goto error;
                     }
                 } else if (ts_str8_equals(key, TS_STR8("pool_size"))) {
-                    _parse_res res = _parse_ts_tensor_shape(&out->pooling_2d.pool_size, value);
+                    _parse_res res = _parse_tensor_shape(&out->pooling_2d.pool_size, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 }
             } break;
             case TS_LAYER_CONV_2D: {
                 if (ts_str8_equals(key, TS_STR8("num_filters"))) {
-                    _parse_res res = _parse_ts_u32(&out->conv_2d.num_filters, value);
+                    _parse_res res = _parse_u32(&out->conv_2d.num_filters, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("kernel_size"))) {
-                    _parse_res res = _parse_ts_u32(&out->conv_2d.kernel_size, value);
+                    _parse_res res = _parse_u32(&out->conv_2d.kernel_size, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("padding"))) {
-                    _parse_res res = _parse_ts_b32(&out->conv_2d.padding, value);
+                    _parse_res res = _parse_b32(&out->conv_2d.padding, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("stride"))) {
-                    _parse_res res = _parse_ts_u32(&out->conv_2d.stride, value);
+                    _parse_res res = _parse_u32(&out->conv_2d.stride, value);
 
                     _PARSE_RES_ERR_CHECK(res);
                 } else if (ts_str8_equals(key, TS_STR8("kernels_init"))) {
@@ -772,7 +795,14 @@ ts_b32 ts_layer_desc_load(ts_layer_desc* out, ts_string8 str) {
                         goto error;
                     }
                 }
-            }
+            } break;
+            case TS_LAYER_NORM: {
+                if (ts_str8_equals(key, TS_STR8("epsilon"))) {
+                    _parse_res res = _parse_f32(&out->norm.epsilon, value);
+
+                    _PARSE_RES_ERR_CHECK(res);
+                }
+            } break;
             default: break;
         }
     }

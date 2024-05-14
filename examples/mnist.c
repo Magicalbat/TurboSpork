@@ -14,13 +14,6 @@ typedef ts_u64 u64;
 
 void draw_mnist_digit(f32* digit_data, u32 width, u32 height);
 
-typedef struct {
-    ts_tensor* train_imgs;
-    ts_tensor* train_labels;
-    ts_tensor* test_imgs;
-    ts_tensor* test_labels;
-} dataset;
-
 void mga_on_error(mga_error err) {
     fprintf(stderr, "MGA Error %u: %s\n", err.code, err.msg);
 }
@@ -38,13 +31,11 @@ void mnist_main(void) {
     ts_get_entropy(seeds, sizeof(seeds));
     ts_prng_seed(seeds[0], seeds[1]);
 
-    dataset data = { 0 };
-
     ts_tensor_list mnist = ts_tensor_list_load(perm_arena, TS_STR8("data/mnist.tst"));
-    data.train_imgs = ts_tensor_list_get(&mnist, TS_STR8("train_inputs"));
-    data.train_labels = ts_tensor_list_get(&mnist, TS_STR8("train_labels"));
-    data.test_imgs = ts_tensor_list_get(&mnist, TS_STR8("test_inputs"));
-    data.test_labels = ts_tensor_list_get(&mnist, TS_STR8("test_labels"));
+    ts_tensor* train_imgs = ts_tensor_list_get(&mnist, TS_STR8("train_inputs"));
+    ts_tensor* train_labels = ts_tensor_list_get(&mnist, TS_STR8("train_labels"));
+    ts_tensor* test_imgs = ts_tensor_list_get(&mnist, TS_STR8("test_inputs"));
+    ts_tensor* test_labels = ts_tensor_list_get(&mnist, TS_STR8("test_labels"));
 
     ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tsl"), true);
     //ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/mnist_0048.tsn"), true);
@@ -84,12 +75,12 @@ void mnist_main(void) {
         //.save_interval = 4,
         //.save_path = TS_STR8("training_nets/mnist_"),
 
-        .train_inputs = data.train_imgs,
-        .train_outputs = data.train_labels,
+        .train_inputs = train_imgs,
+        .train_outputs = train_labels,
 
         .accuracy_test = true,
-        .test_inputs = data.test_imgs,
-        .test_outputs = data.test_labels
+        .test_inputs = test_imgs,
+        .test_outputs = test_labels
     };
 
     ts_time_init();

@@ -64,5 +64,9 @@ void _layer_conv_2d_delete(ts_layer* l);
 void _layer_conv_2d_save(mg_arena* arena, ts_layer* l, ts_tensor_list* list, ts_u32 index);
 void _layer_conv_2d_load(ts_layer* l, const ts_tensor_list* list, ts_u32 index);
 
+void _layer_norm_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* desc, ts_tensor_shape prev_shape);
+void _layer_norm_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cache* cache);
+void _layer_norm_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* cache);
+
 #endif // LAYERS_INTERNAL_H
 

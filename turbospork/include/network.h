@@ -189,6 +189,8 @@ ts_network* ts_network_load_layout(mg_arena* arena, ts_string8 file_name, ts_b32
  */
 ts_network* ts_network_load(mg_arena* arena, ts_string8 file_name, ts_b32 training_mode);
 
+void ts_network_load_existing(ts_network* nn, ts_string8 file_name);
+
 /**
  * @brief Deletes the neural network
  *
