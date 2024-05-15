@@ -38,7 +38,7 @@ void mnist_main(void) {
     ts_tensor* test_labels = ts_tensor_list_get(&mnist, TS_STR8("test_labels"));
 
     ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tsl"), true);
-    //ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/mnist_0048.tsn"), true);
+    //ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/mnist_0004.tsn"), true);
 
     ts_network_summary(nn);
 
@@ -72,8 +72,8 @@ void mnist_main(void) {
             .max_angle =  3.14159265 / 16.0f,
         },
 
-        //.save_interval = 4,
-        //.save_path = TS_STR8("training_nets/mnist_"),
+        .save_interval = 4,
+        .save_path = TS_STR8("training_nets/mnist_"),
 
         .train_inputs = train_imgs,
         .train_outputs = train_labels,
@@ -92,8 +92,6 @@ void mnist_main(void) {
     u64 end = ts_now_usec();
 
     printf("Train Time: %f\n", (ts_f64)(end - start) / 1e6);
-
-    //network_save(nn, STR8("networks/mnist.tpn"));
 
     ts_network_delete(nn);
 

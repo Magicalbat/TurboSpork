@@ -2,6 +2,6 @@
 
 ## [Documentation](https://magicalbat.github.io/TurboSpork/)
 
-## Project Status: Pre-Pre-Alpha (Still making major code and design changes)
+## Project Status: Pre-Alpha (Major image recognition features are complete)
 
 A system for creating neural networks in C
