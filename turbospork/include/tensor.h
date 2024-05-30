@@ -140,26 +140,6 @@ ts_tensor_index ts_tensor_argmax(const ts_tensor* t);
 /// Returns true if `t` is all zero
 ts_b32 ts_tensor_is_zero(const ts_tensor* t);
 
-// Indices work like substring (inclusive start, exclusive end)
-/**
- * @brief Creates a slice of `tensor`
- *
- * [inclusive `start`, exclusive `end`)
- * 
- * @param arena Arena to create slice on
- * @param tensor Tensor to create slice of
- * @param start Begining index of slice
- * @param end End index of slice
- *
- * @return Slice of tensor
- */
-ts_tensor* ts_tensor_slice(mg_arena* arena, const ts_tensor* tensor, ts_tensor_index start, ts_tensor_index end);
-/**
- * @brief Creates a slice of `tensor` from a start index and size
- *
- * See `ts_tensor_slice` for more detail
- */
-ts_tensor* ts_tensor_slice_size(mg_arena* arena, const ts_tensor* tensor, ts_tensor_index start, ts_tensor_shape shape);
 /**
  * @brief Gets a 2D view from a 3D tensor. DOES NOT COPY THE DATA
  *
@@ -197,27 +177,6 @@ ts_tensor* ts_tensor_dot(mg_arena* arena, ts_b32 transpose_a, ts_b32 transpose_b
  * See ts_tensor_conv for more detail
  */
 ts_tensor_shape ts_tensor_conv_shape(ts_tensor_shape in_shape, ts_tensor_shape kernel_shape, ts_u32 stride_x, ts_u32 stride_y);
-
-/**
- * @brief Computes the convolution of `input` and `kernel`. Must be 2D tensors (depth == 1)
- *
- * Kernel is always completely within the input 
- *
- * @param out Output of convolution. Must be big enough to hold the output (i.e. `ts_tensor_conv_shape`)
- * @param input Input tensor to convolution
- * @param kernel Kernel of convolution
- * @param stride_x Amount kernel moves each step in x
- * @param stride_y Amount kernel moves each step in y
- *
- * @return true if `out` was big enough
- */
-ts_b32 ts_tensor_conv_ip(ts_tensor* out, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
-/**
- * @brief Computes the convolution of `input` and `kernel` and returns it. Must be 2D tensors (depth == 1)
- *
- * See `ts_tensor_conv_ip` for more detail
- */
-ts_tensor* ts_tensor_conv(mg_arena* arena, const ts_tensor* input, const ts_tensor* kernel, ts_u32 stride_x, ts_u32 stride_y);
 
 /**
  * @brief Implements the famous `im2col` function. In place version
