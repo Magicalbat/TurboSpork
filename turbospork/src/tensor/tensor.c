@@ -1,5 +1,7 @@
 #include "tensor.h"
 
+#include "tensor_internal.h"
+
 #include "os.h"
 #include "err.h"
 
@@ -40,11 +42,12 @@ ts_tensor* ts_tensor_create_alloc(mg_arena* arena, ts_tensor_shape shape, ts_u64
 
     ts_tensor* out = MGA_PUSH_STRUCT(arena, ts_tensor);
 
-    out->shape = shape;
-    out->alloc = alloc;
-    out->data = MGA_PUSH_ZERO_ARRAY(arena, ts_f32, alloc);
+    _tensor_create_alloc_backend(arena, out, shape, alloc);
     
     return out;
+}
+void ts_tensor_destroy(ts_tensor* t) {
+    _tensor_destroy_backend(t);
 }
 ts_tensor* ts_tensor_copy(mg_arena* arena, const ts_tensor* t, ts_b32 keep_alloc) {
     if (t == NULL) {
@@ -56,13 +59,9 @@ ts_tensor* ts_tensor_copy(mg_arena* arena, const ts_tensor* t, ts_b32 keep_alloc
     ts_tensor_shape shape = t->shape;
     ts_u64 alloc = keep_alloc ? t->alloc : ((ts_u64)shape.width * shape.height * shape.depth);
 
-    ts_tensor* out = MGA_PUSH_STRUCT(arena, ts_tensor);
+    ts_tensor* out = ts_tensor_create_alloc(arena, shape, alloc);
 
-    out->shape = shape;
-    out->alloc = alloc;
-    out->data = MGA_PUSH_ZERO_ARRAY(arena, ts_f32, out->alloc);
-
-    memcpy(out->data, t->data, sizeof(ts_f32) * out->alloc);
+    _tensor_copy_backend(out, t, out->alloc);
 
     return out;
 }
@@ -84,7 +83,7 @@ ts_b32 ts_tensor_copy_ip(ts_tensor* out, const ts_tensor* t) {
 
     out->shape = t->shape;
     if (out->data != t->data) {
-        memcpy(out->data, t->data, size * sizeof(ts_f32));
+        _tensor_copy_backend(out, t, size);
     }
 
     return true;
@@ -95,12 +94,7 @@ void ts_tensor_fill(ts_tensor* tensor, ts_f32 num) {
         TS_ERR(TS_ERR_INVALID_INPUT, "Cannot fill NULL ts_tensor");
     }
 
-    ts_tensor_shape shape = tensor->shape;
-    ts_u64 size = (ts_u64)shape.width * shape.height * shape.depth;
-
-    for (ts_u64 i = 0; i < size; i++) {
-        tensor->data[i] = num;
-    }
+    _tensor_fill_backend(tensor, num);
 }
 
 ts_tensor_index ts_tensor_argmax(const ts_tensor* t) {
@@ -110,21 +104,7 @@ ts_tensor_index ts_tensor_argmax(const ts_tensor* t) {
         return (ts_tensor_index){ 0 };
     }
 
-    ts_f32 max_num = -FLT_MAX;
-    ts_tensor_index max_index = { 0, 0, 0 };
-
-    for (ts_u64 z = 0; z < t->shape.depth; z++) {
-        for (ts_u64 y = 0; y < t->shape.height; y++) {
-            for (ts_u64 x = 0; x < t->shape.width; x++) {
-                if (t->data[x + y * t->shape.width + z * t->shape.width * t->shape.height] > max_num) {
-                    max_num = t->data[x + y * t->shape.width + z * t->shape.width * t->shape.height];
-                    max_index = (ts_tensor_index){ x, y, z };
-                }
-            }
-        }
-    }
-
-    return max_index;
+    return _tensor_argmax_backend(t);
 }
 
 ts_b32 ts_tensor_is_zero(const ts_tensor* t) {
@@ -134,17 +114,7 @@ ts_b32 ts_tensor_is_zero(const ts_tensor* t) {
         return false;
     }
 
-    ts_b32 is_zero = true;
-
-    ts_u64 size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
-    for (ts_u64 i = 0; i < size; i++) {
-        if (t->data[i] != 0.0f) {
-            is_zero = false;
-            break;
-        }
-    }
-
-    return is_zero;
+    return _tensor_is_zero(t);
 }
 void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* tensor, ts_u32 z) {
     if (out == NULL || tensor == NULL) {
@@ -153,71 +123,7 @@ void ts_tensor_2d_view(ts_tensor* out, const ts_tensor* tensor, ts_u32 z) {
         return;
     }
 
-    out->shape = (ts_tensor_shape) {
-        .width = tensor->shape.width,
-        .height = tensor->shape.height,
-        .depth = 1
-    };
-    out->alloc = (ts_u64)out->shape.width * out->shape.height;
-
-    ts_u64 start_i = (ts_u64)z * tensor->shape.width * tensor->shape.height;
-
-    out->data = &tensor->data[start_i];
-}
-
-// Varients of dot with different transposing
-// a_width is after transposing
-// lda and ldb are the widths of a and b, before transposing
-
-// Neither are transposed
-void _dot_nn(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
-    for (ts_u32 y = 0; y < out->shape.height; y++) {
-        for (ts_u32 i = 0; i < a_width; i++) {
-            // This does not change throughout the inner loop
-            ts_f32 a_elem = a_data[(ts_u64)i + (ts_u64)y * lda];
-            for (ts_u32 x = 0; x < out->shape.width; x++) {
-                out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += a_elem * b_data[(ts_u64)x + (ts_u64)i * ldb];
-            }
-        }
-    }
-}
-
-// b is transposed
-void _dot_nt(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
-    for (ts_u32 y = 0; y < out->shape.height; y++) {
-        for (ts_u32 x = 0; x < out->shape.width; x++) {
-            ts_f32 sum = 0.0f;
-            for (ts_u32 i = 0; i < a_width; i++) {
-                sum += a_data[(ts_u64)i + (ts_u64)y * lda] * b_data[(ts_u64)i + (ts_u64)x * ldb];
-            }
-            out->data[(ts_u64)x + (ts_u64)y * out->shape.width] = sum;
-        }
-    }
-}
-
-// a is transposed
-void _dot_tn(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
-    for (ts_u32 y = 0; y < out->shape.height; y++) {
-        for (ts_u32 i = 0; i < a_width; i++) {
-            ts_f32 a_elem = a_data[(ts_u64)y + (ts_u64)i * lda];
-            for (ts_u32 x = 0; x < out->shape.width; x++) {
-                out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += a_elem * b_data[(ts_u64)x + (ts_u64)i * ldb];
-            }
-        }
-    }
-}
-
-// Both are 
-void _dot_tt(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32* b_data, ts_u32 ldb) {
-    for (ts_u32 y = 0; y < out->shape.height; y++) {
-        for (ts_u32 x = 0; x < out->shape.width; x++) {
-            ts_f32 sum = 0.0f;
-            for (ts_u32 i = 0; i < a_width; i++) {
-                 sum += a_data[(ts_u64)y + (ts_u64)i * lda] * b_data[(ts_u64)i + (ts_u64)x * ldb];
-            }
-            out->data[(ts_u64)x + (ts_u64)y * out->shape.width] += sum;
-        }
-    }
+    _tensor_2d_view_backend(out, tensor, z);
 }
 
 ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b) {
@@ -267,9 +173,8 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
         return false;
     }
 
-    ts_u32 a_width = a->shape.width;
-    ts_u32 b_width = b->shape.width;
-    
+    // TODO: remove data copying
+
     ts_f32* a_data = a->data;
     ts_f32* b_data = b->data;
 
@@ -286,19 +191,20 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
         memcpy(b_data, b->data, sizeof(ts_f32) * b_data_size);
     }
 
-    out->shape = shape;
-    memset(out->data, 0, sizeof(ts_f32) * data_size);
+    ts_tensor real_a = {
+        .alloc = a->alloc,
+        .shape = a->shape,
+        .data = a_data
+    };
+    ts_tensor real_b = {
+        .alloc = b->alloc,
+        .shape = b->shape,
+        .data = b_data
+    };
 
-    if (!transpose_a && !transpose_b) {
-        _dot_nn(out, a_shape.width, a_data, a_width, b_data, b_width);
-    } else if (!transpose_a && transpose_b) {
-        _dot_nt(out, a_shape.width, a_data, a_width, b_data, b_width);
-    } else if (transpose_a && !transpose_b) {
-        _dot_tn(out, a_shape.width, a_data, a_width, b_data, b_width);
-    } else {
-        _dot_tt(out, a_shape.width, a_data, a_width, b_data, b_width);
-    }
-    
+    _tensor_dot_backend(out, transpose_a, transpose_b, &real_a, &real_b);
+
+   
     mga_scratch_release(scratch);
 
     return true;
@@ -375,32 +281,8 @@ ts_b32 ts_tensor_im2col_ip(ts_tensor* out, const ts_tensor* input, ts_u32 kernel
     }
 
     out->shape = shape;
-    ts_tensor_fill(out, 0.0f);
 
-    for (ts_u32 z = 0; z < input->shape.depth; z++) {
-        for (ts_u32 k = 0; k < kernel_size * kernel_size; k++) {
-            ts_u32 x_off = k % kernel_size;
-            ts_u32 y_off = k / kernel_size;
-
-            for (ts_u32 y = 0; y < y_kernels; y++) {
-                for (ts_u32 x = 0; x < x_kernels; x++) {
-                    ts_u32 in_x = x_off + x * stride - padding;
-                    ts_u32 in_y = y_off + y * stride - padding;
-                    ts_u64 in_index = ((ts_u64)z * input->shape.height + in_y) * input->shape.width + in_x;
-
-                    ts_u32 out_x = y * x_kernels + x;
-                    ts_u32 out_y = (z * kernel_size * kernel_size) + k;
-                    ts_u64 out_index = (ts_u64)out_y * out->shape.width + out_x;
-
-                    if (in_x < 0 || in_y < 0 || in_x >= input->shape.width || in_y >= input->shape.height) {
-                        out->data[out_index] = 0.0f;
-                    } else {
-                        out->data[out_index] = input->data[in_index];
-                    }
-                }
-            }
-        }
-    }
+    _tensor_im2col_backend(out, input, kernel_size, stride, padding, x_kernels, y_kernels);
 
     return true;
 }
@@ -466,33 +348,11 @@ ts_b32 ts_tensor_col2im_ip(ts_tensor* out, const ts_tensor* input, ts_tensor_sha
         return false;
     }
     out->shape = out_shape;
-    ts_tensor_fill(out, 0.0f);
 
     ts_u32 x_kernels = (out_shape.width + padding * 2 - kernel_size) / stride + 1;
     ts_u32 y_kernels = (out_shape.height + padding * 2 - kernel_size) / stride + 1;
 
-    for (ts_u32 z = 0; z < out_shape.depth; z++) {
-        for (ts_u32 k = 0; k < kernel_size * kernel_size; k++) {
-            ts_u32 x_off = k % kernel_size;
-            ts_u32 y_off = k / kernel_size;
-
-            for (ts_u32 y = 0; y < y_kernels; y++) {
-                for (ts_u32 x = 0; x < x_kernels; x++) {
-                    ts_u32 in_x = y * x_kernels + x;
-                    ts_u32 in_y = (z * kernel_size * kernel_size) + k;
-                    ts_u64 in_index = (ts_u64)in_y * input->shape.width + in_x;
-
-                    ts_u32 out_x = x_off + x * stride - padding;
-                    ts_u32 out_y = y_off + y * stride - padding;
-                    ts_u64 out_index = ((ts_u64)z * out_shape.height + out_y) * out_shape.width + out_x;
-
-                    if (out_x >= 0 && out_x < out_shape.width && out_y >= 0 && out_y < out_shape.height) {
-                        out->data[out_index] += input->data[in_index];
-                    }
-                }
-            }
-        }
-    }
+    _tensor_col2im_backend(out, input, kernel_size, stride, padding, x_kernels, y_kernels);
 
     return true;
 }
@@ -540,17 +400,13 @@ ts_b32 ts_tensor_transpose_ip(ts_tensor* t) {
     // Creating temporary copy of data
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    ts_u32 orig_width = t->shape.height;
+    ts_tensor* orig = ts_tensor_copy(scratch.arena, t, false);
+    orig->shape.width = t->shape.height;
+    orig->shape.height = t->shape.width;
 
-    ts_u64 data_size = (ts_u64)t->shape.width * t->shape.height; // depth == 1
-    ts_f32* orig_data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
-    memcpy(orig_data, t->data, sizeof(ts_f32) * data_size);
+    _tensor_transpose_backend(t, orig);
 
-    for (ts_u64 x = 0; x < t->shape.width; x++) {
-        for (ts_u64 y = 0; y < t->shape.height; y++) {
-            t->data[x + y * t->shape.width] = orig_data[y + x * orig_width];
-        }
-    }
+    ts_tensor_destroy(orig);
 
     mga_scratch_release(scratch);
 
@@ -571,11 +427,7 @@ ts_tensor* ts_tensor_transpose(mg_arena* arena, const ts_tensor* t) {
 
     ts_tensor* out = ts_tensor_create(arena, (ts_tensor_shape){ t->shape.height, t->shape.width, 1 });
 
-    for (ts_u64 x = 0; x < t->shape.width; x++) {
-        for (ts_u64 y = 0; y < t->shape.height; y++) {
-            out->data[x + y * out->shape.width] = t->data[y + x * t->shape.width];
-        }
-    }
+    _tensor_transpose_backend(out, t);
 
     return out;
 }
@@ -602,9 +454,8 @@ ts_b32 ts_tensor_add_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     }
 
     out->shape = a->shape;
-    for (ts_u64 i = 0; i < data_size; i++) {
-        out->data[i] = a->data[i] + b->data[i];
-    }
+
+    _tensor_add_backend(out, a, b);
     
     return true;
 }
@@ -630,9 +481,8 @@ ts_b32 ts_tensor_sub_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b) 
     }
 
     out->shape = a->shape;
-    for (ts_u64 i = 0; i < data_size; i++) {
-        out->data[i] = a->data[i] - b->data[i];
-    }
+
+    _tensor_sub_backend(out, a, b);
     
     return true;
 }
@@ -658,9 +508,8 @@ ts_b32 ts_tensor_component_mul_ip(ts_tensor* out, const ts_tensor* a, const ts_t
     }
 
     out->shape = a->shape;
-    for (ts_u64 i = 0; i < data_size; i++) {
-        out->data[i] = a->data[i] * b->data[i];
-    }
+
+    _tensor_component_mul_backend(out, a, b);
     
     return true;
 }
@@ -686,9 +535,8 @@ ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_t
     }
 
     out->shape = a->shape;
-    for (ts_u64 i = 0; i < data_size; i++) {
-        out->data[i] = a->data[i] / b->data[i];
-    }
+
+    _tensor_component_div_backend(out, a, b);
     
     return true;
 }
@@ -708,9 +556,8 @@ ts_b32 ts_tensor_scale_ip(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
     }
 
     out->shape = t->shape;
-    for (ts_u64 i = 0; i < data_size; i++) {
-        out->data[i] = t->data[i] * s;
-    }
+
+    _tensor_scale_backend(out, t, s);
 
     return true;
 }
@@ -730,9 +577,8 @@ ts_b32 ts_tensor_sqrt_ip(ts_tensor* out, const ts_tensor* t) {
     }
 
     out->shape = t->shape;
-    for (ts_u64 i = 0; i < data_size; i++) {
-        out->data[i] = sqrtf(t->data[i]);
-    }
+
+    _tensor_sqrt_backend(out, t);
 
     return true;
 }
@@ -749,6 +595,7 @@ ts_tensor* ts_tensor_add(mg_arena* arena, const ts_tensor* a, const ts_tensor* b
     ts_tensor* out = ts_tensor_create(arena, a->shape);
 
     if (!ts_tensor_add_ip(out, a, b)) {
+        ts_tensor_destroy(out);
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -768,6 +615,7 @@ ts_tensor* ts_tensor_sub(mg_arena* arena, const ts_tensor* a, const ts_tensor* b
     ts_tensor* out = ts_tensor_create(arena, a->shape);
 
     if (!ts_tensor_sub_ip(out, a, b)) {
+        ts_tensor_destroy(out);
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -787,6 +635,7 @@ ts_tensor* ts_tensor_component_mul(mg_arena* arena, const ts_tensor* a, const ts
     ts_tensor* out = ts_tensor_create(arena, a->shape);
 
     if (!ts_tensor_component_mul_ip(out, a, b)) {
+        ts_tensor_destroy(out);
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -806,6 +655,7 @@ ts_tensor* ts_tensor_component_div(mg_arena* arena, const ts_tensor* a, const ts
     ts_tensor* out = ts_tensor_create(arena, a->shape);
 
     if (!ts_tensor_component_div_ip(out, a, b)) {
+        ts_tensor_destroy(out);
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -825,6 +675,7 @@ ts_tensor* ts_tensor_scale(mg_arena* arena, const ts_tensor* t, ts_f32 s) {
     ts_tensor* out = ts_tensor_create(arena, t->shape);
 
     if (!ts_tensor_scale_ip(out, t, s)) {
+        ts_tensor_destroy(out);
         mga_temp_end(maybe_temp);
         
         out = NULL;
@@ -958,7 +809,14 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
 
         ts_u64 data_size = (ts_u64)shape.width * shape.height * shape.depth * sizeof(ts_f32);
 
-        _WRITE_DATA(data_size, node->tensor->data);
+        mga_temp scratch = mga_scratch_get(NULL, 0);
+        ts_f32* data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
+
+        _tensor_set_data_backend(node->tensor, data);
+
+        _WRITE_DATA(data_size, data);
+
+        mga_scratch_release(scratch);
     }
 
     if (str_size != (ts_u64)(str_buf_ptr - str_buf)) {
@@ -1012,11 +870,18 @@ ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
         _READ_DATA(sizeof(ts_u32), &height);
         _READ_DATA(sizeof(ts_u32), &depth);
 
-        ts_tensor* ts_tensor = ts_tensor_create(arena, (ts_tensor_shape){ width, height, depth });
+        ts_tensor* tensor = ts_tensor_create(arena, (ts_tensor_shape){ width, height, depth });
         ts_u64 data_size = (ts_u64)width * height * depth * sizeof(ts_f32);
-        _READ_DATA(data_size, ts_tensor->data);
 
-        ts_tensor_list_push(arena, &out, ts_tensor, name);
+        mga_temp scratch = mga_scratch_get(NULL, 0);
+
+        ts_f32* data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
+        _READ_DATA(data_size, data);
+        _tensor_set_data_backend(tensor, data);
+
+        mga_scratch_release(scratch);
+
+        ts_tensor_list_push(arena, &out, tensor, name);
     }
 
     if (pos > str.size) {

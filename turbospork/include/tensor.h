@@ -10,6 +10,13 @@
 #include "str.h"
 #include "mg/mg_arena.h"
 
+#define TS_TENSOR_BACKEND_CPU 1
+#define TS_TENSOR_BACKEND_CUDA 2
+
+#ifndef TS_TENSOR_BACKEND
+#   define TS_TENSOR_BACKEND TS_TENSOR_BACKEND_CPU
+#endif 
+
 /**
  * @brief Shape of `ts_tensor`
  */
@@ -44,8 +51,13 @@ typedef struct {
     ts_tensor_shape shape;
     /// Number of ts_f32's allocated
     ts_u64 alloc;
-    /// Data of tensor
-    ts_f32* data;
+
+    /** 
+     * @brief Data of tensor
+     *
+     * Void pointer to support different backends
+     */
+    void* data;
 } ts_tensor;
 
 /**
@@ -110,6 +122,12 @@ ts_tensor* ts_tensor_create(mg_arena* arena, ts_tensor_shape shape);
  * @return The created tensor, filled with zero, and the correct alloc
  */
 ts_tensor* ts_tensor_create_alloc(mg_arena* arena, ts_tensor_shape shape, ts_u64 alloc);
+/**
+ * @brief Destroys anything on the tensor not stored in an arena
+ *
+ * This is neccessary because of non-CPU backends
+ */
+void ts_tensor_destroy(ts_tensor* t);
 /**
  * @brief Copies a `ts_tensor`
  *
