@@ -122,6 +122,9 @@ ts_tensor* ts_tensor_create(mg_arena* arena, ts_tensor_shape shape);
  * @return The created tensor, filled with zero, and the correct alloc
  */
 ts_tensor* ts_tensor_create_alloc(mg_arena* arena, ts_tensor_shape shape, ts_u64 alloc);
+
+// TODO: reword memory useage and age destroy statements
+
 /**
  * @brief Destroys anything on the tensor not stored in an arena
  *
@@ -280,6 +283,12 @@ ts_b32 ts_tensor_component_mul_ip(ts_tensor* out, const ts_tensor* a, const ts_t
  */
 ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
 /**
+ * @brief Adds `x` to every value in `t`
+ *
+ * @return true if `out` is big enough, false otherwise
+ */
+ts_b32 ts_tensor_add_all_ip(ts_tensor* out, const ts_tensor* t, ts_f32 x);
+/**
  * @brief Scales `t` by `s`
  *
  * @return true if `out` is big enough, false otherwise
@@ -300,10 +309,29 @@ ts_tensor* ts_tensor_sub(mg_arena* arena, const ts_tensor* a, const ts_tensor* b
 ts_tensor* ts_tensor_component_mul(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
 /// Creates a `ts_tensor` that is the component quotient of `a` and `b`
 ts_tensor* ts_tensor_component_div(mg_arena* arena, const ts_tensor* a, const ts_tensor* b);
+/// Creates a `ts_tensor` that `x` added to each element of `t`
+ts_tensor* ts_tensor_add_all(mg_arena* arena, const ts_tensor* t, ts_f32 x);
 /// Creates a `ts_tensor` that is `t` scaled by `s`
 ts_tensor* ts_tensor_scale(mg_arena* arena, const ts_tensor* t, ts_f32 s);
 /// Creates a `ts_tensor` that is the square root of `t`
 ts_tensor* ts_tensor_sqrt(mg_arena* arena, const ts_tensor* t);
+
+/// Returns a copy of the tensor's data
+ts_f32* ts_tensor_copy_data(mg_arena* arena, const ts_tensor* t);
+/**
+ * @brief Copies the tensor's data into out
+ *
+ * @param out Output of copy, must be big enough to store the data
+ * @param t Tensor to get data from
+ */
+void ts_tensor_get_data(ts_f32* out, const ts_tensor* t);
+/**
+ * @brief Sets the data of the tensor
+ *
+ * @param t Tensor to set data of
+ * @param data New data of tensor. Must be large enough
+ */
+void ts_tensor_set_data(ts_tensor* t, ts_f32* data);
 
 /**
  * @brief Pushes a `ts_tensor` and `ts_string8` name to a `ts_tensor_list`

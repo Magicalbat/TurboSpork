@@ -9,6 +9,8 @@ typedef struct {
     ts_f32 x, y;
 } _vec2;
 
+#if TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
+
 // Returns zero if out of bounds
 #define _GET_PIXEL(x, y, z) \
     ((x) < 0 || (x) >= width || (y) < 0 || (y) >= height) ? \
@@ -107,7 +109,7 @@ ts_b32 ts_img_transform_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample
 
     // Checking if out and input overlap
     // Copying the data if they do
-    ts_f32* img_data = input->data;
+    ts_f32* img_data = (ts_f32*)input->data;
     if (out->data == input->data) {
         ts_u64 data_size = (ts_u64)input->shape.width * input->shape.height * input->shape.depth;
         img_data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
@@ -118,6 +120,8 @@ ts_b32 ts_img_transform_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample
         (ts_f32)input->shape.width / 2,
         (ts_f32)input->shape.height / 2
     };
+
+    ts_f32* out_data = (ts_f32*)out->data;
 
     for (ts_u32 z = 0; z < input->shape.depth; z++) {
         for (ts_u32 y = 0; y < input->shape.height; y++) {
@@ -139,7 +143,7 @@ ts_b32 ts_img_transform_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample
                 out_pos.y += offset.y;
 
                 ts_u64 index = ((ts_u64)z * out->shape.height + y) * out->shape.width + x;
-                out->data[index] = _sample_img(img_data, input->shape.width, input->shape.height, out_pos, z, sample_type);
+                out_data[index] = _sample_img(img_data, input->shape.width, input->shape.height, out_pos, z, sample_type);
             }
         }
     }
@@ -148,6 +152,7 @@ ts_b32 ts_img_transform_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample
 
     return true;
 }
+#endif // TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
 
 ts_b32 ts_img_translate_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample_type sample_type, ts_f32 x_off, ts_f32 y_off) {
     if (out == NULL || input == NULL) {
@@ -220,42 +225,6 @@ ts_b32 ts_img_shear_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample_typ
     return ts_img_transform_ip(out, input, sample_type, &mat);
 }
 
-ts_b32 ts_img_add_noise_ip(ts_tensor* out, const ts_tensor* input, ts_f32 noise_rate) {
-    if (out == NULL || input == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot add noise to image with NULL input and/or output");
-        return false;
-    }
-
-    ts_u64 data_size = (ts_u64)input->shape.width * input->shape.height * input->shape.depth;
-    if (out->alloc < data_size) {
-        #if TS_TENSOR_IP_ALLOC_ERRORS
-        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot add noise to image: not enough space in out");
-        #endif
-
-        return false;
-    }
-
-    ts_tensor_copy_ip(out, input);
-
-    for (ts_u32 y = 0; y < out->shape.height; y++) {
-        for (ts_u32 x = 0; x < out->shape.width; x++) {
-            if (ts_prng_rand_f32() < noise_rate) {
-                // I know this is bad for cache,
-                // but this is not as performance
-                // critical as something like the dot product
-
-                for (ts_u32 z = 0; z < out->shape.depth; z++) {
-                    ts_u64 index = ((ts_u64)z * out->shape.height + y) * out->shape.width + x;
-
-                    out->data[index] = ts_prng_rand_f32();
-                }
-            }
-        }
-    }
-
-    return true;
-}
-
 ts_tensor* ts_img_transform(mg_arena* arena, const ts_tensor* input, ts_img_sample_type sample_type, const ts_img_mat3* mat) {
     if (input == NULL) {
         TS_ERR(TS_ERR_INVALID_INPUT, "Cannot transform NULL image");
@@ -317,19 +286,6 @@ ts_tensor* ts_img_shear(mg_arena* arena, const ts_tensor* input, ts_img_sample_t
     ts_tensor* out = ts_tensor_create(arena, input->shape);
 
     ts_img_shear_ip(out, input, sample_type, x_shear, y_shear);
-
-    return out;
-}
-
-ts_tensor* ts_img_add_noise(mg_arena* arena, const ts_tensor* input, ts_f32 noise_rate) {
-    if (input == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot add noise to NULL image");
-        return NULL;
-    }
-
-    ts_tensor* out = ts_tensor_create(arena, input->shape);
-
-    ts_img_add_noise_ip(out, input, noise_rate);
 
     return out;
 }

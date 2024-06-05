@@ -81,20 +81,6 @@ ts_b32 ts_img_rotate_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample_ty
 ts_b32 ts_img_shear_ip(ts_tensor* out, const ts_tensor* input, ts_img_sample_type sample_type, ts_f32 x_shear, ts_f32 y_shear);
 
 /**
- * @brief Adds noise to the image. In place version
- *
- * Noise added is between 0 and 1
- *
- * @param input Input image
- * @param sample_type Sampling type
- * @param noise_rate Chance for noise to be added to each 2d pixel of the image.
- *  If noise is added, a different random value is set for each channel of the 2d pixel
- * 
- * @return true if out is big enough, false otherwise
- */
-ts_b32 ts_img_add_noise_ip(ts_tensor* out, const ts_tensor* input, ts_f32 noise_rate);
-
-/**
  * @brief Transforms the input image according to the matrix
  *
  * Transformations take place about the image's center.
@@ -147,20 +133,6 @@ ts_tensor* ts_img_rotate(mg_arena* arena, const ts_tensor* input, ts_img_sample_
  * @param y_shear Amount to shear on y axis
  */
 ts_tensor* ts_img_shear(mg_arena* arena, const ts_tensor* input, ts_img_sample_type sample_type, ts_f32 x_shear, ts_f32 y_shear);
-
-/**
- * @brief Adds noise to the image
- *
- * Noise added is between 0 and 1
- *
- * @param input Input image
- * @param sample_type Sampling type
- * @param noise_rate Chance for noise to be added to each 2d pixel of the image.
- *  If noise is added, a different random value is set for each channel of the 2d pixel
- * 
- * @return Image with noise applied if successful, NULL otherwise
- */
-ts_tensor* ts_img_add_noise(mg_arena* arena, const ts_tensor* input, ts_f32 noise_rate);
 
 #endif // TS_IMG_H
 

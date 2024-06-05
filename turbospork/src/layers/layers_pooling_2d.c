@@ -80,6 +80,15 @@ void _layer_pooling_2d_feedforward(ts_layer* l, ts_tensor* in_out, ts_layers_cac
     }
 }
 
+void _pool_null(const ts_tensor* in, ts_tensor* out, ts_tensor_shape pool_size, ts_tensor* delta) {
+    TS_UNUSED(in);
+    TS_UNUSED(out);
+    TS_UNUSED(pool_size);
+    TS_UNUSED(delta);
+}
+
+#if TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
+
 // Prevents indexing input out of bounds
 #define _CLIP_POOL_SIZE(p_w, p_h, i_x, i_y, in_shape) do {\
         if (i_x + p_w > in_shape.width) { p_w = i_x + p_w - in_shape.width; } \
@@ -95,6 +104,8 @@ void _layer_pooling_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* 
         mga_temp scratch = mga_scratch_get(NULL, 0);
 
         ts_tensor* delta_copy = ts_tensor_copy(scratch.arena, delta, false);
+        ts_f32* delta_copy_data = (ts_f32*)delta_copy->data;
+        ts_f32* delta_data = (ts_f32*)delta->data;
 
         delta->shape = pooling->input_shape;
 
@@ -107,7 +118,7 @@ void _layer_pooling_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* 
 
                     ts_u64 orig_delta_index = i_x + i_y * delta_copy->shape.width +
                         z * delta_copy->shape.width * delta_copy->shape.height;
-                    ts_f32 orig_delta_value = delta_copy->data[orig_delta_index];
+                    ts_f32 orig_delta_value = delta_copy_data[orig_delta_index];
 
                     ts_u32 p_w = pooling->pool_size.width;
                     ts_u32 p_h = pooling->pool_size.height;
@@ -119,7 +130,7 @@ void _layer_pooling_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* 
                         for (ts_u32 y = 0; y < p_h; y++) {
                             ts_u64 index = (d_x + x) + (d_y + y) * delta->shape.width + z_off;
 
-                            delta->data[index] = orig_delta_value;
+                            delta_data[index] = orig_delta_value;
                         }
                     }
                 }
@@ -134,14 +145,11 @@ void _layer_pooling_2d_backprop(ts_layer* l, ts_tensor* delta, ts_layers_cache* 
     ts_tensor_component_mul_ip(delta, delta, pool_delta);
 }
 
-void _pool_null(const ts_tensor* in, ts_tensor* out, ts_tensor_shape pool_size, ts_tensor* delta) {
-    TS_UNUSED(in);
-    TS_UNUSED(out);
-    TS_UNUSED(pool_size);
-    TS_UNUSED(delta);
-}
-
 void _pool_max(const ts_tensor* in, ts_tensor* out, ts_tensor_shape pool_size, ts_tensor* delta) {
+    ts_f32* in_data = (ts_f32*)in->data;
+    ts_f32* out_data = (ts_f32*)out->data;
+    ts_f32* delta_data = delta == NULL ? NULL :(ts_f32*)delta->data;
+
     // Looping through output coords
     for (ts_u64 o_y = 0; o_y < out->shape.height; o_y++) {
         for (ts_u64 o_x = 0; o_x < out->shape.width; o_x++) {
@@ -162,22 +170,26 @@ void _pool_max(const ts_tensor* in, ts_tensor* out, ts_tensor_shape pool_size, t
                 for (ts_u32 y = 0; y < p_h; y++) {
                     ts_u64 index = (i_x + x) + (i_y + y) * in->shape.width;
 
-                    if (in->data[index] > max_num) {
-                        max_num = in->data[index];
+                    if (in_data[index] > max_num) {
+                        max_num = in_data[index];
                         max_index = index;
                     }
                 }
             }
 
-            out->data[o_x + o_y * out->shape.width] = max_num;
+            out_data[o_x + o_y * out->shape.width] = max_num;
 
             if (delta != NULL) {
-                delta->data[max_index] = 1.0f;
+                delta_data[max_index] = 1.0f;
             }
         }
     }
 }
 void _pool_avg(const ts_tensor* in, ts_tensor* out, ts_tensor_shape pool_size, ts_tensor* delta) {
+    ts_f32* in_data = (ts_f32*)in->data;
+    ts_f32* out_data = (ts_f32*)out->data;
+    ts_f32* delta_data = delta == NULL ? NULL :(ts_f32*)delta->data;
+
     // Looping through output coords
     for (ts_u64 o_y = 0; o_y < out->shape.height; o_y++) {
         for (ts_u64 o_x = 0; o_x < out->shape.width; o_x++) {
@@ -196,11 +208,11 @@ void _pool_avg(const ts_tensor* in, ts_tensor* out, ts_tensor_shape pool_size, t
                 for (ts_u32 y = 0; y < p_h; y++) {
                     ts_u64 index = (i_x + x) + (i_y + y) * in->shape.width;
 
-                    sum += in->data[index];
+                    sum += in_data[index];
                 }
             }
 
-            out->data[o_x + o_y * out->shape.width] = sum / (pool_size.width * pool_size.height);
+            out_data[o_x + o_y * out->shape.width] = sum / (pool_size.width * pool_size.height);
 
             if (delta == NULL) {
                 continue;
@@ -210,10 +222,12 @@ void _pool_avg(const ts_tensor* in, ts_tensor* out, ts_tensor_shape pool_size, t
                 for (ts_u32 y = 0; y < p_h; y++) {
                     ts_u64 index = (i_x + x) + (i_y + y) * in->shape.width;
 
-                    delta->data[index] = 1.0f / (pool_size.width * pool_size.height);
+                    delta_data[index] = 1.0f / (pool_size.width * pool_size.height);
                 }
             }
         }
     }
 }
+
+#endif // TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
 

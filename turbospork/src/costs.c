@@ -72,37 +72,56 @@ static void null_grad(ts_tensor* in_out, const ts_tensor* desired_out) {
     TS_UNUSED(in_out);
     TS_UNUSED(desired_out);
 }
+
+#if TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
+
 static ts_f32 mean_squared_func(const ts_tensor* in, const ts_tensor* desired_out) {
     ts_f32 sum = 0.0f;
 
+    ts_f32* in_data = (ts_f32*)in->data;
+    ts_f32* d_out_data = (ts_f32*)desired_out->data;
+
     ts_u64 size = (ts_u64)in->shape.width * in->shape.height * in->shape.depth;
     for (ts_u64 i = 0; i < size; i++) {
-        sum += 0.5f * (in->data[i] - desired_out->data[i]) * (in->data[i] - desired_out->data[i]);
+        sum += 0.5f * (in_data[i] - d_out_data[i]) * (in_data[i] - d_out_data[i]);
     }
 
     return sum / (ts_f32)size;
 }
 static void mean_squared_grad(ts_tensor* in_out, const ts_tensor* desired_out) {
     ts_u64 size = (ts_u64)in_out->shape.width * in_out->shape.height * in_out->shape.depth;
+
+    ts_f32* in_out_data = (ts_f32*)in_out->data;
+    ts_f32* d_out_data = (ts_f32*)desired_out->data;
+
     for (ts_u64 i = 0; i < size; i++) {
-        in_out->data[i] = (in_out->data[i] - desired_out->data[i]);
+        in_out_data[i] = (in_out_data[i] - d_out_data[i]);
     }
 }
 
 static ts_f32 cce_func(const ts_tensor* in, const ts_tensor* desired_out) {
     ts_f32 sum = 0.0f;
 
+    ts_f32* in_data = (ts_f32*)in->data;
+    ts_f32* d_out_data = (ts_f32*)desired_out->data;
+
     ts_u64 size = (ts_u64)in->shape.width * in->shape.height * in->shape.depth;
     for (ts_u64 i = 0; i < size; i++) {
-        sum += desired_out->data[i] * logf(in->data[i]);
+        sum += d_out_data[i] * logf(in_data[i]);
     }
 
     return -sum;
 }
 static void cce_grad(ts_tensor* in_out, const ts_tensor* desired_out) {
     ts_u64 size = (ts_u64)in_out->shape.width * in_out->shape.height * in_out->shape.depth;
+
+    ts_f32* in_out_data = (ts_f32*)in_out->data;
+    ts_f32* d_out_data = (ts_f32*)desired_out->data;
+
     for (ts_u64 i = 0; i < size; i++) {
-        in_out->data[i] = -desired_out->data[i] / (in_out->data[i] + 1e-8f);
+        in_out_data[i] = -d_out_data[i] / (in_out_data[i] + 1e-8f);
     }
 }
+
+#endif // TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
 

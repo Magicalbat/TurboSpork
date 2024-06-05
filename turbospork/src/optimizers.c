@@ -94,11 +94,7 @@ void _rms_prop_param_apply(const ts_optimizer* optim, ts_tensor* param, ts_param
 
     // param = param - (learning_rate / sqrt(S + epsilon)) * dW
     ts_tensor* sqrt_S = ts_tensor_copy(scratch.arena, param_change->_S, false);
-
-    ts_u64 size = (ts_u64)sqrt_S->shape.width * sqrt_S->shape.height * sqrt_S->shape.depth;
-    for (ts_u64 i = 0; i < size; i++) {
-        sqrt_S->data[i] += epsilon;
-    }
+    ts_tensor_add_all_ip(sqrt_S, sqrt_S, epsilon);
     ts_tensor_sqrt_ip(sqrt_S, sqrt_S);
 
     ts_tensor_component_div_ip(real_change, real_change, sqrt_S);
@@ -133,10 +129,7 @@ void _adam_param_apply(const ts_optimizer* optim, ts_tensor* param, ts_param_cha
 
     // param = param - (learning_rate / sqrt(S + epsilon)) * V
     ts_tensor* sqrt_S = ts_tensor_copy(scratch.arena, param_change->_S, false);
-    ts_u64 size = (ts_u64)sqrt_S->shape.width * sqrt_S->shape.height * sqrt_S->shape.depth;
-    for (ts_u64 i = 0; i < size; i++) {
-        sqrt_S->data[i] += adam.epsilon;
-    }
+    ts_tensor_add_all_ip(sqrt_S, sqrt_S, adam.epsilon);
     ts_tensor_sqrt_ip(sqrt_S, sqrt_S);
 
     ts_tensor_copy_ip(real_change, param_change->_V);

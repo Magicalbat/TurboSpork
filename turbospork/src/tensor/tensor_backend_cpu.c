@@ -278,14 +278,14 @@ void _tensor_component_div_backend(ts_tensor* out, const ts_tensor* a, const ts_
         out_data[i] = a_data[i] / b_data[i];
     }
 }
-void _tensor_sqrt_backend(ts_tensor* out, const ts_tensor* t) {
+void _tensor_add_all_backend(ts_tensor* out, const ts_tensor* t, ts_f32 x) {
     ts_f32* out_data = (ts_f32*)out->data;
-    ts_f32* t_data = (ts_f32*)t->data;
+    ts_f32* in_data = (ts_f32*)t->data;
 
     ts_u64 size = (ts_u64)out->shape.width * out->shape.height * out->shape.depth;
 
     for (ts_u64 i = 0; i < size; i++) {
-        out_data[i] = sqrtf(t_data[i]);
+        out_data[i] = in_data[i] + x;
     }
 }
 void _tensor_scale_backend(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
@@ -296,6 +296,16 @@ void _tensor_scale_backend(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
 
     for (ts_u64 i = 0; i < size; i++) {
         out_data[i] = t_data[i] * s;
+    }
+}
+void _tensor_sqrt_backend(ts_tensor* out, const ts_tensor* t) {
+    ts_f32* out_data = (ts_f32*)out->data;
+    ts_f32* t_data = (ts_f32*)t->data;
+
+    ts_u64 size = (ts_u64)out->shape.width * out->shape.height * out->shape.depth;
+
+    for (ts_u64 i = 0; i < size; i++) {
+        out_data[i] = sqrtf(t_data[i]);
     }
 }
 void _tensor_get_data_backend(ts_f32* out, const ts_tensor* t) {

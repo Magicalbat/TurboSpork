@@ -158,12 +158,12 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
         return false;
     }
 
-    ts_tensor_shape shape = {
+    ts_tensor_shape out_shape = {
         .width = b_shape.width,
         .height = a_shape.height,
         .depth = 1
     };
-    ts_u64 data_size = (ts_u64)shape.width * shape.height;
+    ts_u64 data_size = (ts_u64)out_shape.width * out_shape.height;
 
     if (out->alloc < data_size) {
         #if TS_TENSOR_IP_ALLOC_ERRORS
@@ -172,6 +172,8 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
 
         return false;
     }
+
+    out->shape = out_shape;
 
     // TODO: remove data copying
 
@@ -540,6 +542,28 @@ ts_b32 ts_tensor_component_div_ip(ts_tensor* out, const ts_tensor* a, const ts_t
     
     return true;
 }
+ts_b32 ts_tensor_add_all_ip(ts_tensor* out, const ts_tensor* t, ts_f32 x) {
+    if (out == NULL || t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot add all with NULL ts_tensor(s)");
+
+        return false;
+    }
+
+    ts_u64 data_size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
+    if (out->alloc < data_size) {
+        #if TS_TENSOR_IP_ALLOC_ERRORS
+        TS_ERR(TS_ERR_ALLOC_SIZE, "Cannot add all to ts_tensor: not enough space in out");
+        #endif
+
+        return false;
+    }
+
+    out->shape = t->shape;
+
+    _tensor_add_all_backend(out, t, x);
+
+    return true;
+}
 ts_b32 ts_tensor_scale_ip(ts_tensor* out, const ts_tensor* t, ts_f32 s) {
     if (out == NULL || t == NULL) {
         TS_ERR(TS_ERR_INVALID_INPUT, "Cannot scale NULL ts_tensor(s)");
@@ -663,6 +687,27 @@ ts_tensor* ts_tensor_component_div(mg_arena* arena, const ts_tensor* a, const ts
 
     return out;
 }
+ts_tensor* ts_tensor_add_all(mg_arena* arena, const ts_tensor* t, ts_f32 x) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot add all to NULL ts_tensor");
+
+        return NULL;
+    }
+
+    mga_temp maybe_temp = mga_temp_begin(arena);
+
+    ts_tensor* out = ts_tensor_create(arena, t->shape);
+
+    if (!ts_tensor_add_all_ip(out, t, x)) {
+        ts_tensor_destroy(out);
+        mga_temp_end(maybe_temp);
+        
+        out = NULL;
+    }
+
+    return out;
+
+}
 ts_tensor* ts_tensor_scale(mg_arena* arena, const ts_tensor* t, ts_f32 s) {
     if (t == NULL) {
         TS_ERR(TS_ERR_INVALID_INPUT, "Cannot scale NULL ts_tensor");
@@ -695,6 +740,50 @@ ts_tensor* ts_tensor_sqrt(mg_arena* arena, const ts_tensor* t) {
     ts_tensor_sqrt_ip(out, t);
 
     return out;
+}
+
+ts_f32* ts_tensor_copy_data(mg_arena* arena, const ts_tensor* t) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot copy data from NULL ts_tensor");
+
+        return NULL;
+    }
+
+
+    ts_u64 size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
+    ts_f32* out = MGA_PUSH_ARRAY(arena, ts_f32, size);
+
+    _tensor_get_data_backend(out, t);
+
+    return out;
+}
+void ts_tensor_get_data(ts_f32* out, const ts_tensor* t) {
+    if (out == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot get ts_tensor data with NULL out pointer");
+
+        return;
+    }
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot get data of NULL ts_tensor");
+
+        return;
+    }
+
+    _tensor_get_data_backend(out, t);
+}
+void ts_tensor_set_data(ts_tensor* t, ts_f32* data) {
+    if (t == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot set data of NULL ts_tensor");
+
+        return;
+    }
+    if (data == NULL) {
+        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot set ts_tensor data with NULL data");
+
+        return;
+    }
+
+    _tensor_set_data_backend(t, data);
 }
 
 void ts_tensor_list_push_existing(ts_tensor_list* list, ts_tensor* tensor, ts_string8 name, ts_tensor_node* node) {

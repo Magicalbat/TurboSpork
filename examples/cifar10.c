@@ -93,19 +93,21 @@ void draw_img(const ts_tensor* img) {
     mgp_vec4f* colors = MGA_PUSH_ARRAY(scratch.arena, mgp_vec4f, size);
     mgp_rectf* rects = MGA_PUSH_ARRAY(scratch.arena, mgp_rectf, size);
 
+    ts_f32* img_data = (ts_f32*)img->data;
+
     for (ts_u32 y = 0; y < img->shape.height; y++) {
         for (ts_u32 x = 0; x < img->shape.width; x++) {
             ts_u32 i = x + y * img->shape.width;
 
             if (img->shape.depth == 3) {
                 colors[i] = (mgp_vec4f){
-                    img->data[(0 * img->shape.height + y) * img->shape.width + x],
-                    img->data[(1 * img->shape.height + y) * img->shape.width + x],
-                    img->data[(2 * img->shape.height + y) * img->shape.width + x],
+                    img_data[(0 * img->shape.height + y) * img->shape.width + x],
+                    img_data[(1 * img->shape.height + y) * img->shape.width + x],
+                    img_data[(2 * img->shape.height + y) * img->shape.width + x],
                     1.0f
                 };
             } else {
-                ts_f32 col = img->data[i];
+                ts_f32 col = img_data[i];
                 colors[i] = (mgp_vec4f){ col, col, col, 1.0f };
             }
             

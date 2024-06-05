@@ -99,9 +99,6 @@ static void _null_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta
     TS_UNUSED(delta);
 }
 
-#define _LOOP_T(t) ts_u64 _size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth; \
-    for (ts_u64 i = 0; i < _size; i++) 
-
 static void _linear_func(ts_tensor* t) {
     TS_UNUSED(t);
 
@@ -116,63 +113,84 @@ static void _linear_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* del
     // No code is required
 }
 
+#if TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
+
+#define _LOOP_T(t) ts_u64 _size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth; \
+    for (ts_u64 i = 0; i < _size; i++) 
+
 static void _sigmoid_func(ts_tensor* t) {
+    ts_f32* data = (ts_f32*)t->data;
+
     _LOOP_T(t) {
-        t->data[i] = 1.0f / (1.0f + expf(-t->data[i]));
+        data[i] = 1.0f / (1.0f + expf(-data[i]));
     }
 }
 static void _sigmoid_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta) {
     TS_UNUSED(prev_in);
 
+    ts_f32* prev_out_data = (ts_f32*)prev_out->data;
+
     _LOOP_T(prev_out) {
-        ts_f32 x = prev_out->data[i];
-        prev_out->data[i] = x * (1.0f - x);
+        ts_f32 x = prev_out_data[i];
+        prev_out_data[i] = x * (1.0f - x);
     }
 
     ts_tensor_component_mul_ip(delta, delta, prev_out);
 }
 
 static void _tanh_func(ts_tensor* t) {
+    ts_f32* data = (ts_f32*)t->data;
+
     _LOOP_T(t) {
-        t->data[i] = tanh(t->data[i]);
+        data[i] = tanh(data[i]);
     }
 }
 static void _tanh_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta) {
     TS_UNUSED(prev_in);
 
+    ts_f32* prev_out_data = (ts_f32*)prev_out->data;
+
     _LOOP_T(prev_out) {
-        ts_f32 x = prev_out->data[i];
-        prev_out->data[i] = 1.0f - x * x;
+        ts_f32 x = prev_out_data[i];
+        prev_out_data[i] = 1.0f - x * x;
     }
 
     ts_tensor_component_mul_ip(delta, delta, prev_out);
 }
 
 static void _relu_func(ts_tensor* t) {
+    ts_f32* data = (ts_f32*)t->data;
+
     _LOOP_T(t) {
-        t->data[i] = t->data[i] > 0.0f ? t->data[i] : 0.0f;
+        data[i] = data[i] > 0.0f ? data[i] : 0.0f;
     }
 }
 static void _relu_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta) {
     TS_UNUSED(prev_out);
 
+    ts_f32* prev_in_data = (ts_f32*)prev_in->data;
+
     _LOOP_T(prev_in) {
-        prev_in->data[i] = (prev_in->data[i] > 0.0f);
+        prev_in_data[i] = (prev_in_data[i] > 0.0f);
     }
 
     ts_tensor_component_mul_ip(delta, delta, prev_in);
 }
 
 static void _leaky_relu_func(ts_tensor* t) {
+    ts_f32* data = (ts_f32*)t->data;
+
     _LOOP_T(t) {
-        t->data[i] = t->data[i] > 0.0f ? t->data[i] : t->data[i] * 0.01f;
+        data[i] = data[i] > 0.0f ? data[i] : data[i] * 0.01f;
     }
 }
 static void _leaky_relu_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta) {
     TS_UNUSED(prev_out);
 
+    ts_f32* prev_in_data = (ts_f32*)prev_in->data;
+
     _LOOP_T(prev_in) {
-        prev_in->data[i] = prev_in->data[i] > 0.0f ? 1.0f : 0.01f;
+        prev_in_data[i] = prev_in_data[i] > 0.0f ? 1.0f : 0.01f;
     }
 
     ts_tensor_component_mul_ip(delta, delta, prev_in);
@@ -182,38 +200,45 @@ static void _leaky_relu_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor*
 static void _softmax_func(ts_tensor* t) {
     ts_u64 size = (ts_u64)t->shape.width * t->shape.height * t->shape.depth;
 
+    ts_f32* data = (ts_f32*)t->data;
+
     // Computing max for stability
-    ts_f32 max_num = t->data[0];
+    ts_f32 max_num = data[0];
     for (ts_u64 i = 0; i < size; i++) {
-        if (t->data[i] > max_num) {
-            max_num = t->data[i];
+        if (data[i] > max_num) {
+            max_num = data[i];
         }
     }
 
     // Exponentiation and exponential sum
     ts_f32 exp_sum = 0.0f;
     for (ts_u64 i = 0; i < size; i++) {
-        t->data[i] = expf(t->data[i] - max_num);
-        exp_sum += t->data[i];
+        data[i] = expf(data[i] - max_num);
+        exp_sum += data[i];
     }
 
+    exp_sum = 1.0f / exp_sum;
     for (ts_u64 i = 0; i < size; i++) {
-        t->data[i] /= exp_sum;
+        data[i] *= exp_sum;
     }
 }
 static void _softmax_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* delta) {
     TS_UNUSED(prev_in);
 
+    ts_f32* prev_out_data = (ts_f32*)prev_out->data;
+
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
     ts_u64 w = prev_out->shape.width;
     ts_tensor* jacobian = ts_tensor_create(scratch.arena, (ts_tensor_shape){ w, w, 1 });
+    ts_f32* jacobian_data = (ts_f32*)jacobian->data;
+
     for (ts_u64 x = 0; x < w; x++ ){
         for (ts_u64 y = 0; y < w; y++) {
             if (x == y) {
-                jacobian->data[x + y * w] = prev_out->data[x] * (1.0f - prev_out->data[y]);
+                jacobian_data[x + y * w] = prev_out_data[x] * (1.0f - prev_out_data[y]);
             } else {
-                jacobian->data[x + y * w] = prev_out->data[x] * (-prev_out->data[y]);
+                jacobian_data[x + y * w] = prev_out_data[x] * (-prev_out_data[y]);
             }
         }
     }
@@ -223,4 +248,5 @@ static void _softmax_grad(ts_tensor* prev_in, ts_tensor* prev_out, ts_tensor* de
     mga_scratch_release(scratch);
 }
 
+#endif // TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
 

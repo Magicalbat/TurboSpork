@@ -23,8 +23,9 @@ void _tensor_add_backend(ts_tensor* out, const ts_tensor* a, const ts_tensor* b)
 void _tensor_sub_backend(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
 void _tensor_component_mul_backend(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
 void _tensor_component_div_backend(ts_tensor* out, const ts_tensor* a, const ts_tensor* b);
-void _tensor_sqrt_backend(ts_tensor* out, const ts_tensor* t);
+void _tensor_add_all_backend(ts_tensor* out, const ts_tensor* t, ts_f32 x);
 void _tensor_scale_backend(ts_tensor* out, const ts_tensor* t, ts_f32 s);
+void _tensor_sqrt_backend(ts_tensor* out, const ts_tensor* t);
 void _tensor_get_data_backend(ts_f32* out, const ts_tensor* t);
 void _tensor_set_data_backend(ts_tensor* t, ts_f32* data);
 

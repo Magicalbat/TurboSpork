@@ -819,18 +819,32 @@ error:
 
 void _param_init_uniform(ts_tensor* param, ts_f32 lower, ts_f32 upper) {
     ts_u64 size = (ts_u64)param->shape.width * param->shape.height * param->shape.depth;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+    ts_f32* data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, size);
+
     for (ts_u64 i = 0; i < size; i++) {
-        param->data[i] = ts_prng_rand_f32();
-        param->data[i] = param->data[i] * (upper - lower) + lower;
+        data[i] = ts_prng_rand_f32() * (upper - lower) + lower;
     }
+
+    ts_tensor_set_data(param, data);
+
+    mga_scratch_release(scratch);
 }
 
 void _param_init_normal(ts_tensor* param, ts_f32 mean, ts_f32 std_dev) {
     ts_u64 size = (ts_u64)param->shape.width * param->shape.height * param->shape.depth;
+
+    mga_temp scratch = mga_scratch_get(NULL, 0);
+    ts_f32* data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, size);
+
     for (ts_u64 i = 0; i < size; i++) {
-        param->data[i] = ts_prng_std_norm();
-        param->data[i] = mean + param->data[i] * std_dev;
+        data[i] = mean + ts_prng_std_norm() * std_dev;
     }
+
+    ts_tensor_set_data(param, data);
+
+    mga_scratch_release(scratch);
 }
 
 void ts_param_init(ts_tensor* param, ts_param_init_type input_type, ts_u64 in_size, ts_u64 out_size) {
