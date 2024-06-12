@@ -173,40 +173,32 @@ ts_b32 ts_tensor_dot_ip(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, 
         return false;
     }
 
-    out->shape = out_shape;
-
-    // TODO: remove data copying
-
-    ts_f32* a_data = a->data;
-    ts_f32* b_data = b->data;
+    // Casting out const is not the best idea,
+    // but I think its fine here
+    ts_tensor* real_a = (ts_tensor*)a;
+    ts_tensor* real_b = (ts_tensor*)b;
+    ts_u32 copied = 0;
 
     mga_temp scratch = mga_scratch_get(NULL, 0);
 
-    if (a_data == out->data) {
-        ts_u64 a_data_size = (ts_u64)a->shape.width * a->shape.height;
-        a_data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, a_data_size);
-        memcpy(a_data, a->data, sizeof(ts_f32) * a_data_size);
+    if (a == out) {
+        real_a = ts_tensor_copy(scratch.arena, a, false);
+        copied |= 0b1;
     }
-    if (b_data == out->data) {
-        ts_u64 b_data_size = (ts_u64)b->shape.width * b->shape.height;
-        b_data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, b_data_size);
-        memcpy(b_data, b->data, sizeof(ts_f32) * b_data_size);
+    if (b == out) {
+        real_b = ts_tensor_copy(scratch.arena, b, false);
+        copied |= 0b10;
     }
 
-    ts_tensor real_a = {
-        .alloc = a->alloc,
-        .shape = a->shape,
-        .data = a_data
-    };
-    ts_tensor real_b = {
-        .alloc = b->alloc,
-        .shape = b->shape,
-        .data = b_data
-    };
+    out->shape = out_shape;
 
-    _tensor_dot_backend(out, transpose_a, transpose_b, &real_a, &real_b);
+    _tensor_dot_backend(out, transpose_a, transpose_b, real_a, real_b);
 
-   
+    if (copied & 0b1)
+        ts_tensor_destroy(real_a);
+    if (copied & 0b10)
+        ts_tensor_destroy(real_b);
+
     mga_scratch_release(scratch);
 
     return true;

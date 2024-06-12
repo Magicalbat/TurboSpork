@@ -37,7 +37,7 @@ void mnist_main(void) {
     ts_tensor* test_imgs = ts_tensor_list_get(&mnist, TS_STR8("test_inputs"));
     ts_tensor* test_labels = ts_tensor_list_get(&mnist, TS_STR8("test_labels"));
 
-    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_feedforward.tsl"), true);
+    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tsl"), true);
     //ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/mnist_0004.tsn"), true);
 
     ts_network_summary(nn);
@@ -46,7 +46,7 @@ void mnist_main(void) {
         .epochs = 32,
         .batch_size = 100,
 
-        .num_threads = 8,
+        .num_threads = 1,
 
         .cost = TS_COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (ts_optimizer){

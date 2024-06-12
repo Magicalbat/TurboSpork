@@ -142,6 +142,8 @@ void _dot_tt(ts_tensor* out, ts_u32 a_width, ts_f32* a_data, ts_u32 lda, ts_f32*
 
 // Inputs cannot overlap with output
 // Output shape should be set up
+// TODO: remove
+#include <stdio.h>
 void _tensor_dot_backend(ts_tensor* out, ts_b32 transpose_a, ts_b32 transpose_b, const ts_tensor* a, const ts_tensor* b) {
     ts_u32 lda = a->shape.width;
     ts_u32 ldb = b->shape.width;

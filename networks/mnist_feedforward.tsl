@@ -4,7 +4,7 @@ input:
 flatten:
 
 dense:
-    size = 128;
+    size = 64;
 
 activation:
     type = relu;
