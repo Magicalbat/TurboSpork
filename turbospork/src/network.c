@@ -521,8 +521,12 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
     ts_u32 num_test_batches = num_test_batches_div.quot + (num_test_batches_div.rem != 0);
     ts_u32 last_test_batch_size = desc->test_inputs->shape.depth - (desc->batch_size * (num_test_batches - 1));
 
+    ts_time_init();
+
     for (ts_u32 epoch = 0; epoch < desc->epochs; epoch++) {
         printf("Epoch: %u / %u\n", epoch + 1, desc->epochs);
+
+        ts_u64 batch_start = ts_now_usec();
 
         for (ts_u32 batch = 0; batch < num_batches; batch++) {
             // Progress in stdout
@@ -542,6 +546,15 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
                 }
 
                 printf("[%s]", bar_str_data);
+                
+                if (batch != 0) {
+                    ts_u64 cur_time = ts_now_usec();
+                    ts_f32 elapsed = (cur_time - batch_start) / 1e6f;
+                    ts_f32 per_batch = elapsed / batch;
+                    ts_u32 etm = (ts_u32)(per_batch * (num_batches - batch));
+
+                    printf(" ETM -- %2u:%2u:%2u", etm / (3600), (etm % 3600) / 60, etm % 60);
+                }
 
                 printf("\r");
 
@@ -604,7 +617,6 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
         if (desc->accuracy_test) {
             num_correct = 0;
 
-            ts_time_init();
             ts_string8 load_anim = TS_STR8("-\\|/");
             ts_u64 anim_start_time = ts_now_usec();
             ts_u32 anim_frame = 0;

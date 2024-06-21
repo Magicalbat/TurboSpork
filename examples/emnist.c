@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -12,16 +13,16 @@ typedef ts_f32 f32;
 typedef ts_u32 u32;
 typedef ts_u64 u64;
 
-static void draw_mnist_digit(f32* digit_data, u32 width, u32 height);
+static void draw_char(f32* data, u32 width, u32 height);
 
 static void mga_on_error(mga_error err) {
     fprintf(stderr, "MGA Error %u: %s\n", err.code, err.msg);
 }
 
-void mnist_main(void) {
+void emnist_main(void) {
     mga_desc desc = {
-        .desired_max_size = MGA_MiB(1024),
-        .desired_block_size = MGA_MiB(16),
+        .desired_max_size = MGA_GiB(8),
+        .desired_block_size = MGA_MiB(256),
         .error_callback = mga_on_error
     };
     mg_arena* perm_arena = mga_create(&desc);
@@ -31,27 +32,27 @@ void mnist_main(void) {
     ts_get_entropy(seeds, sizeof(seeds));
     ts_prng_seed(seeds[0], seeds[1]);
 
-    ts_tensor_list mnist = ts_tensor_list_load(perm_arena, TS_STR8("data/mnist.tst"));
-    ts_tensor* train_imgs = ts_tensor_list_get(&mnist, TS_STR8("train_inputs"));
-    ts_tensor* train_labels = ts_tensor_list_get(&mnist, TS_STR8("train_labels"));
-    ts_tensor* test_imgs = ts_tensor_list_get(&mnist, TS_STR8("test_inputs"));
-    ts_tensor* test_labels = ts_tensor_list_get(&mnist, TS_STR8("test_labels"));
+    ts_tensor_list emnist = ts_tensor_list_load(perm_arena, TS_STR8("data/emnist.tst"));
+    ts_tensor* train_imgs = ts_tensor_list_get(&emnist, TS_STR8("train_inputs"));
+    ts_tensor* train_labels = ts_tensor_list_get(&emnist, TS_STR8("train_labels"));
+    ts_tensor* test_imgs = ts_tensor_list_get(&emnist, TS_STR8("test_inputs"));
+    ts_tensor* test_labels = ts_tensor_list_get(&emnist, TS_STR8("test_labels"));
 
-    ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/mnist_conv.tsl"), true);
-    //ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/mnist_0001.tsn"), true);
+    //ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/emnist.tsl"), true);
+    ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/emnist_take2_0003.tsn"), true);
 
     ts_network_summary(nn);
 
     ts_network_train_desc train_desc = {
         .epochs = 32,
-        .batch_size = 100,
+        .batch_size = 500,
 
         .num_threads = 8,
 
         .cost = TS_COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (ts_optimizer){
             .type = TS_OPTIMIZER_ADAM,
-            .learning_rate = 0.001f,
+            .learning_rate = 0.0005f,
 
             .adam = (ts_optimizer_adam){
                 .beta1 = 0.9f,
@@ -72,8 +73,8 @@ void mnist_main(void) {
             .max_angle =  3.14159265 / 16.0f,
         },
 
-        .save_interval = 4,
-        .save_path = TS_STR8("training_nets/mnist_"),
+        .save_interval = 1,
+        .save_path = TS_STR8("training_nets/emnist_take2_"),
 
         .train_inputs = train_imgs,
         .train_outputs = train_labels,
@@ -98,7 +99,33 @@ void mnist_main(void) {
     mga_destroy(perm_arena);
 }
 
-static void draw_mnist_digit(f32* digit_data, u32 width, u32 height) {
+/*
+ts_tensor* out = ts_tensor_create(perm_arena, (ts_tensor_shape){62, 1, 1});
+
+    for (ts_u32 i = 0; i < 0; i++) {
+        ts_tensor slice = { 0 };
+        ts_tensor_2d_view(&slice, test_labels, i);
+        printf("%u\n", ts_tensor_argmax(&slice).x);
+
+        ts_tensor_2d_view(&slice, test_imgs, i);
+        ts_network_feedforward(nn, out, &slice);
+        ts_f32* data = out->data;
+        for (ts_u32 i = 0; i < 62; i++) {
+            printf("%u ", isnan(data[i]));
+        }
+        printf("\n");
+
+        slice.shape.width = 28;
+        slice.shape.height = 28;
+        ts_img_rotate_ip(&slice, &slice, TS_SAMPLE_BILINEAR, 3.14159265f / 2.0f);
+        ts_img_scale_ip(&slice, &slice, TS_SAMPLE_BILINEAR, -1.0f, 1.0f);
+        draw_char(slice.data, 28, 28);
+    }
+
+
+*/
+
+static void draw_char(f32* data, u32 width, u32 height) {
     mgp_init();
     mgp_set_title(MGP_STR8("MNIST Digit"));
     mgp_set_win_size(600, 600);
@@ -113,7 +140,7 @@ static void draw_mnist_digit(f32* digit_data, u32 width, u32 height) {
         for (u32 y = 0; y < height; y++) {
             u32 i = x + y * width;
 
-            f32 c = digit_data[i];
+            f32 c = data[i];
             if (c > 0.0)
                 colors[i] = (mgp_vec4f){ c, 0, 0, 1.0f };
             else

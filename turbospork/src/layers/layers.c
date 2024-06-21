@@ -588,7 +588,7 @@ _parse_res _parse_f32(ts_f32* out, ts_string8 value) {
     ts_b32 is_num = true;
 
     for (ts_u64 i = 0; i < value.size; i++) {
-        if (!isdigit(value.str[i]) && value.str[i] != '.' && value.str[i] != '-') {
+        if (!isdigit(value.str[i]) && value.str[i] != '.' && value.str[i] != '-' && value.str[i] != 'e') {
             is_num = false;
             break;
         }

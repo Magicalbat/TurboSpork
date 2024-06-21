@@ -227,7 +227,7 @@ extern "C" {
 #define MGA_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MGA_MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#define MGA_ALIGN_UP_POW2(x, b) (((x) + ((b) - 1)) & (~((b) - 1)))
+#define MGA_ALIGN_UP_POW2(x, b) (((mga_u64)(x) + ((mga_u64)(b) - 1)) & (~((mga_u64)(b) - 1)))
 
 #ifdef MGA_PLATFORM_WIN32
 
@@ -508,6 +508,13 @@ mg_arena* mga_create(const mga_desc* desc) {
     _mga_init_data init_data = _mga_init_common(desc);
     
     mg_arena* out = MGA_MEM_RESERVE(init_data.max_size);
+
+    if (out == NULL) {
+        last_error.code = MGA_ERR_INIT_FAILED;
+        last_error.msg = "Failed to reserve initial memory for arena";
+        init_data.error_callback(last_error);
+        return NULL;
+    }
 
     if (!MGA_MEM_COMMIT(out, init_data.block_size)) {
         last_error.code = MGA_ERR_INIT_FAILED;

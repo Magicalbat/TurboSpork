@@ -37,6 +37,7 @@ static _param_apply_func* _apply_funcs[TS_OPTIMIZER_COUNT] = {
 
 void ts_param_change_apply(const ts_optimizer* optim, ts_tensor* param, ts_param_change* param_change) {
     if (optim->type >= TS_OPTIMIZER_COUNT) {
+        // TODO: make TS_ERR
         fprintf(stderr, "Cannot update param: Invalid optimizer type\n");
         return;
     }

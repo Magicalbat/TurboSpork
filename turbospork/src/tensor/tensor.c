@@ -893,7 +893,7 @@ ts_string8 ts_tensor_list_to_str(mg_arena* arena, const ts_tensor_list* list) {
         mga_temp scratch = mga_scratch_get(NULL, 0);
         ts_f32* data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
 
-        _tensor_set_data_backend(node->tensor, data);
+        _tensor_get_data_backend(data, node->tensor);
 
         _WRITE_DATA(data_size, data);
 
@@ -954,6 +954,9 @@ ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
         ts_tensor* tensor = ts_tensor_create(arena, (ts_tensor_shape){ width, height, depth });
         ts_u64 data_size = (ts_u64)width * height * depth * sizeof(ts_f32);
 
+#if TS_TENSOR_BACKEND == TS_TENSOR_BACKEND_CPU
+        _READ_DATA(data_size, tensor->data);
+#else
         mga_temp scratch = mga_scratch_get(NULL, 0);
 
         ts_f32* data = MGA_PUSH_ARRAY(scratch.arena, ts_f32, data_size);
@@ -961,6 +964,7 @@ ts_tensor_list ts_tensor_list_from_str(mg_arena* arena, ts_string8 str) {
         _tensor_set_data_backend(tensor, data);
 
         mga_scratch_release(scratch);
+#endif
 
         ts_tensor_list_push(arena, &out, tensor, name);
     }
@@ -1012,3 +1016,4 @@ ts_tensor_list ts_tensor_list_load(mg_arena* arena, ts_string8 file_name) {
 
     return out;
 }
+
