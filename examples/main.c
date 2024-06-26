@@ -6,7 +6,7 @@
 int main(void) {
     //mnist_main();
     //cifar10_main();
-    emnist_main();
+    emnist_balanced_main();
 
     return 0;
 }

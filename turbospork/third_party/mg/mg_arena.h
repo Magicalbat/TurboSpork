@@ -207,6 +207,10 @@ extern "C" {
 #   define MGA_MEMSET memset
 #endif
 
+#ifndef MGA_NO_STDIO
+#   include <stdio.h>
+#endif
+
 #define MGA_UNUSED(x) (void)(x)
 
 #define MGA_TRUE 1
@@ -509,6 +513,13 @@ mg_arena* mga_create(const mga_desc* desc) {
     
     mg_arena* out = MGA_MEM_RESERVE(init_data.max_size);
 
+    if (out == NULL) {
+        last_error.code = MGA_ERR_INIT_FAILED;
+        last_error.msg = "Failed to reserve initial memory for arena";
+        init_data.error_callback(last_error);
+        return NULL;
+    }
+
     if (!MGA_MEM_COMMIT(out, init_data.block_size)) {
         last_error.code = MGA_ERR_INIT_FAILED;
         last_error.msg = "Failed to commit initial memory for arena";
@@ -536,7 +547,6 @@ void* mga_push(mg_arena* arena, mga_u64 size) {
         last_error.msg = "Arena ran out of memory";
         arena->_last_error = last_error;
         arena->error_callback(last_error);
-
         return NULL;
     }
 
@@ -643,9 +653,18 @@ void mga_temp_end(mga_temp temp) {
 #   define MGA_SCRATCH_COUNT 2
 #endif
 
+#ifndef MGA_NO_STDIO
+static void _mga_scratch_on_error(mga_error err) {
+    fprintf(stderr, "MGA Scratch Error %u: %s\n", err.code, err.msg);
+}
+#endif
+
 static MGA_THREAD_VAR mga_desc _mga_scratch_desc = {
-    .desired_max_size = MGA_MiB(8),
-    .desired_block_size = MGA_KiB(256)
+    .desired_max_size = MGA_MiB(64),
+    .desired_block_size = MGA_KiB(256),
+#ifndef MGA_NO_STDIO
+    .error_callback = _mga_scratch_on_error,
+#endif
 };
 static MGA_THREAD_VAR mg_arena* _mga_scratch_arenas[MGA_SCRATCH_COUNT] = { 0 };
 
@@ -727,4 +746,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-

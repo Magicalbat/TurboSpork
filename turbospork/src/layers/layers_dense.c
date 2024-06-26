@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <math.h>
 
+// TODO: remove
+#include <stdio.h>
+
 void _layer_dense_create(mg_arena* arena, ts_layer* out, const ts_layer_desc* desc, ts_tensor_shape prev_shape) {
     ts_u32 in_size = prev_shape.width;
     ts_u32 out_size = desc->dense.size;

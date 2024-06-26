@@ -2,11 +2,11 @@ input:
     shape = (28, 28, 1);
 
 conv_2d:
-    num_filters = 64;
-    kernel_size = 5;
+    num_filters = 32;
+    kernel_size = 3;
 
 activation:
-    type = relu;
+    type = leaky_relu;
 
 norm:
 
@@ -15,7 +15,7 @@ conv_2d:
     kernel_size = 3;
 
 activation:
-    type = relu;
+    type = leaky_relu;
 
 pooling_2d:
     type = max;
@@ -24,26 +24,26 @@ pooling_2d:
 norm: 
 
 dropout:
-    keep_rate = 0.7;
+    keep_rate = 0.6;
 
 conv_2d:
     num_filters = 64;
     kernel_size = 3;
 
 activation:
-    type = relu;
+    type = leaky_relu;
 
 norm: 
 
 dropout:
-    keep_rate = 0.7;
+    keep_rate = 0.6;
 
 conv_2d:
-    num_filters = 64;
+    num_filters = 128;
     kernel_size = 3;
 
 activation:
-    type = relu;
+    type = leaky_relu;
 
 pooling_2d:
     type = max;
@@ -54,16 +54,16 @@ norm:
 flatten:
 
 dropout:
-    keep_rate = 0.7;
+    keep_rate = 0.6;
 
 dense:
-    size = 256;
+    size = 512;
 
 activation:
-    type = relu;
+    type = leaky_relu;
 
 dense:
-    size = 62;
+    size = 47;
 
 activation:
     type = softmax;

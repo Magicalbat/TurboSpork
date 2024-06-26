@@ -19,7 +19,7 @@ static void mga_on_error(mga_error err) {
     fprintf(stderr, "MGA Error %u: %s\n", err.code, err.msg);
 }
 
-void emnist_main(void) {
+void emnist_balanced_main(void) {
     mga_desc desc = {
         .desired_max_size = MGA_GiB(8),
         .desired_block_size = MGA_MiB(256),
@@ -32,27 +32,54 @@ void emnist_main(void) {
     ts_get_entropy(seeds, sizeof(seeds));
     ts_prng_seed(seeds[0], seeds[1]);
 
-    ts_tensor_list emnist = ts_tensor_list_load(perm_arena, TS_STR8("data/emnist.tst"));
+    ts_tensor_list emnist = ts_tensor_list_load(perm_arena, TS_STR8("data/emnist_balanced.tst"));
     ts_tensor* train_imgs = ts_tensor_list_get(&emnist, TS_STR8("train_inputs"));
     ts_tensor* train_labels = ts_tensor_list_get(&emnist, TS_STR8("train_labels"));
     ts_tensor* test_imgs = ts_tensor_list_get(&emnist, TS_STR8("test_inputs"));
     ts_tensor* test_labels = ts_tensor_list_get(&emnist, TS_STR8("test_labels"));
 
-    //ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/emnist.tsl"), true);
-    ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/emnist_take2_0003.tsn"), true);
+    /*ts_tensor view = { 0 };
+    for (ts_u32 i = 9; i < 62; i++) {
+        ts_u32 j = 0;
+        for (;; j++) {
+            ts_tensor_2d_view(&view, train_labels, j);
+
+            if (ts_tensor_argmax(&view).x == i)
+                break;
+        }
+
+        ts_tensor_2d_view(&view, train_imgs, j);
+
+        if (i < 10)
+            printf("%u\n", i);
+        else if (i < 36)
+            printf("%c\n", (i-10)+'A');
+        else
+            printf("%c\n", (i-36)+'a');
+
+        view.shape.width = 28;
+        view.shape.height = 28;
+        ts_img_rotate_ip(&view, &view, TS_SAMPLE_NEAREST, 3.14159265f / 2.0f);
+        ts_img_scale_ip(&view, &view, TS_SAMPLE_NEAREST, -1.0f, 1.0f);
+
+        draw_char(view.data, 28, 28);
+    }*/
+
+    //ts_network* nn = ts_network_load_layout(perm_arena, TS_STR8("networks/emnist_balanced.tsl"), true);
+    ts_network* nn = ts_network_load(perm_arena, TS_STR8("training_nets/emnist_balanced_take2_0006.tsn"), true);
 
     ts_network_summary(nn);
 
     ts_network_train_desc train_desc = {
         .epochs = 32,
-        .batch_size = 500,
+        .batch_size = 150,
 
-        .num_threads = 8,
+        .num_threads = 12,
 
         .cost = TS_COST_CATEGORICAL_CROSS_ENTROPY,
         .optim = (ts_optimizer){
             .type = TS_OPTIMIZER_ADAM,
-            .learning_rate = 0.0005f,
+            .learning_rate = 0.0002f,
 
             .adam = (ts_optimizer_adam){
                 .beta1 = 0.9f,
@@ -74,7 +101,7 @@ void emnist_main(void) {
         },
 
         .save_interval = 1,
-        .save_path = TS_STR8("training_nets/emnist_take2_"),
+        .save_path = TS_STR8("training_nets/emnist_balanced_take2_"),
 
         .train_inputs = train_imgs,
         .train_outputs = train_labels,
@@ -98,32 +125,6 @@ void emnist_main(void) {
 
     mga_destroy(perm_arena);
 }
-
-/*
-ts_tensor* out = ts_tensor_create(perm_arena, (ts_tensor_shape){62, 1, 1});
-
-    for (ts_u32 i = 0; i < 0; i++) {
-        ts_tensor slice = { 0 };
-        ts_tensor_2d_view(&slice, test_labels, i);
-        printf("%u\n", ts_tensor_argmax(&slice).x);
-
-        ts_tensor_2d_view(&slice, test_imgs, i);
-        ts_network_feedforward(nn, out, &slice);
-        ts_f32* data = out->data;
-        for (ts_u32 i = 0; i < 62; i++) {
-            printf("%u ", isnan(data[i]));
-        }
-        printf("\n");
-
-        slice.shape.width = 28;
-        slice.shape.height = 28;
-        ts_img_rotate_ip(&slice, &slice, TS_SAMPLE_BILINEAR, 3.14159265f / 2.0f);
-        ts_img_scale_ip(&slice, &slice, TS_SAMPLE_BILINEAR, -1.0f, 1.0f);
-        draw_char(slice.data, 28, 28);
-    }
-
-
-*/
 
 static void draw_char(f32* data, u32 width, u32 height) {
     mgp_init();

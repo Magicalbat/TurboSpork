@@ -12,8 +12,8 @@ def main():
 
     dataset_name = sys.argv[1]
 
-    if dataset_name not in tfds.list_builders():
-        print("Invalid dataset name. See tensorflow-datasets for full list")
+    if dataset_name.split('/')[0] not in tfds.list_builders():
+        print(f'"{dataset_name}" is an invalid dataset name. See tensorflow-datasets for full list')
         return
     
     train_data, test_data = tfds.load(dataset_name, split=["train", "test"], as_supervised=True)

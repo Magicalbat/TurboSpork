@@ -195,7 +195,7 @@ static ts_b32 _ts_network_load_layout_impl(mg_arena* arena, ts_network* nn, ts_s
         TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create network: layer shapes do not align");
         goto error;
     }
-
+    
     return true;
 
 error:
@@ -553,7 +553,7 @@ void ts_network_train(ts_network* nn, const ts_network_train_desc* desc) {
                     ts_f32 per_batch = elapsed / batch;
                     ts_u32 etm = (ts_u32)(per_batch * (num_batches - batch));
 
-                    printf(" ETM -- %2u:%2u:%2u", etm / (3600), (etm % 3600) / 60, etm % 60);
+                    printf(" ETM -- %02u:%02u:%02u", etm / (3600), (etm % 3600) / 60, etm % 60);
                 }
 
                 printf("\r");
