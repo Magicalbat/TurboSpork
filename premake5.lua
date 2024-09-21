@@ -88,16 +88,15 @@ project "Examples"
 
     filter "system:linux"
         links {
-            "m", "X11", "GL", "GLX"
+            "m",
         }
 
     filter "system:windows"
         systemversion "latest"
 
         links {
-            "gdi32", "user32", "opengl32", "Bcrypt"
+            "gdi32", "user32", "Bcrypt"
         }
-
 
     -- Workaround for clang on windows
     filter { "system:windows", "action:*gmake*", "configurations:debug" }

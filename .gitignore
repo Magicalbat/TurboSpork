@@ -5,11 +5,6 @@ compile_commands.json
 **.bat
 **.sh
 .cache
-.replit
-replit.nix
-.ccls-cache
-.ccls
 data
 **.tsn
 docs/html
-

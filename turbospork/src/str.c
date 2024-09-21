@@ -1,21 +1,21 @@
 #include <string.h>
 #include <stdio.h>
-#include <stdarg.h>
 
 #include "base_defs.h"
 #include "str.h"
-#include "err.h"
 
 ts_string8 ts_str8_from_range(ts_u8* start, ts_u8* end) {
     if (start == NULL || end == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot creates ts_string8 from NULL ptr");
+        fprintf(stderr, "Cannot creates ts_string8 from NULL ptr\n");
+        return (ts_string8){ 0 };
     }
 
     return (ts_string8){ (ts_u64)(end - start), start };
 }
 ts_string8 ts_str8_from_cstr(ts_u8* cstr) {
     if (cstr == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot create ts_string8 from NULL ptr");
+        fprintf(stderr, "Cannot create ts_string8 from NULL ptr\n");
+        return (ts_string8){ 0 };
     }
 
     ts_u8* ptr = cstr;
@@ -81,7 +81,8 @@ ts_b32 ts_str8_contains_char(ts_string8 str, ts_u8 c) {
 
 ts_b32 ts_str8_index_of(ts_string8 str, ts_string8 sub, ts_u64* index) {
     if (index == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot put index of ts_string8 into NULL ptr");
+        fprintf(stderr, "Cannot put index of ts_string8 into NULL ptr\n");
+        return false;
     }
 
     for (ts_u64 i = 0; i < str.size; i++) {
@@ -97,7 +98,8 @@ ts_b32 ts_str8_index_of(ts_string8 str, ts_string8 sub, ts_u64* index) {
 
 ts_b32 ts_str8_index_of_char(ts_string8 str, ts_u8 c, ts_u64* index) {
     if (index == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot put index of ts_string8 into NULL ptr");
+        fprintf(stderr, "Cannot put index of ts_string8 into NULL ptr\n");
+        return false;
     }
 
     for (ts_u64 i = 0; i < str.size; i++) {
@@ -147,7 +149,7 @@ ts_string8 ts_str8_remove_space(mg_arena* arena, ts_string8 str) {
 
 void ts_str8_list_push_existing(ts_string8_list* list, ts_string8 str, ts_string8_node* node) {
     if (list == NULL || node == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot push node to string list: list or node is NULL");
+        fprintf(stderr, "Cannot push node to string list: list or node is NULL\n");
 
         return;
     }
@@ -159,7 +161,7 @@ void ts_str8_list_push_existing(ts_string8_list* list, ts_string8 str, ts_string
 }
 void ts_str8_list_push(mg_arena* arena, ts_string8_list* list, ts_string8 str) {
     if (list == NULL) {
-        TS_ERR(TS_ERR_INVALID_INPUT, "Cannot push string to list: list is NULL");
+        fprintf(stderr, "Cannot push string to list: list is NULL\n");
 
         return;
     }
@@ -180,42 +182,6 @@ ts_string8 ts_str8_concat(mg_arena* arena, ts_string8_list list) {
         memcpy(ptr, node->str.str, node->str.size);
         ptr += node->str.size;
     }
-
-    return out;
-}
-
-ts_string8 ts_str8_pushfv(mg_arena* arena, const char* fmt, va_list args) {
-    va_list args2;
-    va_copy(args2, args);
-
-    ts_u64 init_size = 1024;
-    ts_u8* buffer = MGA_PUSH_ARRAY(arena, ts_u8, init_size);
-    ts_u64 size = vsnprintf((char*)buffer, init_size, fmt, args);
-
-    ts_string8 out = { 0 };
-    if (size < init_size) {
-        mga_pop(arena, init_size - size - 1);
-        out = (ts_string8){ size, buffer };
-    } else {
-        // NOTE: This path may not work
-        mga_pop(arena, init_size);
-        ts_u8* fixed_buff = MGA_PUSH_ARRAY(arena, ts_u8, size + 1);
-        ts_u64 final_size = vsnprintf((char*)fixed_buff, size + 1, fmt, args);
-        out = (ts_string8){ final_size, fixed_buff };
-    }
-
-    va_end(args2);
-
-    return out;
-}
-
-ts_string8 ts_str8_pushf(mg_arena* arena, const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    
-    ts_string8 out = ts_str8_pushfv(arena, fmt, args);
-
-    va_end(args);
 
     return out;
 }

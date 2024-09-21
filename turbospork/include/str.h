@@ -119,26 +119,5 @@ void ts_str8_list_push(mg_arena* arena, ts_string8_list* list, ts_string8 str);
 /// Creates a string that joins together all of the strings in `list`
 ts_string8 ts_str8_concat(mg_arena* arena, ts_string8_list list);
 
-/**
- * @brief Creates a formated `ts_string8` from a c string and a `va_list`
- *
- * Formats string according to the c string format system (i.e. printf) <br>
- * See `ts_str8_pushf` for not `va_list` version
- *
- * @param arena Arena to allocate `ts_string8` on
- * @param fmt C string with specifying the format (e.g. `"Num: %u"`)
- * @param args List of arguments for format
- */
-ts_string8 ts_str8_pushfv(mg_arena* arena, const char* fmt, va_list args);
-/**
- * @brief Creates a formated `ts_string8` from a c string and a list of arguments
- *
- * Formats string according to the c string format system (i.e. printf) <br>
- *
- * @param arena Arena to allocate `ts_string8` on
- * @param fmt C string with specifying the format (e.g. `"Num: %u"`)
- */
-ts_string8 ts_str8_pushf(mg_arena* arena, const char* fmt, ...);
-
 #endif // TS_STR_H
 

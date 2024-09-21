@@ -2,6 +2,7 @@
 
 ## [Documentation](https://magicalbat.github.io/TurboSpork/)
 
-## Project Status: Pre-Alpha (Major image recognition features are complete)
+## Project Status: Fresh Start (I deleted almost everything)
 
-A system for creating neural networks in C
+A system for machine learning in C
+

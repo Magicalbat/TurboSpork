@@ -24,7 +24,7 @@ premake5 vs2022
 Getting Started
 ---------------
 
-[Getting Started](@ref gettingstarted)
+TODO
 
 Reference
 ---------
@@ -37,21 +37,4 @@ TurboSpork uses `mg_arena.h` to handle arena operations.
 **You should familiarize yourself with arenas and arena memory managment before using the library.**
 In short, arenas are purely linear allocators.
 For more detail, you can look at the [mg_arena.h github page](https://github.com/Magicalbat/mg-libraries).
-
-### Machine Learning
-
-- [Neural Networks](@ref network.h)
-- [Optimizers](@ref optimizers.h)
-- [Layers](@ref layers.h)
-- [Costs](@ref costs.h)
-- [Tensors](@ref tensor.h)
-
-### Other
-
-- [Error Handling](@ref err.h)
-- [Base Types and Definitions](@ref base_defs.h)
-- [Length-Based Strings](@ref str.h)
-- [Pseudorandom Number Generation](@ref prng.h)
-- [OS Functions](@ref os.h)
-- [Image Processing](@ref img.h)
 
