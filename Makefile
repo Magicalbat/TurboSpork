@@ -1,5 +1,4 @@
 CC = clang
-AR = llvm-ar
 CFLAGS = -m64 -std=c11 -Iturbospork/include
 DEBUG_CFLAGS = -DDEBUG -g -O0 -fsanitize=address
 RELEASE_CFLAGS = -DNDEBUG -O2
@@ -21,6 +20,7 @@ MKDIR_BIN =
 RM_BIN = 
 BIN_EXT = 
 LIB_EXT = 
+AR = 
 
 ifeq ($(OS), Windows_NT)
 	BIN_DIR = bin\$(config)
@@ -29,12 +29,14 @@ ifeq ($(OS), Windows_NT)
 	RM_BIN = rmdir /s /q bin
 	BIN_EXT = .exe
 	LIB_EXT = .lib
+	AR = llvm-ar
 else
 	BIN_DIR = bin/$(config)
 	LFLAGS += -lm
 	MKDIR_BIN = mkdir -p $(BIN_DIR)
 	RM_BIN = rm -r bin
 	LIB_EXT = .a
+	AR = ar
 endif
 
 all: turbospork example
@@ -46,7 +48,7 @@ turbospork:
 
 example:
 	@$(MKDIR_BIN)
-	$(CC) example/main.c -Iexample $(CFLAGS) $(LFLAGS) -l$(BIN_DIR)/turbospork -o$(BIN_DIR)/example$(BIN_EXT)
+	$(CC) example/main.c -Iexample $(CFLAGS) $(LFLAGS) -L$(BIN_DIR) -l:turbospork$(LIB_EXT) -o$(BIN_DIR)/example$(BIN_EXT)
 
 clean:
 	$(RM_BIN)
