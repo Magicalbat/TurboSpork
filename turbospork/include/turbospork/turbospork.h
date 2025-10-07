@@ -1,3 +1,3 @@
 
-int test_add(int a, int b);
+#include "base_defs.h"
 

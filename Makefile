@@ -21,6 +21,7 @@ RM_BIN =
 BIN_EXT = 
 LIB_EXT = 
 AR = 
+TS_LINK_COMMAND =
 
 ifeq ($(OS), Windows_NT)
 	BIN_DIR = bin\$(config)
@@ -30,6 +31,7 @@ ifeq ($(OS), Windows_NT)
 	BIN_EXT = .exe
 	LIB_EXT = .lib
 	AR = llvm-ar
+	TS_LINK_COMMAND = -l$(BIN_DIR)/turbospork
 else
 	BIN_DIR = bin/$(config)
 	LFLAGS += -lm
@@ -37,6 +39,7 @@ else
 	RM_BIN = rm -r bin
 	LIB_EXT = .a
 	AR = ar
+	TS_LINK_COMMAND = -L$(BIN_DIR) -l:turbospork$(LIB_EXT)
 endif
 
 all: turbospork example
@@ -48,7 +51,7 @@ turbospork:
 
 example:
 	@$(MKDIR_BIN)
-	$(CC) example/main.c -Iexample $(CFLAGS) $(LFLAGS) -L$(BIN_DIR) -l:turbospork$(LIB_EXT) -o$(BIN_DIR)/example$(BIN_EXT)
+	$(CC) example/main.c -Iexample $(CFLAGS) $(LFLAGS) $(TS_LINK_COMMAND) -o$(BIN_DIR)/example$(BIN_EXT)
 
 clean:
 	$(RM_BIN)
