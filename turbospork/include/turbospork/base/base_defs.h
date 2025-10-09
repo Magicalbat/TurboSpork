@@ -1,5 +1,24 @@
 
+#include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
+
+#if defined(__linux__)
+#define TS_PLATFORM_LINUX
+#elif defined(_WIN32)
+#define TS_PLATFORM_WIN32
+#endif
+
+
+#if defined(__clang__) || defined(__GNUC__)
+#    define TS_THREAD_LOCAL __thread
+#elif defined(_MSC_VER)
+#    define T_HREAD_LOCAL __declspec(thread)
+#elif (__STDC_VERSION__ >= 201112L)
+#    define T_HREAD_LOCAL _Thread_local
+#else
+#    error "Invalid compiler/version for thead variable; Use Clang, GCC, or MSVC, or use C11 or greater"
+#endif
 
 #define TS_TRUE 1
 #define TS_FALSE 0
@@ -28,12 +47,12 @@ typedef double ts_f64;
 TS_STATIC_ASSERT(sizeof(ts_f32) == 4, f32_size);
 TS_STATIC_ASSERT(sizeof(ts_f64) == 8, f64_size);
 
-#define TS_KiB(n) ((u64)(n) << 10)
-#define TS_MiB(n) ((u64)(n) << 20)
-#define TS_GiB(n) ((u64)(n) << 30)
+#define TS_KiB(n) ((ts_u64)(n) << 10)
+#define TS_MiB(n) ((ts_u64)(n) << 20)
+#define TS_GiB(n) ((ts_u64)(n) << 30)
 
-#define TS_ALIGN_UP_POW2(n, p) (((u64)(n) + ((u64)(p) - 1)) & (~((u64)(p) - 1)))
-#define TS_ALIGN_DOWN_POW2(n, p) (((u64)(n)) & (~((u64)(p) - 1)))
+#define TS_ALIGN_UP_POW2(n, p) (((ts_u64)(n) + ((ts_u64)(p) - 1)) & (~((ts_u64)(p) - 1)))
+#define TS_ALIGN_DOWN_POW2(n, p) (((ts_u64)(n)) & (~((ts_u64)(p) - 1)))
 
 #define TS_UNUSED(x) (void)(x)
 
@@ -43,16 +62,18 @@ TS_STATIC_ASSERT(sizeof(ts_f64) == 8, f64_size);
 #define TS_ABS(n) ((n) < 0 ? -(n) : (n))
 #define TS_SIGN(n) ((n) < 0 ? -1 : 1)
 
-#define TS_SLL_PUSH_FRONT(f, l, n) ((f) == NULL ? \
+#define TS_MEM_ZERO(p, size) memset((p), 0, (size))
+
+#define TS_SLL_PUSH_FRONT(f, l, n) ((f) == TS_NULL ? \
     ((f) = (l) = (n)) :                        \
     ((n)->next = (f), (f) = (n)))              \
 
-#define TS_SLL_PUSH_BACK(f, l, n) ((f) == NULL ? \
+#define TS_SLL_PUSH_BACK(f, l, n) ((f) == TS_NULL ? \
     ((f) = (l) = (n)) :                       \
     ((l)->next = (n), (l) = (n)),             \
-    ((n)->next = NULL))                       \
+    ((n)->next = TS_NULL))                       \
 
 #define TS_SLL_POP_FRONT(f, l) ((f) == (l) ? \
-    ((f) = (l) = NULL) :                  \
+    ((f) = (l) = TS_NULL) :                  \
     ((f) = (f)->next))                    \
 
