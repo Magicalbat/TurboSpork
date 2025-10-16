@@ -3,38 +3,39 @@
 
 #include <turbospork/turbospork.h>
 
-int main(void) {
+int main(int argc, char** argv) {
     ts_arena* perm_arena = ts_arena_create(TS_MiB(64), TS_MiB(1), TS_TRUE);
 
-    printf("%llu %llu\n", sizeof(ts_arena), ts_arena_get_pos(perm_arena));
+    ts_string8 a = TS_STR8_LIT("Hello World");
+    printf("'%.*s'\n", TS_STR8_FMT(a));
 
-    ts_u8* buf0 = TS_PUSH_ARRAY(perm_arena, ts_u8, TS_KiB(1));
-    memset(buf0, 'a', TS_KiB(1));
-    ts_u8* buf1 = TS_PUSH_ARRAY_NZ(perm_arena, ts_u8, TS_MiB(63));
-    memset(buf1, 'b', TS_MiB(63));
+    ts_string8 b = { 0 };
+    if (argc > 1) {
+        b = ts_str8_from_cstr((ts_u8*)argv[1]);
+    }
 
-    printf("%llu\n", ts_arena_get_pos(perm_arena));
+    ts_string8 c = ts_str8_copy(perm_arena, b);
 
-    ts_u8* buf2 = TS_PUSH_ARRAY(perm_arena, ts_u8, TS_MiB(256));
-    memset(buf2, 'c', TS_MiB(256));
+    printf("b (%p): '%.*s', c (%p): '%.*s'\n", b.str, TS_STR8_FMT(b), c.str, TS_STR8_FMT(c));
+    printf("%d %d\n", ts_str8_equals(a, b), ts_str8_equals(b, c));
 
-    printf("%llu\n", ts_arena_get_pos(perm_arena));
+    ts_string8 d = ts_str8_substr(a, 0, 5);
+    ts_string8 e = ts_str8_substr_size(a, 6, 5);
+    printf("'%.*s' '%.*s'\n", TS_STR8_FMT(d), TS_STR8_FMT(e));
 
-    ts_u8* buf3 = TS_PUSH_ARRAY(perm_arena, ts_u8, TS_MiB(12));
-    memset(buf3, 'd', TS_MiB(12));
+    ts_string8_list list = { 0 };
+    ts_str8_list_add(perm_arena, &list, TS_STR8_LIT("String 0"));
+    ts_str8_list_add(perm_arena, &list, TS_STR8_LIT("String 1"));
+    ts_str8_list_add(perm_arena, &list, TS_STR8_LIT("String 2"));
+    
+    ts_string8_concat_desc concat_desc = {
+        TS_STR8_LIT("{ "),
+        TS_STR8_LIT(", "),
+        TS_STR8_LIT(" }")
+    };
+    ts_string8 f = ts_str8_concat(perm_arena, &list, &concat_desc);
 
-    ts_u8* buf4 = TS_PUSH_ARRAY(perm_arena, ts_u8, TS_MiB(12));
-    memset(buf4, 'e', TS_MiB(12));
-
-    ts_arena_pop(perm_arena, TS_MiB(256));
-
-    printf("%llu\n", ts_arena_get_pos(perm_arena));
-
-    ts_arena_temp scratch = ts_arena_scratch_get(NULL, 0);
-    ts_u8* buf5 = TS_PUSH_ARRAY(perm_arena, ts_u8, TS_MiB(16));
-    memset(buf5, 'f', TS_MiB(16));
-
-    ts_arena_scratch_release(scratch);
+    printf("'%.*s'\n", TS_STR8_FMT(f));
 
     ts_arena_destroy(perm_arena);
 

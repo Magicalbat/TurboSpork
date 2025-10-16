@@ -25,6 +25,10 @@ typedef struct {
 
 #define TS_STR8_LIT(s) (ts_string8){ (ts_u8*)(s), sizeof(s) - 1 }
 
+// This is used for printing ts_string8s
+// e.g. printf("My String: %.*s\n", TS_STR8_FMT(my_str));
+#define TS_STR8_FMT(s) (int)(s).size, (char*)(s).str
+
 ts_string8 ts_str8_from_cstr(ts_u8* cstr);
 ts_u8* ts_str8_to_cstr(ts_arena* arena, ts_string8 str);
 ts_string8 ts_str8_copy(ts_arena* arena, ts_string8 src);

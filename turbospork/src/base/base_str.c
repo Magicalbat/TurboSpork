@@ -90,8 +90,10 @@ ts_string8 ts_str8_concat(
         memcpy(out.str + pos, node->str.str, node->str.size);
         pos += node->str.size;
 
-        memcpy(out.str + pos, desc->delim.str, desc->delim.size);
-        pos += desc->delim.size;
+        if (i < list->count - 1 && node->next != TS_NULL) {
+            memcpy(out.str + pos, desc->delim.str, desc->delim.size);
+            pos += desc->delim.size;
+        }
     }
 
     memcpy(out.str + pos, desc->end.str, desc->end.size);
@@ -108,6 +110,8 @@ void ts_str8_list_add_existing(ts_string8_list* list, ts_string8_node* node) {
 
 void ts_str8_list_add(ts_arena* arena, ts_string8_list* list, ts_string8 str) {
     ts_string8_node* node = TS_PUSH_STRUCT(arena, ts_string8_node);
+    node->str = str;
+
     ts_str8_list_add_existing(list, node);
 }
 
