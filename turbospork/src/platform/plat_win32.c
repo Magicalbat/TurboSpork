@@ -1,6 +1,8 @@
 
 #define WIN32_LEAN_AND_MEAN
+#define UNICODE
 #include <windows.h>
+#include <bcrypt.h>
 
 void ts_plat_exit(ts_i32 code) {
     ExitProcess((ts_u32)code);
@@ -30,4 +32,10 @@ ts_b32 ts_plat_mem_release(void* ptr) {
     return VirtualFree(ptr, 0, MEM_RELEASE);
 }
 
+void ts_plat_get_entropy(void* data, ts_u64 size) {
+    BCryptGenRandom(
+        NULL, data, (ts_u32)(size & (~(ts_u32)0)),
+        BCRYPT_USE_SYSTEM_PREFERRED_RNG
+    );
+}
 

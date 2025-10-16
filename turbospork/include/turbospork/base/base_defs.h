@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
+#include <math.h>
 
 #if defined(__linux__)
 #define TS_PLATFORM_LINUX
@@ -58,7 +59,7 @@ TS_STATIC_ASSERT(sizeof(ts_f64) == 8, f64_size);
 
 #define TS_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define TS_MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define TS_CLAMP(x, a, b) (MIN((b), MAX((x), (a))))
+#define TS_CLAMP(x, a, b) (TS_MIN((b), TS_MAX((x), (a))))
 #define TS_ABS(n) ((n) < 0 ? -(n) : (n))
 #define TS_SIGN(n) ((n) < 0 ? -1 : 1)
 
